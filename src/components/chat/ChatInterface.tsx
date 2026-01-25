@@ -6,6 +6,7 @@ import { TypingIndicator } from './TypingIndicator'
 import { DocumentUpload } from './DocumentUpload'
 import { InitialDocumentUpload } from './InitialDocumentUpload'
 import { DownloadReport } from './DownloadReport'
+import { PappersReport } from './PappersReport'
 import { useEvaluationDraft } from '@/hooks/useEvaluationDraft'
 import { getDraftBySiren, formatRelativeTime } from '@/lib/evaluation-draft'
 import type { ConversationContext, Message, UploadedDocument } from '@/lib/anthropic'
@@ -39,6 +40,7 @@ export function ChatInterface({ entreprise, initialContext, onStepChange }: Chat
   const [isInitialUploading, setIsInitialUploading] = useState(false)
   const [showDraftBanner, setShowDraftBanner] = useState(false)
   const [draftInfo, setDraftInfo] = useState<{ step: number; lastUpdated: string } | null>(null)
+  const [showPappersReport, setShowPappersReport] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -68,6 +70,7 @@ export function ChatInterface({ entreprise, initialContext, onStepChange }: Chat
       setContext(draft.context)
       setShowInitialUpload(false)
       setShowDraftBanner(false)
+      setShowPappersReport(false)
       onStepChange?.(draft.step)
     }
   }, [entreprise.siren, onStepChange])
@@ -83,6 +86,9 @@ export function ChatInterface({ entreprise, initialContext, onStepChange }: Chat
       ? `${entreprise.chiffreAffaires.toLocaleString('fr-FR')} €`
       : undefined
 
+    // Extraire l'année des données du dernier bilan
+    const dataYear = initialContext.financials?.bilans?.[0]?.annee || null
+
     const initialMessage: Message = {
       id: 'initial',
       role: 'assistant',
@@ -93,11 +99,12 @@ export function ChatInterface({ entreprise, initialContext, onStepChange }: Chat
         effectif: entreprise.effectif,
         ville: entreprise.ville,
         ca: caFormate,
+        dataYear,
       }),
       timestamp: new Date(),
     }
     setMessages([initialMessage])
-  }, [entreprise])
+  }, [entreprise, initialContext.financials?.bilans])
 
   // Sauvegarde automatique après chaque message (debounced)
   useEffect(() => {
@@ -503,7 +510,18 @@ export function ChatInterface({ entreprise, initialContext, onStepChange }: Chat
       {/* Zone de messages - scrollable with smooth mobile scrolling */}
       <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 pb-0 scroll-smooth-mobile hide-scrollbar-mobile">
         <div className="max-w-3xl mx-auto space-y-3 sm:space-y-4 pb-4">
-          {messages.map((message) => (
+          {/* Rapport Pappers au démarrage */}
+          {showPappersReport && messages.length <= 1 && (
+            <div className="mb-4">
+              <PappersReport
+                context={context}
+                onContinue={() => setShowPappersReport(false)}
+              />
+            </div>
+          )}
+
+          {/* Messages de la conversation */}
+          {!showPappersReport && messages.map((message) => (
             <MessageBubble key={message.id} message={message} />
           ))}
 
