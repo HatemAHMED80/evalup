@@ -96,7 +96,7 @@ _Le SIREN se trouve sur le Kbis, les factures ou le site societe.com_`,
   }
 
   return (
-    <div className="h-screen flex bg-[#1a1a2e]">
+    <div className="h-screen-safe flex bg-[#1a1a2e] no-overscroll">
       {/* Sidebar */}
       <Sidebar
         entreprise={{
@@ -114,9 +114,9 @@ _Le SIREN se trouve sur le Kbis, les factures ou le site societe.com_`,
 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
-        <header className="relative z-10 flex items-center gap-3 px-4 py-4 bg-[#1a1a2e] shadow-lg shadow-black/20">
-          {/* Toggle sidebar button */}
+        {/* Header - with safe area top for notch */}
+        <header className="relative z-10 flex items-center gap-3 px-4 py-3 sm:py-4 pt-safe bg-[#1a1a2e] shadow-lg shadow-black/20">
+          {/* Toggle sidebar button - larger touch target on mobile */}
           <button
             onClick={() => {
               if (window.innerWidth < 1024) {
@@ -125,15 +125,15 @@ _Le SIREN se trouve sur le Kbis, les factures ou le site societe.com_`,
                 setSidebarCollapsed(!sidebarCollapsed)
               }
             }}
-            className="p-2 -ml-2 text-white/70 hover:bg-white/10 rounded-lg transition-colors"
+            className="p-2.5 sm:p-2 -ml-2 text-white/70 hover:bg-white/10 rounded-lg transition-colors touch-target"
             title={sidebarCollapsed ? 'Ouvrir le menu' : 'Fermer le menu'}
           >
             {sidebarCollapsed ? (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             ) : (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
               </svg>
             )}
@@ -147,21 +147,21 @@ _Le SIREN se trouve sur le Kbis, les factures ou le site societe.com_`,
         {/* Chat area */}
         <main className="flex-1 overflow-hidden bg-[#1a1a2e]">
           <div className="flex flex-col h-full relative">
-            {/* Zone de messages - scrollable */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 pb-0">
-              <div className="max-w-3xl mx-auto space-y-4 pb-4">
+            {/* Zone de messages - scrollable with smooth mobile scrolling */}
+            <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 pb-0 scroll-smooth-mobile">
+              <div className="max-w-3xl mx-auto space-y-3 sm:space-y-4 pb-4">
                 {/* Message d'accueil */}
                 <MessageBubble message={welcomeMessage} />
 
-                {/* Suggestions d'entreprises */}
+                {/* Suggestions d'entreprises - touch-friendly */}
                 <div className="flex justify-start">
-                  <div className="flex-shrink-0 mr-3 w-8" />
+                  <div className="flex-shrink-0 mr-2 sm:mr-3 w-8" />
                   <div className="flex flex-wrap gap-2">
                     {exemplesSiren.map((exemple) => (
                       <button
                         key={exemple.siren}
                         onClick={() => handleExemple(exemple.siren)}
-                        className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-full text-sm text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+                        className="px-3.5 py-2 sm:px-3 sm:py-1.5 bg-white/5 border border-white/10 rounded-full text-sm text-white/70 hover:bg-white/10 hover:text-white transition-colors touch-target"
                       >
                         {exemple.nom}
                       </button>
@@ -172,8 +172,8 @@ _Le SIREN se trouve sur le Kbis, les factures ou le site societe.com_`,
                 {/* Message d'erreur */}
                 {error && (
                   <div className="flex justify-start">
-                    <div className="flex-shrink-0 mr-3 w-8" />
-                    <div className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2">
+                    <div className="flex-shrink-0 mr-2 sm:mr-3 w-8" />
+                    <div className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-3 sm:px-4 py-2">
                       {error}
                     </div>
                   </div>
@@ -186,15 +186,15 @@ _Le SIREN se trouve sur le Kbis, les factures ou le site societe.com_`,
               </div>
             </div>
 
-            {/* Zone de saisie - sticky en bas */}
-            <div className="sticky bottom-0 bg-[#1a1a2e] shadow-[0_-8px_20px_rgba(0,0,0,0.3)]">
-              <div className="p-4">
+            {/* Zone de saisie - sticky en bas with safe area padding for iOS */}
+            <div className="sticky bottom-0 bg-[#1a1a2e] shadow-[0_-8px_20px_rgba(0,0,0,0.3)] sticky-input-mobile">
+              <div className="p-3 sm:p-4 pb-safe">
                 <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
                   <div className="relative bg-white/5 rounded-2xl border border-white/20 focus-within:border-[#c9a227] focus-within:ring-2 focus-within:ring-[#c9a227]/20 transition-all">
-                    <div className="flex items-end gap-2 p-2">
+                    <div className="flex items-end gap-1.5 sm:gap-2 p-1.5 sm:p-2">
                       {/* Icône SIREN */}
-                      <div className="p-3 text-white/50">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="p-2.5 sm:p-3 text-white/50">
+                        <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                         </svg>
                       </div>
@@ -213,7 +213,7 @@ _Le SIREN se trouve sur le Kbis, les factures ou le site societe.com_`,
                           }
                         }}
                         placeholder="Entrez un SIREN (ex: 443 061 841)"
-                        className="flex-1 bg-transparent px-2 py-2 resize-none focus:outline-none text-white placeholder:text-white/40 text-lg"
+                        className="flex-1 bg-transparent px-2 py-2.5 sm:py-2 resize-none focus:outline-none text-white placeholder:text-white/40 text-base sm:text-lg"
                         rows={1}
                         disabled={isLoading}
                       />
@@ -221,7 +221,7 @@ _Le SIREN se trouve sur le Kbis, les factures ou le site societe.com_`,
                       <button
                         type="submit"
                         disabled={isLoading || !input.trim()}
-                        className="p-2.5 bg-[#c9a227] text-[#1a1a2e] rounded-xl hover:bg-[#e8c547] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        className="p-3 sm:p-2.5 bg-[#c9a227] text-[#1a1a2e] rounded-xl hover:bg-[#e8c547] disabled:opacity-40 disabled:cursor-not-allowed transition-colors touch-target"
                       >
                         {isLoading ? (
                           <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -237,8 +237,11 @@ _Le SIREN se trouve sur le Kbis, les factures ou le site societe.com_`,
                     </div>
                   </div>
 
-                  <p className="text-xs text-white/30 mt-2 text-center">
+                  <p className="text-xs text-white/30 mt-2 text-center hidden sm:block">
                     Entrée pour rechercher • <Link href="/evaluation" className="hover:text-white/50 underline">Remplir manuellement</Link>
+                  </p>
+                  <p className="text-xs text-white/30 mt-2 text-center sm:hidden">
+                    <Link href="/evaluation" className="hover:text-white/50 underline">Remplir manuellement</Link>
                   </p>
                 </form>
               </div>
