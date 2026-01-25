@@ -168,14 +168,14 @@ Réponds UNIQUEMENT en JSON valide avec cette structure exacte :
     }
 
     // ============================================
-    // MISE À JOUR DE LA SESSION SERVEUR
+    // MISE À JOUR DE LA SESSION SERVEUR (async avec Redis)
     // ============================================
     if (siren) {
-      const session = findSessionBySiren(siren)
+      const session = await findSessionBySiren(siren)
 
       if (session) {
         // Ajouter le document à la session
-        addDocumentToSession(session.id, {
+        await addDocumentToSession(session.id, {
           id: documentId,
           name: file.name,
           size: file.size,
@@ -183,7 +183,7 @@ Réponds UNIQUEMENT en JSON valide avec cette structure exacte :
         })
 
         // Mettre à jour avec les résultats d'analyse
-        updateDocumentAnalysis(session.id, documentId, {
+        await updateDocumentAnalysis(session.id, documentId, {
           status: analysis.parseError ? 'error' : 'analyzed',
           financialYear: analysis.annee || undefined,
           analysisResult: !analysis.parseError ? {

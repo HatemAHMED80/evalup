@@ -1,12 +1,39 @@
-// Stockage de session côté serveur
-// Maintient le contexte de conversation et les documents analysés
-// Permet la persistance même si le client rafraîchit la page
+// Stockage de session persistant avec Upstash Redis
+// Fonctionne sur Vercel serverless - sessions partagées entre toutes les instances
+// Fallback vers mémoire locale si Redis non configuré (dev local)
 
+import { Redis } from '@upstash/redis'
 import { invalidateOnDocumentUpload } from './cache'
 
-/**
- * Types pour les documents analysés
- */
+// ============================================
+// CONFIGURATION REDIS
+// ============================================
+
+// Créer le client Redis si les variables d'env sont configurées
+let redis: Redis | null = null
+
+function getRedis(): Redis | null {
+  if (redis) return redis
+
+  const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN
+
+  if (url && token) {
+    redis = new Redis({ url, token })
+    console.log('[Session] Redis connecté')
+  }
+
+  return redis
+}
+
+// Fallback en mémoire pour dev local
+const memoryFallback = new Map<string, SessionData>()
+const sirenIndex = new Map<string, string>() // siren -> sessionId
+
+// ============================================
+// TYPES
+// ============================================
+
 export interface DocumentAnalysisResult {
   documentType: 'bilan' | 'compte_resultat' | 'liasse_fiscale' | 'autre'
   confidence: number
@@ -20,67 +47,45 @@ export interface DocumentReference {
   uploadedAt: number
   size: number
   mimeType: string
-  financialYear?: number  // Année fiscale extraite de l'analyse
+  financialYear?: number
   analysisResult?: DocumentAnalysisResult
   status: 'pending' | 'analyzing' | 'analyzed' | 'error'
   errorMessage?: string
 }
 
-/**
- * Types pour l'historique de conversation
- */
 export interface ConversationEntry {
   id: string
   role: 'user' | 'assistant' | 'system'
   content: string
   timestamp: number
-  model?: string  // Modèle utilisé pour la réponse
-  tokens?: {
-    input: number
-    output: number
-  }
+  model?: string
+  tokens?: { input: number; output: number }
   metadata?: {
     step?: number
     topic?: string
-    semantics?: {
-      isFinancial: boolean
-      complexity: number
-    }
+    semantics?: { isFinancial: boolean; complexity: number }
   }
 }
 
-/**
- * Contexte financier extrait des documents et réponses
- */
 export interface FinancialContext {
-  // Données de base
   chiffreAffaires?: number
   ebitda?: number
   resultatNet?: number
   capitauxPropres?: number
   dettesFinancieres?: number
   tresorerie?: number
-
-  // Années disponibles
   annees: number[]
   anneePrincipale?: number
-
-  // Ratios calculés
   ratios?: {
     margeEbitda?: number
     detteEbitda?: number
     rentabiliteCapitaux?: number
     liquiditeGenerale?: number
   }
-
-  // Source des données
   source: 'api' | 'document' | 'user' | 'mixed'
   lastUpdated: number
 }
 
-/**
- * État de l'évaluation
- */
 export interface EvaluationState {
   currentStep: number
   totalSteps: number
@@ -94,9 +99,6 @@ export interface EvaluationState {
   }
 }
 
-/**
- * Session complète
- */
 export interface SessionData {
   id: string
   siren: string
@@ -105,64 +107,54 @@ export interface SessionData {
   createdAt: number
   lastActivity: number
   expiresAt: number
-
-  // Documents uploadés
   documents: DocumentReference[]
-
-  // Historique de conversation
   conversationHistory: ConversationEntry[]
-
-  // Contexte financier consolidé
   financialContext: FinancialContext
-
-  // État de l'évaluation
   evaluationState: EvaluationState
 }
 
-// Configuration
+// ============================================
+// CONFIGURATION
+// ============================================
+
 const SESSION_CONFIG = {
-  ttlMs: 60 * 60 * 1000,  // 1 heure
-  maxHistoryLength: 100,  // Max messages dans l'historique
-  cleanupIntervalMs: 5 * 60 * 1000,  // Nettoyage toutes les 5 minutes
+  ttlSeconds: 60 * 60, // 1 heure
+  maxHistoryLength: 100,
+  keyPrefix: 'evalup:session:',
+  sirenIndexPrefix: 'evalup:siren:',
 }
 
-// Store en mémoire (pour le serveur Next.js)
-const sessionStore = new Map<string, SessionData>()
+// ============================================
+// HELPERS
+// ============================================
 
-// Timer de nettoyage
-let cleanupTimer: ReturnType<typeof setInterval> | null = null
-
-/**
- * Démarre le timer de nettoyage automatique
- */
-function startCleanupTimer(): void {
-  if (cleanupTimer) return
-
-  cleanupTimer = setInterval(() => {
-    cleanupExpiredSessions()
-  }, SESSION_CONFIG.cleanupIntervalMs)
-}
-
-/**
- * Génère un ID de session unique
- */
 function generateSessionId(): string {
   const timestamp = Date.now().toString(36)
   const randomPart = Math.random().toString(36).substring(2, 10)
   return `sess_${timestamp}_${randomPart}`
 }
 
+function sessionKey(id: string): string {
+  return `${SESSION_CONFIG.keyPrefix}${id}`
+}
+
+function sirenKey(siren: string): string {
+  return `${SESSION_CONFIG.sirenIndexPrefix}${siren}`
+}
+
+// ============================================
+// FONCTIONS PRINCIPALES (ASYNC)
+// ============================================
+
 /**
  * Crée une nouvelle session
  */
-export function createSession(params: {
+export async function createSession(params: {
   siren: string
   entrepriseNom: string
   secteur: string
   initialFinancialData?: Partial<FinancialContext>
-}): SessionData {
-  startCleanupTimer()
-
+}): Promise<SessionData> {
   const now = Date.now()
   const sessionId = generateSessionId()
 
@@ -173,18 +165,15 @@ export function createSession(params: {
     secteur: params.secteur,
     createdAt: now,
     lastActivity: now,
-    expiresAt: now + SESSION_CONFIG.ttlMs,
-
+    expiresAt: now + SESSION_CONFIG.ttlSeconds * 1000,
     documents: [],
     conversationHistory: [],
-
     financialContext: {
       annees: [],
       source: 'api',
       lastUpdated: now,
       ...params.initialFinancialData,
     },
-
     evaluationState: {
       currentStep: 1,
       totalSteps: 6,
@@ -193,13 +182,32 @@ export function createSession(params: {
     },
   }
 
-  sessionStore.set(sessionId, session)
+  const client = getRedis()
+
+  if (client) {
+    // Sauvegarder dans Redis avec TTL
+    await client.setex(
+      sessionKey(sessionId),
+      SESSION_CONFIG.ttlSeconds,
+      JSON.stringify(session)
+    )
+    // Index par SIREN
+    await client.setex(
+      sirenKey(params.siren),
+      SESSION_CONFIG.ttlSeconds,
+      sessionId
+    )
+  } else {
+    // Fallback mémoire
+    memoryFallback.set(sessionId, session)
+    sirenIndex.set(params.siren, sessionId)
+  }
 
   if (process.env.NODE_ENV === 'development') {
     console.log('[Session] Created:', {
       id: sessionId.substring(0, 12),
       siren: params.siren,
-      entreprise: params.entrepriseNom,
+      storage: client ? 'redis' : 'memory',
     })
   }
 
@@ -207,58 +215,74 @@ export function createSession(params: {
 }
 
 /**
- * Récupère une session existante
- * Retourne null si expirée ou non trouvée
+ * Récupère une session par ID
  */
-export function getSession(sessionId: string): SessionData | null {
-  const session = sessionStore.get(sessionId)
+export async function getSession(sessionId: string): Promise<SessionData | null> {
+  const client = getRedis()
 
-  if (!session) {
-    return null
+  if (client) {
+    const data = await client.get<string>(sessionKey(sessionId))
+    if (!data) return null
+
+    const session: SessionData = typeof data === 'string' ? JSON.parse(data) : data
+
+    // Prolonger le TTL à chaque accès
+    session.lastActivity = Date.now()
+    session.expiresAt = Date.now() + SESSION_CONFIG.ttlSeconds * 1000
+
+    await client.setex(
+      sessionKey(sessionId),
+      SESSION_CONFIG.ttlSeconds,
+      JSON.stringify(session)
+    )
+
+    return session
+  } else {
+    // Fallback mémoire
+    const session = memoryFallback.get(sessionId)
+    if (!session) return null
+
+    if (Date.now() > session.expiresAt) {
+      memoryFallback.delete(sessionId)
+      return null
+    }
+
+    session.lastActivity = Date.now()
+    session.expiresAt = Date.now() + SESSION_CONFIG.ttlSeconds * 1000
+    memoryFallback.set(sessionId, session)
+
+    return session
   }
-
-  // Vérifier l'expiration
-  if (Date.now() > session.expiresAt) {
-    sessionStore.delete(sessionId)
-    return null
-  }
-
-  // Mettre à jour lastActivity et prolonger l'expiration
-  session.lastActivity = Date.now()
-  session.expiresAt = Date.now() + SESSION_CONFIG.ttlMs
-  sessionStore.set(sessionId, session)
-
-  return session
 }
 
 /**
  * Trouve une session par SIREN
- * Utile quand le client n'a pas l'ID de session mais a le SIREN
  */
-export function findSessionBySiren(siren: string): SessionData | null {
-  for (const session of sessionStore.values()) {
-    if (session.siren === siren && Date.now() <= session.expiresAt) {
-      // Mettre à jour l'activité
-      session.lastActivity = Date.now()
-      session.expiresAt = Date.now() + SESSION_CONFIG.ttlMs
-      return session
-    }
+export async function findSessionBySiren(siren: string): Promise<SessionData | null> {
+  const client = getRedis()
+
+  if (client) {
+    const sessionId = await client.get<string>(sirenKey(siren))
+    if (!sessionId) return null
+
+    return getSession(sessionId)
+  } else {
+    const sessionId = sirenIndex.get(siren)
+    if (!sessionId) return null
+
+    return getSession(sessionId)
   }
-  return null
 }
 
 /**
  * Met à jour une session
  */
-export function updateSession(
+export async function updateSession(
   sessionId: string,
   updates: Partial<Pick<SessionData, 'financialContext' | 'evaluationState'>>
-): SessionData | null {
-  const session = getSession(sessionId)
-
-  if (!session) {
-    return null
-  }
+): Promise<SessionData | null> {
+  const session = await getSession(sessionId)
+  if (!session) return null
 
   if (updates.financialContext) {
     session.financialContext = {
@@ -276,23 +300,31 @@ export function updateSession(
   }
 
   session.lastActivity = Date.now()
-  sessionStore.set(sessionId, session)
+
+  const client = getRedis()
+
+  if (client) {
+    await client.setex(
+      sessionKey(sessionId),
+      SESSION_CONFIG.ttlSeconds,
+      JSON.stringify(session)
+    )
+  } else {
+    memoryFallback.set(sessionId, session)
+  }
 
   return session
 }
 
 /**
- * Ajoute un message à l'historique de conversation
+ * Ajoute un message à l'historique
  */
-export function addConversationEntry(
+export async function addConversationEntry(
   sessionId: string,
   entry: Omit<ConversationEntry, 'id' | 'timestamp'>
-): SessionData | null {
-  const session = getSession(sessionId)
-
-  if (!session) {
-    return null
-  }
+): Promise<SessionData | null> {
+  const session = await getSession(sessionId)
+  if (!session) return null
 
   const conversationEntry: ConversationEntry = {
     ...entry,
@@ -302,9 +334,8 @@ export function addConversationEntry(
 
   session.conversationHistory.push(conversationEntry)
 
-  // Limiter la taille de l'historique
+  // Limiter la taille
   if (session.conversationHistory.length > SESSION_CONFIG.maxHistoryLength) {
-    // Garder les premiers messages (contexte initial) et les derniers
     const keepFirst = 5
     const keepLast = SESSION_CONFIG.maxHistoryLength - keepFirst
     session.conversationHistory = [
@@ -314,7 +345,18 @@ export function addConversationEntry(
   }
 
   session.lastActivity = Date.now()
-  sessionStore.set(sessionId, session)
+
+  const client = getRedis()
+
+  if (client) {
+    await client.setex(
+      sessionKey(sessionId),
+      SESSION_CONFIG.ttlSeconds,
+      JSON.stringify(session)
+    )
+  } else {
+    memoryFallback.set(sessionId, session)
+  }
 
   return session
 }
@@ -322,15 +364,12 @@ export function addConversationEntry(
 /**
  * Ajoute un document à la session
  */
-export function addDocumentToSession(
+export async function addDocumentToSession(
   sessionId: string,
   document: Omit<DocumentReference, 'uploadedAt' | 'status'>
-): SessionData | null {
-  const session = getSession(sessionId)
-
-  if (!session) {
-    return null
-  }
+): Promise<SessionData | null> {
+  const session = await getSession(sessionId)
+  if (!session) return null
 
   const docRef: DocumentReference = {
     ...document,
@@ -340,13 +379,23 @@ export function addDocumentToSession(
 
   session.documents.push(docRef)
   session.lastActivity = Date.now()
-  sessionStore.set(sessionId, session)
+
+  const client = getRedis()
+
+  if (client) {
+    await client.setex(
+      sessionKey(sessionId),
+      SESSION_CONFIG.ttlSeconds,
+      JSON.stringify(session)
+    )
+  } else {
+    memoryFallback.set(sessionId, session)
+  }
 
   if (process.env.NODE_ENV === 'development') {
     console.log('[Session] Document added:', {
       sessionId: sessionId.substring(0, 12),
       documentId: document.id,
-      name: document.name,
     })
   }
 
@@ -355,9 +404,8 @@ export function addDocumentToSession(
 
 /**
  * Met à jour le statut d'un document après analyse
- * Invalide automatiquement le cache si l'analyse réussit
  */
-export function updateDocumentAnalysis(
+export async function updateDocumentAnalysis(
   sessionId: string,
   documentId: string,
   result: {
@@ -366,24 +414,19 @@ export function updateDocumentAnalysis(
     financialYear?: number
     errorMessage?: string
   }
-): SessionData | null {
-  const session = getSession(sessionId)
-
-  if (!session) {
-    return null
-  }
+): Promise<SessionData | null> {
+  const session = await getSession(sessionId)
+  if (!session) return null
 
   const doc = session.documents.find(d => d.id === documentId)
-  if (!doc) {
-    return null
-  }
+  if (!doc) return null
 
   doc.status = result.status
   doc.analysisResult = result.analysisResult
   doc.financialYear = result.financialYear
   doc.errorMessage = result.errorMessage
 
-  // Si l'analyse a réussi, invalider le cache pour cette entreprise
+  // Invalider le cache si analyse réussie
   if (result.status === 'analyzed') {
     const invalidated = invalidateOnDocumentUpload(session.siren)
 
@@ -395,7 +438,7 @@ export function updateDocumentAnalysis(
       })
     }
 
-    // Mettre à jour le contexte financier si des données ont été extraites
+    // Mettre à jour le contexte financier
     if (result.analysisResult?.extractedData) {
       const extracted = result.analysisResult.extractedData
       session.financialContext = {
@@ -405,17 +448,27 @@ export function updateDocumentAnalysis(
         lastUpdated: Date.now(),
       }
 
-      // Ajouter l'année fiscale si disponible
       if (result.financialYear && !session.financialContext.annees.includes(result.financialYear)) {
         session.financialContext.annees.push(result.financialYear)
-        session.financialContext.annees.sort((a, b) => b - a)  // Plus récente d'abord
+        session.financialContext.annees.sort((a, b) => b - a)
         session.financialContext.anneePrincipale = session.financialContext.annees[0]
       }
     }
   }
 
   session.lastActivity = Date.now()
-  sessionStore.set(sessionId, session)
+
+  const client = getRedis()
+
+  if (client) {
+    await client.setex(
+      sessionKey(sessionId),
+      SESSION_CONFIG.ttlSeconds,
+      JSON.stringify(session)
+    )
+  } else {
+    memoryFallback.set(sessionId, session)
+  }
 
   return session
 }
@@ -423,49 +476,55 @@ export function updateDocumentAnalysis(
 /**
  * Met à jour l'étape d'évaluation
  */
-export function updateEvaluationStep(
+export async function updateEvaluationStep(
   sessionId: string,
   step: number,
   completedTopic?: string
-): SessionData | null {
-  const session = getSession(sessionId)
+): Promise<SessionData | null> {
+  const session = await getSession(sessionId)
+  if (!session) return null
 
-  if (!session) {
-    return null
+  // Ne jamais régresser l'étape
+  if (step > session.evaluationState.currentStep) {
+    session.evaluationState.currentStep = step
   }
-
-  session.evaluationState.currentStep = step
 
   if (completedTopic && !session.evaluationState.completedTopics.includes(completedTopic)) {
     session.evaluationState.completedTopics.push(completedTopic)
   }
 
   session.lastActivity = Date.now()
-  sessionStore.set(sessionId, session)
+
+  const client = getRedis()
+
+  if (client) {
+    await client.setex(
+      sessionKey(sessionId),
+      SESSION_CONFIG.ttlSeconds,
+      JSON.stringify(session)
+    )
+  } else {
+    memoryFallback.set(sessionId, session)
+  }
 
   return session
 }
 
 /**
- * Récupère le contexte de conversation pour l'API
- * Retourne un résumé optimisé pour l'envoi à l'IA
+ * Récupère le contexte pour l'API
  */
-export function getConversationContext(
+export async function getConversationContext(
   sessionId: string,
   maxMessages: number = 10
-): {
+): Promise<{
   history: Array<{ role: 'user' | 'assistant'; content: string }>
   financialContext: FinancialContext
   evaluationState: EvaluationState
   documents: Array<{ name: string; year?: number; type?: string }>
-} | null {
-  const session = getSession(sessionId)
+} | null> {
+  const session = await getSession(sessionId)
+  if (!session) return null
 
-  if (!session) {
-    return null
-  }
-
-  // Récupérer les derniers messages (sans les messages system)
   const recentMessages = session.conversationHistory
     .filter(m => m.role !== 'system')
     .slice(-maxMessages)
@@ -474,7 +533,6 @@ export function getConversationContext(
       content: m.content,
     }))
 
-  // Résumé des documents
   const documentsSummary = session.documents
     .filter(d => d.status === 'analyzed')
     .map(d => ({
@@ -492,69 +550,90 @@ export function getConversationContext(
 }
 
 /**
- * Nettoie les sessions expirées
+ * Supprime une session
  */
-export function cleanupExpiredSessions(): number {
+export async function deleteSession(sessionId: string): Promise<boolean> {
+  const client = getRedis()
+
+  if (client) {
+    // Récupérer la session pour avoir le SIREN
+    const session = await getSession(sessionId)
+    if (session) {
+      await client.del(sirenKey(session.siren))
+    }
+    await client.del(sessionKey(sessionId))
+    return true
+  } else {
+    const session = memoryFallback.get(sessionId)
+    if (session) {
+      sirenIndex.delete(session.siren)
+    }
+    return memoryFallback.delete(sessionId)
+  }
+}
+
+/**
+ * Nettoie les sessions expirées (utile pour la mémoire locale)
+ */
+export async function cleanupExpiredSessions(): Promise<number> {
+  // Redis gère automatiquement l'expiration avec TTL
+  // Cette fonction est surtout pour le fallback mémoire
   const now = Date.now()
   let removed = 0
 
-  for (const [id, session] of sessionStore.entries()) {
+  for (const [id, session] of memoryFallback.entries()) {
     if (now > session.expiresAt) {
-      sessionStore.delete(id)
+      sirenIndex.delete(session.siren)
+      memoryFallback.delete(id)
       removed++
     }
-  }
-
-  if (removed > 0 && process.env.NODE_ENV === 'development') {
-    console.log(`[Session] Cleaned up ${removed} expired sessions`)
   }
 
   return removed
 }
 
 /**
- * Supprime une session
+ * Récupère les statistiques
  */
-export function deleteSession(sessionId: string): boolean {
-  return sessionStore.delete(sessionId)
-}
-
-/**
- * Récupère les statistiques des sessions
- */
-export function getSessionStats(): {
+export async function getSessionStats(): Promise<{
   activeSessions: number
+  storageType: 'redis' | 'memory'
   totalDocuments: number
   totalMessages: number
-  averageSessionAge: number
-} {
-  const now = Date.now()
-  let totalDocuments = 0
-  let totalMessages = 0
-  let totalAge = 0
+}> {
+  const client = getRedis()
 
-  for (const session of sessionStore.values()) {
-    if (now <= session.expiresAt) {
+  if (client) {
+    // Avec Redis, on ne peut pas facilement compter toutes les sessions
+    // On retourne une estimation
+    return {
+      activeSessions: -1, // Indéfini avec Redis sans scan
+      storageType: 'redis',
+      totalDocuments: -1,
+      totalMessages: -1,
+    }
+  } else {
+    let totalDocuments = 0
+    let totalMessages = 0
+
+    for (const session of memoryFallback.values()) {
       totalDocuments += session.documents.length
       totalMessages += session.conversationHistory.length
-      totalAge += now - session.createdAt
     }
-  }
 
-  const activeSessions = sessionStore.size
-
-  return {
-    activeSessions,
-    totalDocuments,
-    totalMessages,
-    averageSessionAge: activeSessions > 0 ? Math.round(totalAge / activeSessions / 1000) : 0,  // en secondes
+    return {
+      activeSessions: memoryFallback.size,
+      storageType: 'memory',
+      totalDocuments,
+      totalMessages,
+    }
   }
 }
 
 /**
- * Debug: liste toutes les sessions actives (dev only)
+ * Liste les sessions actives (dev only)
  */
-export function listActiveSessions(): Array<{
+export async function listActiveSessions(): Promise<Array<{
   id: string
   siren: string
   entreprise: string
@@ -562,7 +641,7 @@ export function listActiveSessions(): Array<{
   documentsCount: number
   currentStep: number
   ageMinutes: number
-}> {
+}>> {
   if (process.env.NODE_ENV !== 'development') {
     return []
   }
@@ -578,7 +657,8 @@ export function listActiveSessions(): Array<{
     ageMinutes: number
   }> = []
 
-  for (const session of sessionStore.values()) {
+  // Seulement pour le fallback mémoire
+  for (const session of memoryFallback.values()) {
     if (now <= session.expiresAt) {
       sessions.push({
         id: session.id.substring(0, 12),

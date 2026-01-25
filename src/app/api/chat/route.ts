@@ -108,13 +108,13 @@ export async function POST(request: NextRequest) {
     }
 
     // ============================================
-    // 2. GESTION DE SESSION SERVEUR
+    // 2. GESTION DE SESSION SERVEUR (async avec Redis)
     // ============================================
     const siren = context.entreprise?.siren || ''
-    let session = siren ? findSessionBySiren(siren) : null
+    let session = siren ? await findSessionBySiren(siren) : null
 
     if (!session && siren) {
-      session = createSession({
+      session = await createSession({
         siren,
         entrepriseNom: context.entreprise?.nom || 'Inconnu',
         secteur: secteur,
@@ -296,16 +296,16 @@ export async function POST(request: NextRequest) {
             cost,
           })
 
-          // Sauvegarder dans la session serveur
+          // Sauvegarder dans la session serveur (async)
           if (session) {
             // Ajouter le message utilisateur
-            addConversationEntry(session.id, {
+            await addConversationEntry(session.id, {
               role: 'user',
               content: lastUserMessage,
             })
 
             // Ajouter la réponse assistant
-            addConversationEntry(session.id, {
+            await addConversationEntry(session.id, {
               role: 'assistant',
               content: fullResponse,
               model: routingDecision.model,
@@ -322,7 +322,7 @@ export async function POST(request: NextRequest) {
             // Mettre à jour l'étape si nécessaire
             const currentStep = context.evaluationProgress?.step || 1
             if (semantics.detectedTopics.length > 0) {
-              updateEvaluationStep(session.id, currentStep, semantics.detectedTopics[0])
+              await updateEvaluationStep(session.id, currentStep, semantics.detectedTopics[0])
             }
           }
 
