@@ -314,10 +314,11 @@ export function ChatInterface({ entreprise, initialContext, onStepChange }: Chat
       console.error('Erreur envoi message:', error)
       setIsStreaming(false)
       setStreamingContent('')
+      const errorDetails = error instanceof Error ? error.message : 'Erreur inconnue'
       const errorMessage: Message = {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: "Désolé, j'ai rencontré une erreur. Peux-tu réessayer ?",
+        content: `Désolé, j'ai rencontré une erreur: ${errorDetails}\n\nPeux-tu réessayer ?`,
         timestamp: new Date(),
       }
       setMessages(prev => [...prev, errorMessage])

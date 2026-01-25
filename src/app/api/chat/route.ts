@@ -306,9 +306,14 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Erreur API Chat:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue'
+    const errorStack = error instanceof Error ? error.stack : ''
+    console.error('Erreur API Chat:', errorMessage, errorStack)
     return new Response(
-      JSON.stringify({ error: 'Erreur lors de la communication avec l\'IA' }),
+      JSON.stringify({
+        error: `Erreur API: ${errorMessage}`,
+        details: process.env.NODE_ENV === 'development' ? errorStack : undefined
+      }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }
