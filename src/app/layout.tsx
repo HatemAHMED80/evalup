@@ -1,8 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
-import Header from '@/components/shared/Header'
-import Footer from '@/components/shared/Footer'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -10,8 +8,8 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'EvalUp - Transmission d\'entreprises',
-  description: 'Plateforme de référence pour l\'évaluation et la transmission d\'entreprises. Vendeurs et acquéreurs qualifiés.',
+  title: 'EvalUp - Évaluation d\'entreprises par IA',
+  description: 'Évaluez votre entreprise en quelques minutes grâce à l\'intelligence artificielle et les données officielles.',
 }
 
 export default function RootLayout({
@@ -21,10 +19,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr">
-      <body className={`${inter.variable} font-sans antialiased bg-white`}>
-        <Header />
-        <main className="min-h-screen">{children}</main>
-        <Footer />
+      <body className={`${inter.variable} font-sans antialiased`}>
+        {children}
       </body>
     </html>
   )
