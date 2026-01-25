@@ -38,24 +38,23 @@ export function formatRange(min: number, max: number): string {
 }
 
 /**
- * Nettoie le texte des caractères problématiques
+ * Nettoie le texte des caractères problématiques pour le PDF
  */
 export function cleanText(text: string): string {
   return text
-    // Supprimer les emojis problématiques encodés
-    .replace(/[=Í=Å=e<Ù=°]/g, '')
     // Convertir le markdown en texte simple
     .replace(/\*\*(.*?)\*\*/g, '$1')  // **bold** → bold
     .replace(/\*(.*?)\*/g, '$1')       // *italic* → italic
     .replace(/_(.*?)_/g, '$1')         // _italic_ → italic
     .replace(/#{1,6}\s/g, '')          // ## Header → Header
     .replace(/`(.*?)`/g, '$1')         // `code` → code
-    // Supprimer les emojis Unicode courants qui posent problème
+    // Supprimer les emojis Unicode qui posent problème dans les PDF
     .replace(/[\u{1F600}-\u{1F64F}]/gu, '') // Emoticons
     .replace(/[\u{1F300}-\u{1F5FF}]/gu, '') // Misc Symbols
     .replace(/[\u{1F680}-\u{1F6FF}]/gu, '') // Transport
     .replace(/[\u{2600}-\u{26FF}]/gu, '')   // Misc symbols
     .replace(/[\u{2700}-\u{27BF}]/gu, '')   // Dingbats
+    .replace(/[\u{1F900}-\u{1F9FF}]/gu, '') // Supplemental Symbols
     .trim()
 }
 
