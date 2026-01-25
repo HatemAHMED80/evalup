@@ -1,19 +1,27 @@
 // API Route pour le chat avec Claude (streaming + optimisation des coûts)
+// Version 2.0: Avec analyse sémantique et sessions serveur
 import { NextRequest } from 'next/server'
 import { anthropic, isAnthropicConfigured } from '@/lib/anthropic'
 import type { ConversationContext, Message } from '@/lib/anthropic'
 import { getSystemPrompt } from '@/lib/prompts'
 import {
-  // Router intelligent
+  // Router intelligent (v2 avec analyse sémantique)
   routeToModel,
   createRoutingContext,
   logRoutingDecision,
+  analyzePromptSemantics,
   type ModelType,
 
-  // Cache
+  // Cache (v2 avec SIREN et types de contenu)
   checkCache,
   saveToCache,
   getCacheType,
+
+  // Sessions serveur
+  findSessionBySiren,
+  createSession,
+  addConversationEntry,
+  updateEvaluationStep,
 
   // Optimisation contexte
   optimiserContexte,
@@ -100,11 +108,38 @@ export async function POST(request: NextRequest) {
     }
 
     // ============================================
-    // 2. ROUTAGE DU MODÈLE
+    // 2. GESTION DE SESSION SERVEUR
     // ============================================
+    const siren = context.entreprise?.siren || ''
+    let session = siren ? findSessionBySiren(siren) : null
+
+    if (!session && siren) {
+      session = createSession({
+        siren,
+        entrepriseNom: context.entreprise?.nom || 'Inconnu',
+        secteur: secteur,
+        initialFinancialData: financialData ? {
+          chiffreAffaires: financialData.ca,
+          ebitda: financialData.ebitda,
+          resultatNet: financialData.resultatNet,
+          capitauxPropres: financialData.capitauxPropres,
+          dettesFinancieres: financialData.dettes,
+          tresorerie: financialData.tresorerie,
+        } : undefined,
+      })
+    }
+
+    // ============================================
+    // 3. ROUTAGE DU MODÈLE (v2 avec analyse sémantique)
+    // ============================================
+    const lastUserMessage = messages.filter(m => m.role === 'user').pop()?.content || ''
+
+    // Analyser la sémantique du message pour le routage et le logging
+    const semantics = analyzePromptSemantics(lastUserMessage)
+
     const routingContext = createRoutingContext({
       step: context.evaluationProgress?.step || 1,
-      totalSteps: 10, // Estimation
+      totalSteps: 6,
       isUserMessage: messages[messages.length - 1]?.role === 'user',
       financialData,
       secteur,
@@ -112,20 +147,19 @@ export async function POST(request: NextRequest) {
       forceModel: options.forceModel,
     })
 
-    const routingDecision = routeToModel(routingContext)
-    logRoutingDecision(routingContext, routingDecision)
+    // IMPORTANT: Passer le prompt à routeToModel pour l'analyse sémantique
+    const routingDecision = routeToModel(routingContext, lastUserMessage)
+    logRoutingDecision(routingContext, routingDecision, semantics)
 
     // ============================================
-    // 3. VÉRIFICATION DU CACHE
+    // 4. VÉRIFICATION DU CACHE (v2 avec SIREN obligatoire)
     // ============================================
-    const lastUserMessage = messages.filter(m => m.role === 'user').pop()?.content || ''
-
     if (!options.skipCache) {
       const cacheResult = checkCache(lastUserMessage, {
         secteur,
-        siren: context.entreprise?.siren,
+        siren,  // SIREN maintenant inclus dans la clé de cache
         step: context.evaluationProgress?.step,
-        totalSteps: 10,
+        totalSteps: 6,
       })
 
       if (cacheResult.cached) {
@@ -179,7 +213,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ============================================
-    // 4. OPTIMISATION DU CONTEXTE
+    // 5. OPTIMISATION DU CONTEXTE
     // ============================================
     let systemPrompt = getSystemPrompt(context.entreprise?.codeNaf, context)
 
@@ -207,7 +241,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ============================================
-    // 5. APPEL API CLAUDE
+    // 6. APPEL API CLAUDE
     // ============================================
     const inputTokensEstimate = estimerTokens(systemPrompt) +
       claudeMessages.reduce((sum, m) => sum + estimerTokens(m.content), 0)
@@ -227,7 +261,7 @@ export async function POST(request: NextRequest) {
     })
 
     // ============================================
-    // 6. STREAMING DE LA RÉPONSE
+    // 7. STREAMING DE LA RÉPONSE
     // ============================================
     const encoder = new TextEncoder()
     let fullResponse = ''
@@ -246,21 +280,51 @@ export async function POST(request: NextRequest) {
           }
 
           // Fin du stream - sauvegarder dans le cache et tracker
-          const { ttl } = getCacheType(lastUserMessage, context.evaluationProgress?.step || 1, 10)
+          const { ttl } = getCacheType(lastUserMessage, context.evaluationProgress?.step || 1, 6)
           const cost = calculateCost(routingDecision.model, inputTokensEstimate, outputTokens)
 
-          // Sauvegarder dans le cache
+          // Sauvegarder dans le cache (v2 avec SIREN)
           saveToCache(lastUserMessage, fullResponse, {
             secteur,
-            siren: context.entreprise?.siren,
+            siren,  // SIREN obligatoire pour contenu spécifique
             step: context.evaluationProgress?.step,
-            totalSteps: 10,
+            totalSteps: 6,
           }, {
             model: routingDecision.model,
             inputTokens: inputTokensEstimate,
             outputTokens,
             cost,
           })
+
+          // Sauvegarder dans la session serveur
+          if (session) {
+            // Ajouter le message utilisateur
+            addConversationEntry(session.id, {
+              role: 'user',
+              content: lastUserMessage,
+            })
+
+            // Ajouter la réponse assistant
+            addConversationEntry(session.id, {
+              role: 'assistant',
+              content: fullResponse,
+              model: routingDecision.model,
+              tokens: { input: inputTokensEstimate, output: outputTokens },
+              metadata: {
+                step: context.evaluationProgress?.step,
+                semantics: {
+                  isFinancial: semantics.isFinancialQuestion,
+                  complexity: semantics.complexityScore,
+                },
+              },
+            })
+
+            // Mettre à jour l'étape si nécessaire
+            const currentStep = context.evaluationProgress?.step || 1
+            if (semantics.detectedTopics.length > 0) {
+              updateEvaluationStep(session.id, currentStep, semantics.detectedTopics[0])
+            }
+          }
 
           // Tracker l'utilisation
           trackUsage({

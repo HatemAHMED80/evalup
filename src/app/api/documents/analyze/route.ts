@@ -1,9 +1,16 @@
 // API Route pour l'analyse de documents avec Claude
+// Version 2.0: Avec invalidation du cache et sessions serveur
 
 import { NextRequest, NextResponse } from 'next/server'
 import { anthropic, isAnthropicConfigured } from '@/lib/anthropic'
 import { extractPdfText } from '@/lib/documents/pdf-parser'
 import { parseExcel } from '@/lib/documents/excel-parser'
+import {
+  invalidateOnDocumentUpload,
+  findSessionBySiren,
+  addDocumentToSession,
+  updateDocumentAnalysis,
+} from '@/lib/ai'
 
 const EXCEL_MIME_TYPES = [
   'application/vnd.ms-excel',
@@ -143,8 +150,60 @@ Réponds UNIQUEMENT en JSON valide avec cette structure exacte :
       analysis = { raw: analysisText, parseError: true }
     }
 
+    const documentId = crypto.randomUUID()
+    const siren = context.entreprise?.siren
+
+    // ============================================
+    // INVALIDATION DU CACHE (v2)
+    // ============================================
+    // Quand un document est uploadé, les réponses cachées
+    // pour cette entreprise doivent être invalidées
+    if (siren && !analysis.parseError) {
+      const invalidated = invalidateOnDocumentUpload(siren)
+      console.log('[Documents] Cache invalidé après upload:', {
+        siren,
+        entriesInvalidated: invalidated,
+        documentType: analysis.typeDocument,
+      })
+    }
+
+    // ============================================
+    // MISE À JOUR DE LA SESSION SERVEUR
+    // ============================================
+    if (siren) {
+      const session = findSessionBySiren(siren)
+
+      if (session) {
+        // Ajouter le document à la session
+        addDocumentToSession(session.id, {
+          id: documentId,
+          name: file.name,
+          size: file.size,
+          mimeType: file.type,
+        })
+
+        // Mettre à jour avec les résultats d'analyse
+        updateDocumentAnalysis(session.id, documentId, {
+          status: analysis.parseError ? 'error' : 'analyzed',
+          financialYear: analysis.annee || undefined,
+          analysisResult: !analysis.parseError ? {
+            documentType: analysis.typeDocument || 'autre',
+            confidence: 0.85,
+            extractedData: analysis.chiffresExtraits || {},
+          } : undefined,
+          errorMessage: analysis.parseError ? 'Erreur de parsing JSON' : undefined,
+        })
+
+        console.log('[Documents] Session mise à jour:', {
+          sessionId: session.id.substring(0, 12),
+          documentId,
+          year: analysis.annee,
+        })
+      }
+    }
+
     return NextResponse.json({
-      documentId: crypto.randomUUID(),
+      documentId,
       fileName: file.name,
       fileSize: file.size,
       extractedText: extractedText.substring(0, 5000), // Aperçu

@@ -45,8 +45,11 @@ export {
   detectMessageType,
   createRoutingContext,
   logRoutingDecision,
+  analyzePromptSemantics,
+  isSimpleClarification,
   type RoutingContext,
   type RoutingDecision,
+  type PromptSemantics,
 } from './router'
 
 // Système de cache
@@ -57,14 +60,40 @@ export {
   addToCache,
   invalidateByTag,
   invalidateBySiren,
+  invalidateOnDocumentUpload,
   cleanupCache,
   getCacheStats,
   clearCache,
   checkCache,
   saveToCache,
+  determineContentType,
   type CacheEntry,
   type CacheConfig,
+  type CacheContentType,
 } from './cache'
+
+// Stockage de session serveur
+export {
+  createSession,
+  getSession,
+  findSessionBySiren,
+  updateSession,
+  addConversationEntry,
+  addDocumentToSession,
+  updateDocumentAnalysis,
+  updateEvaluationStep,
+  getConversationContext,
+  cleanupExpiredSessions,
+  deleteSession,
+  getSessionStats,
+  listActiveSessions,
+  type SessionData,
+  type DocumentReference,
+  type DocumentAnalysisResult,
+  type ConversationEntry,
+  type FinancialContext,
+  type EvaluationState,
+} from './session-store'
 
 // Optimisation du contexte
 export {

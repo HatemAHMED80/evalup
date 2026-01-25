@@ -1,5 +1,16 @@
 // Système de cache pour les réponses AI
 // Évite les appels API redondants et réduit les coûts
+// Version 2.0: Avec SIREN dans la clé, types de contenu, et invalidation
+
+/**
+ * Types de contenu pour le cache - détermine le TTL et si le SIREN est requis
+ */
+export type CacheContentType =
+  | 'sector_general'      // Benchmarks sectoriels génériques (partageable entre entreprises)
+  | 'company_specific'    // Données spécifiques à l'entreprise (SIREN requis)
+  | 'ratio_analysis'      // Interprétation de ratios (dépend du contexte entreprise)
+  | 'user_clarification'  // Réponses aux questions de clarification
+  | 'synthesis'           // Synthèse finale de valorisation
 
 export interface CacheEntry {
   key: string
@@ -12,28 +23,24 @@ export interface CacheEntry {
   expiresAt: number
   hitCount: number
   tags: string[]
+  // Nouveaux champs v2
+  siren?: string
+  contentType: CacheContentType
 }
 
 export interface CacheConfig {
-  // Durées de cache par type (en secondes)
-  ttl: {
-    sectorInfo: number // Infos sectorielles (24h)
-    benchmarks: number // Benchmarks (24h)
-    calculations: number // Calculs (1h)
-    userResponses: number // Réponses utilisateur (5min)
-    synthesis: number // Synthèses (10min)
-  }
+  ttl: Record<CacheContentType, number>
   maxEntries: number
   maxMemoryMB: number
 }
 
 const DEFAULT_CONFIG: CacheConfig = {
   ttl: {
-    sectorInfo: 86400, // 24h
-    benchmarks: 86400, // 24h
-    calculations: 3600, // 1h
-    userResponses: 300, // 5min
-    synthesis: 600, // 10min
+    sector_general: 86400,      // 24h - benchmarks sectoriels génériques
+    company_specific: 3600,     // 1h - données spécifiques entreprise
+    ratio_analysis: 1800,       // 30min - interprétation contextuelle
+    user_clarification: 300,    // 5min - réponses conversationnelles
+    synthesis: 600,             // 10min - synthèse finale
   },
   maxEntries: 1000,
   maxMemoryMB: 50,
@@ -43,8 +50,104 @@ const DEFAULT_CONFIG: CacheConfig = {
 const memoryCache = new Map<string, CacheEntry>()
 
 /**
+ * Patterns pour détecter le type de contenu
+ */
+const CONTENT_TYPE_PATTERNS = {
+  // Patterns spécifiques à l'entreprise (nécessitent SIREN dans la clé)
+  companySpecific: [
+    /ratio.*(entreprise|société|cette|notre|votre)/i,
+    /valorisation/i,
+    /ebitda/i,
+    /chiffre d'affaires/i,
+    /résultat/i,
+    /bilan/i,
+    /trésorerie/i,
+    /dette.*entreprise/i,
+    /multiple.*ebitda/i,
+    /combien.*vaut/i,
+    /valeur.*entreprise/i,
+  ],
+
+  // Patterns sectoriels généraux (peuvent être partagés)
+  sectorGeneral: [
+    /benchmark.*secteur/i,
+    /moyenne.*sectorielle/i,
+    /multiple.*typique/i,
+    /méthode.*valorisation.*général/i,
+    /pratique.*marché/i,
+    /tendance.*secteur/i,
+    /norme.*industrie/i,
+  ],
+
+  // Patterns d'analyse de ratios
+  ratioAnalysis: [
+    /ratio/i,
+    /marge/i,
+    /taux/i,
+    /rentabilité/i,
+  ],
+}
+
+/**
+ * Détermine le type de contenu basé sur l'analyse du prompt
+ */
+export function determineContentType(
+  prompt: string,
+  context?: { siren?: string; step?: number; totalSteps?: number }
+): CacheContentType {
+  const promptLower = prompt.toLowerCase()
+
+  // Synthèse finale (dernière étape)
+  if (context?.step && context?.totalSteps && context.step === context.totalSteps) {
+    return 'synthesis'
+  }
+
+  // Vérifier d'abord si c'est spécifique à l'entreprise
+  const isCompanySpecific = CONTENT_TYPE_PATTERNS.companySpecific.some(p => p.test(prompt))
+  if (isCompanySpecific) {
+    return 'company_specific'
+  }
+
+  // Vérifier si c'est un benchmark/info sectorielle générale
+  const isSectorGeneral = CONTENT_TYPE_PATTERNS.sectorGeneral.some(p => p.test(prompt))
+  if (isSectorGeneral) {
+    return 'sector_general'
+  }
+
+  // Vérifier si c'est une analyse de ratios
+  const isRatioAnalysis = CONTENT_TYPE_PATTERNS.ratioAnalysis.some(p => p.test(prompt))
+  if (isRatioAnalysis) {
+    // Les ratios sont spécifiques à l'entreprise sauf si explicitement sectoriels
+    return 'ratio_analysis'
+  }
+
+  // Par défaut: clarification utilisateur
+  return 'user_clarification'
+}
+
+/**
+ * Génère un hash fort (compatible Vercel Edge)
+ * Utilise un algorithme de hash plus robuste que le simple bitwise
+ */
+function generateStrongHash(content: string): string {
+  // djb2 hash - meilleur que le simple bitwise, pas de collision crypto
+  let hash1 = 5381
+  let hash2 = 52711
+
+  for (let i = 0; i < content.length; i++) {
+    const char = content.charCodeAt(i)
+    hash1 = ((hash1 << 5) + hash1) ^ char
+    hash2 = ((hash2 << 5) + hash2) ^ char
+  }
+
+  // Combiner les deux hash pour réduire les collisions
+  const combined = Math.abs(hash1 * 4096 + hash2)
+  return combined.toString(36).padStart(16, '0').substring(0, 16)
+}
+
+/**
  * Génère une clé de cache unique basée sur le contenu
- * Utilise un hash simple compatible avec tous les environnements
+ * IMPORTANT: Inclut le SIREN pour les contenus spécifiques à l'entreprise
  */
 export function generateCacheKey(
   prompt: string,
@@ -52,22 +155,29 @@ export function generateCacheKey(
     secteur?: string
     siren?: string
     step?: number
+    totalSteps?: number
   }
 ): string {
-  const content = JSON.stringify({
-    prompt: prompt.substring(0, 500), // Limiter la taille
-    secteur: context.secteur,
-    step: context.step,
-  })
+  const contentType = determineContentType(prompt, context)
 
-  // Hash simple compatible Vercel (pas besoin de crypto)
-  let hash = 0
-  for (let i = 0; i < content.length; i++) {
-    const char = content.charCodeAt(i)
-    hash = ((hash << 5) - hash) + char
-    hash = hash & hash // Convert to 32bit integer
+  // Pour le contenu sectoriel général, ne pas inclure le SIREN (partageable)
+  const isSectorGeneral = contentType === 'sector_general'
+
+  const keyComponents = {
+    // SIREN: 'GLOBAL' pour contenu partageable, sinon le SIREN réel
+    siren: isSectorGeneral ? 'GLOBAL' : (context.siren || 'UNKNOWN'),
+    // Hash du prompt COMPLET (pas tronqué!)
+    promptHash: generateStrongHash(prompt),
+    // Secteur pour affiner le cache sectoriel
+    secteur: context.secteur || 'default',
+    // Step pour contexte de conversation
+    step: context.step || 0,
+    // Type de contenu
+    contentType,
   }
-  return Math.abs(hash).toString(36).padStart(16, '0').substring(0, 16)
+
+  // Générer la clé finale
+  return generateStrongHash(JSON.stringify(keyComponents))
 }
 
 /**
@@ -77,42 +187,12 @@ export function getCacheType(
   prompt: string,
   step: number,
   totalSteps: number
-): { type: keyof CacheConfig['ttl']; ttl: number } {
-  const promptLower = prompt.toLowerCase()
-
-  // Synthèse finale
-  if (step === totalSteps) {
-    return { type: 'synthesis', ttl: DEFAULT_CONFIG.ttl.synthesis }
+): { type: CacheContentType; ttl: number } {
+  const contentType = determineContentType(prompt, { step, totalSteps })
+  return {
+    type: contentType,
+    ttl: DEFAULT_CONFIG.ttl[contentType],
   }
-
-  // Benchmarks et ratios sectoriels
-  if (
-    promptLower.includes('benchmark') ||
-    promptLower.includes('ratio') ||
-    promptLower.includes('moyenne sectorielle')
-  ) {
-    return { type: 'benchmarks', ttl: DEFAULT_CONFIG.ttl.benchmarks }
-  }
-
-  // Informations sectorielles générales
-  if (
-    promptLower.includes('secteur') ||
-    promptLower.includes('méthode') ||
-    promptLower.includes('multiple')
-  ) {
-    return { type: 'sectorInfo', ttl: DEFAULT_CONFIG.ttl.sectorInfo }
-  }
-
-  // Calculs et analyses
-  if (
-    promptLower.includes('calcul') ||
-    promptLower.includes('valorisation')
-  ) {
-    return { type: 'calculations', ttl: DEFAULT_CONFIG.ttl.calculations }
-  }
-
-  // Par défaut: réponses utilisateur (courte durée)
-  return { type: 'userResponses', ttl: DEFAULT_CONFIG.ttl.userResponses }
 }
 
 /**
@@ -152,13 +232,16 @@ export function addToCache(
     cost: number
     tags?: string[]
     ttl?: number
+    siren?: string
+    contentType?: CacheContentType
   }
 ): CacheEntry {
   // Nettoyer le cache si nécessaire
   cleanupCache()
 
   const now = Date.now()
-  const ttl = metadata.ttl || DEFAULT_CONFIG.ttl.userResponses
+  const contentType = metadata.contentType || 'user_clarification'
+  const ttl = metadata.ttl || DEFAULT_CONFIG.ttl[contentType]
 
   const entry: CacheEntry = {
     key,
@@ -171,6 +254,8 @@ export function addToCache(
     expiresAt: now + ttl * 1000,
     hitCount: 0,
     tags: metadata.tags || [],
+    siren: metadata.siren,
+    contentType,
   }
 
   memoryCache.set(key, entry)
@@ -204,6 +289,32 @@ export function invalidateByTag(tag: string): number {
  */
 export function invalidateBySiren(siren: string): number {
   return invalidateByTag(`siren:${siren}`)
+}
+
+/**
+ * Invalide le cache quand un document est uploadé
+ * Supprime toutes les entrées spécifiques à l'entreprise pour ce SIREN
+ */
+export function invalidateOnDocumentUpload(siren: string): number {
+  let invalidated = 0
+
+  for (const [key, entry] of memoryCache.entries()) {
+    // Invalider seulement le contenu spécifique à l'entreprise
+    // Garder le contenu sectoriel général (sector_general)
+    if (
+      entry.siren === siren &&
+      entry.contentType !== 'sector_general'
+    ) {
+      memoryCache.delete(key)
+      invalidated++
+    }
+  }
+
+  if (invalidated > 0) {
+    console.log(`[Cache] Invalidé ${invalidated} entrées pour SIREN ${siren} après upload document`)
+  }
+
+  return invalidated
 }
 
 /**
@@ -245,15 +356,24 @@ export function getCacheStats(): {
   totalHits: number
   totalCostSaved: number
   memoryUsageKB: number
+  byContentType: Record<CacheContentType, number>
 } {
   let totalHits = 0
   let totalCostSaved = 0
   let memoryUsage = 0
+  const byContentType: Record<CacheContentType, number> = {
+    sector_general: 0,
+    company_specific: 0,
+    ratio_analysis: 0,
+    user_clarification: 0,
+    synthesis: 0,
+  }
 
   for (const entry of memoryCache.values()) {
     totalHits += entry.hitCount
     totalCostSaved += entry.cost * entry.hitCount
     memoryUsage += entry.response.length * 2 // Approximation UTF-16
+    byContentType[entry.contentType]++
   }
 
   return {
@@ -261,6 +381,7 @@ export function getCacheStats(): {
     totalHits,
     totalCostSaved,
     memoryUsageKB: Math.round(memoryUsage / 1024),
+    byContentType,
   }
 }
 
@@ -281,6 +402,8 @@ function logCacheHit(key: string, entry: CacheEntry): void {
     console.log('[Cache] HIT:', {
       key: key.substring(0, 8),
       model: entry.model,
+      contentType: entry.contentType,
+      siren: entry.siren?.substring(0, 4) || 'GLOBAL',
       hitCount: entry.hitCount,
       costSaved: `$${entry.cost.toFixed(6)}`,
     })
@@ -295,10 +418,20 @@ function logCacheAdd(key: string, entry: CacheEntry): void {
     console.log('[Cache] ADD:', {
       key: key.substring(0, 8),
       model: entry.model,
+      contentType: entry.contentType,
+      siren: entry.siren?.substring(0, 4) || 'GLOBAL',
       ttl: `${Math.round((entry.expiresAt - entry.createdAt) / 1000)}s`,
       cost: `$${entry.cost.toFixed(6)}`,
     })
   }
+}
+
+/**
+ * Options pour le check cache
+ */
+export interface CacheCheckOptions {
+  skipCache?: boolean
+  forceRefresh?: boolean
 }
 
 /**
@@ -312,8 +445,14 @@ export function checkCache(
     siren?: string
     step?: number
     totalSteps?: number
-  }
+  },
+  options?: CacheCheckOptions
 ): { cached: true; response: string; entry: CacheEntry } | { cached: false } {
+  // Permettre de forcer le bypass du cache
+  if (options?.skipCache || options?.forceRefresh) {
+    return { cached: false }
+  }
+
   const key = generateCacheKey(prompt, context)
   const entry = getFromCache(key)
 
@@ -344,15 +483,19 @@ export function saveToCache(
   }
 ): CacheEntry {
   const key = generateCacheKey(prompt, context)
-  const { ttl } = getCacheType(prompt, context.step || 1, context.totalSteps || 10)
+  const contentType = determineContentType(prompt, context)
+  const { ttl } = getCacheType(prompt, context.step || 1, context.totalSteps || 6)
 
   const tags: string[] = []
   if (context.siren) tags.push(`siren:${context.siren}`)
   if (context.secteur) tags.push(`secteur:${context.secteur}`)
+  tags.push(`type:${contentType}`)
 
   return addToCache(key, response, {
     ...metadata,
     ttl,
     tags,
+    siren: context.siren,
+    contentType,
   })
 }
