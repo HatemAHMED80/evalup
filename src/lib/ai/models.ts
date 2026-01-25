@@ -14,11 +14,11 @@ export interface ModelConfig {
 
 export const MODELS: Record<string, ModelConfig> = {
   haiku: {
-    id: 'claude-3-5-haiku-20241022',
-    name: 'Claude 3.5 Haiku',
+    id: 'claude-3-haiku-20240307',
+    name: 'Claude 3 Haiku',
     inputCostPer1M: 0.25,
     outputCostPer1M: 1.25,
-    maxTokens: 8192,
+    maxTokens: 4096,
     contextWindow: 200000,
     strengths: [
       'Très rapide',
@@ -33,8 +33,8 @@ export const MODELS: Record<string, ModelConfig> = {
     ],
   },
   sonnet: {
-    id: 'claude-sonnet-4-20250514',
-    name: 'Claude Sonnet 4',
+    id: 'claude-3-5-sonnet-20241022',
+    name: 'Claude 3.5 Sonnet',
     inputCostPer1M: 3,
     outputCostPer1M: 15,
     maxTokens: 8192,
