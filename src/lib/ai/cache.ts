@@ -1,8 +1,6 @@
 // Système de cache pour les réponses AI
 // Évite les appels API redondants et réduit les coûts
 
-import crypto from 'crypto'
-
 export interface CacheEntry {
   key: string
   response: string
@@ -46,6 +44,7 @@ const memoryCache = new Map<string, CacheEntry>()
 
 /**
  * Génère une clé de cache unique basée sur le contenu
+ * Utilise un hash simple compatible avec tous les environnements
  */
 export function generateCacheKey(
   prompt: string,
@@ -61,11 +60,14 @@ export function generateCacheKey(
     step: context.step,
   })
 
-  return crypto
-    .createHash('sha256')
-    .update(content)
-    .digest('hex')
-    .substring(0, 16)
+  // Hash simple compatible Vercel (pas besoin de crypto)
+  let hash = 0
+  for (let i = 0; i < content.length; i++) {
+    const char = content.charCodeAt(i)
+    hash = ((hash << 5) - hash) + char
+    hash = hash & hash // Convert to 32bit integer
+  }
+  return Math.abs(hash).toString(36).padStart(16, '0').substring(0, 16)
 }
 
 /**
