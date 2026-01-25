@@ -3,10 +3,13 @@
 /**
  * Formate un nombre avec espaces (pas de slashs !)
  * 505000 → "505 000"
+ * Note: On remplace les espaces insécables par des espaces normaux pour le PDF
  */
 export function formatNumber(value: number | undefined | null): string {
   if (value === undefined || value === null) return '-'
-  return new Intl.NumberFormat('fr-FR').format(Math.round(value))
+  // Intl.NumberFormat utilise des espaces insécables (U+00A0) qui s'affichent mal dans les PDF
+  // On les remplace par des espaces normaux
+  return new Intl.NumberFormat('fr-FR').format(Math.round(value)).replace(/\u00A0/g, ' ')
 }
 
 /**

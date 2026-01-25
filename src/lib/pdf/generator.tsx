@@ -6,11 +6,27 @@ import {
   Text,
   View,
   StyleSheet,
+  Font,
   pdf,
 } from '@react-pdf/renderer'
 import { COLORS } from './styles'
 import { formatCurrency, formatPercent, formatNumber, cleanText } from './utils'
 import { BENCHMARKS, compareWithBenchmark, getSectorFromNaf } from './sector-benchmarks'
+
+// Enregistrer la police Roboto qui supporte les caractères accentués français
+Font.register({
+  family: 'Roboto',
+  fonts: [
+    {
+      src: 'https://cdnjs.cloudflare.com/ajax/libs/ink/3.1.10/fonts/Roboto/roboto-regular-webfont.ttf',
+      fontWeight: 'normal',
+    },
+    {
+      src: 'https://cdnjs.cloudflare.com/ajax/libs/ink/3.1.10/fonts/Roboto/roboto-bold-webfont.ttf',
+      fontWeight: 'bold',
+    },
+  ],
+})
 
 // ============================================
 // TYPES
@@ -67,7 +83,7 @@ export interface EvaluationData {
 const styles = StyleSheet.create({
   page: {
     padding: 40,
-    fontFamily: 'Helvetica',
+    fontFamily: 'Roboto',
     fontSize: 10,
     color: COLORS.gray700,
   },
