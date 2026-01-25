@@ -60,10 +60,36 @@ export interface EvaluationData {
     resultatNet: number
     tresorerie: number
   }[]
+  // V1 - Valorisation simple (rétrocompatibilité)
   valorisation: {
     basse: number
     moyenne: number
     haute: number
+  }
+  // V2 - Bridge VE → Prix (optionnel pour rétrocompatibilité)
+  valeurEntreprise?: {
+    basse: number
+    moyenne: number
+    haute: number
+  }
+  prixCession?: {
+    basse: number
+    moyenne: number
+    haute: number
+  }
+  detteNette?: {
+    totalDettes: number
+    totalTresorerie: number
+    detteFinanciereNette: number
+  }
+  ebitdaNormalise?: {
+    ebitdaComptable: number
+    totalRetraitements: number
+    ebitdaNormalise: number
+    retraitements?: {
+      libelle: string
+      montant: number
+    }[]
   }
   methodes: {
     nom: string
@@ -74,6 +100,19 @@ export interface EvaluationData {
   pointsForts: string[]
   pointsVigilance: string[]
   recommandations: string[]
+  // V2 - Diagnostic financier (optionnel)
+  diagnostic?: {
+    noteGlobale: 'A' | 'B' | 'C' | 'D' | 'E'
+    score: number
+    categories: {
+      nom: string
+      ratios: {
+        nom: string
+        valeurFormatee: string
+        evaluation: 'bon' | 'moyen' | 'mauvais'
+      }[]
+    }[]
+  }
 }
 
 // ============================================
@@ -410,6 +449,172 @@ const styles = StyleSheet.create({
     color: COLORS.gray500,
     lineHeight: 1.5,
   },
+
+  // Bridge VE → Prix
+  bridgeCard: {
+    backgroundColor: COLORS.gray50,
+    borderRadius: 8,
+    padding: 15,
+    marginBottom: 20,
+  },
+  bridgeTitle: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: COLORS.gray900,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  bridgeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray200,
+  },
+  bridgeRowFinal: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    backgroundColor: COLORS.primary,
+    marginTop: 8,
+    marginHorizontal: -15,
+    marginBottom: -15,
+    paddingHorizontal: 15,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
+  },
+  bridgeLabel: {
+    fontSize: 10,
+    color: COLORS.gray700,
+  },
+  bridgeValue: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: COLORS.gray900,
+  },
+  bridgeValueNegative: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: COLORS.danger,
+  },
+  bridgeValuePositive: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: COLORS.success,
+  },
+  bridgeLabelFinal: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: COLORS.white,
+  },
+  bridgeValueFinal: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: COLORS.white,
+  },
+
+  // EBITDA Normalisé
+  ebitdaCard: {
+    backgroundColor: COLORS.bgLight,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 15,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.primary,
+  },
+  ebitdaTitle: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: COLORS.gray900,
+    marginBottom: 8,
+  },
+  ebitdaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 3,
+  },
+  ebitdaLabel: {
+    fontSize: 9,
+    color: COLORS.gray700,
+  },
+  ebitdaValue: {
+    fontSize: 9,
+    fontWeight: 'bold',
+  },
+  ebitdaSeparator: {
+    borderTopWidth: 1,
+    borderTopColor: COLORS.gray300,
+    marginVertical: 5,
+  },
+
+  // Diagnostic financier
+  diagnosticHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  diagnosticNote: {
+    backgroundColor: COLORS.primary,
+    color: COLORS.white,
+    fontSize: 24,
+    fontWeight: 'bold',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    textAlign: 'center',
+    lineHeight: 50,
+  },
+  diagnosticScore: {
+    fontSize: 10,
+    color: COLORS.gray500,
+    marginTop: 4,
+  },
+  diagnosticCategorie: {
+    marginBottom: 12,
+  },
+  diagnosticCategorieTitle: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: COLORS.gray700,
+    marginBottom: 6,
+    paddingBottom: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray200,
+  },
+  diagnosticRatioRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 3,
+  },
+  diagnosticRatioLabel: {
+    flex: 2,
+    fontSize: 9,
+    color: COLORS.gray700,
+  },
+  diagnosticRatioValue: {
+    flex: 1,
+    fontSize: 9,
+    fontWeight: 'bold',
+    textAlign: 'right',
+  },
+  diagnosticRatioStatus: {
+    width: 20,
+    fontSize: 9,
+    textAlign: 'center',
+  },
+  statusBon: {
+    color: COLORS.success,
+  },
+  statusMoyen: {
+    color: COLORS.warning,
+  },
+  statusMauvais: {
+    color: COLORS.danger,
+  },
 })
 
 // ============================================
@@ -519,22 +724,59 @@ const EvaluationReport = ({ data }: { data: EvaluationData }) => {
           Rapport d&apos;evaluation - {data.entreprise.secteur}
         </Text>
 
-        {/* Carte Valorisation */}
+        {/* Carte Valorisation - Prix de Cession */}
         <View style={styles.valorisationCard}>
           <Text style={styles.valorisationLabel}>
-            Estimation de valeur d&apos;entreprise
+            {data.prixCession ? 'Prix de cession estime' : 'Estimation de valeur d\'entreprise'}
           </Text>
           <Text style={styles.valorisationValue}>
-            {formatCurrency(data.valorisation.moyenne)}
+            {formatCurrency(data.prixCession?.moyenne ?? data.valorisation.moyenne)}
           </Text>
           <Text style={styles.valorisationRange}>
-            Fourchette : {formatCurrency(data.valorisation.basse)} -{' '}
-            {formatCurrency(data.valorisation.haute)}
+            Fourchette : {formatCurrency(data.prixCession?.basse ?? data.valorisation.basse)} -{' '}
+            {formatCurrency(data.prixCession?.haute ?? data.valorisation.haute)}
           </Text>
           <Text style={styles.valorisationMethod}>
-            Methode principale : Multiple EBITDA
+            {data.prixCession ? 'Prix = Valeur d\'Entreprise - Dette Nette' : 'Methode principale : Multiple EBITDA'}
           </Text>
         </View>
+
+        {/* Bridge VE → Prix (si données V2 disponibles) */}
+        {data.valeurEntreprise && data.detteNette && (
+          <View style={styles.bridgeCard}>
+            <Text style={styles.bridgeTitle}>
+              Du Valeur d'Entreprise au Prix de Cession
+            </Text>
+            <View style={styles.bridgeRow}>
+              <Text style={styles.bridgeLabel}>Valeur d'Entreprise (VE)</Text>
+              <Text style={styles.bridgeValue}>
+                {formatCurrency(data.valeurEntreprise.moyenne)}
+              </Text>
+            </View>
+            {data.detteNette.totalDettes > 0 && (
+              <View style={styles.bridgeRow}>
+                <Text style={styles.bridgeLabel}>- Dettes financieres</Text>
+                <Text style={styles.bridgeValueNegative}>
+                  -{formatCurrency(data.detteNette.totalDettes)}
+                </Text>
+              </View>
+            )}
+            {data.detteNette.totalTresorerie > 0 && (
+              <View style={styles.bridgeRow}>
+                <Text style={styles.bridgeLabel}>+ Tresorerie disponible</Text>
+                <Text style={styles.bridgeValuePositive}>
+                  +{formatCurrency(data.detteNette.totalTresorerie)}
+                </Text>
+              </View>
+            )}
+            <View style={styles.bridgeRowFinal}>
+              <Text style={styles.bridgeLabelFinal}>= Prix de Cession</Text>
+              <Text style={styles.bridgeValueFinal}>
+                {formatCurrency(data.prixCession?.moyenne ?? data.valorisation.moyenne)}
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* Infos entreprise */}
         <View style={styles.section}>
@@ -597,8 +839,12 @@ const EvaluationReport = ({ data }: { data: EvaluationData }) => {
                 <Text style={styles.infoValue}>{formatCurrency(data.financier.ca)}</Text>
               </View>
               <View style={styles.infoCard}>
-                <Text style={styles.infoLabel}>EBITDA</Text>
-                <Text style={styles.infoValue}>{formatCurrency(data.financier.ebitda)}</Text>
+                <Text style={styles.infoLabel}>
+                  {data.ebitdaNormalise ? 'EBITDA Normalise' : 'EBITDA'}
+                </Text>
+                <Text style={styles.infoValue}>
+                  {formatCurrency(data.ebitdaNormalise?.ebitdaNormalise ?? data.financier.ebitda)}
+                </Text>
               </View>
               <View style={styles.infoCard}>
                 <Text style={styles.infoLabel}>Resultat net</Text>
@@ -609,6 +855,34 @@ const EvaluationReport = ({ data }: { data: EvaluationData }) => {
             </View>
           </View>
         </View>
+
+        {/* EBITDA Normalisé - Détail des retraitements (si disponible) */}
+        {data.ebitdaNormalise && data.ebitdaNormalise.totalRetraitements !== 0 && (
+          <View style={styles.ebitdaCard}>
+            <Text style={styles.ebitdaTitle}>Detail EBITDA Normalise</Text>
+            <View style={styles.ebitdaRow}>
+              <Text style={styles.ebitdaLabel}>EBITDA comptable</Text>
+              <Text style={styles.ebitdaValue}>
+                {formatCurrency(data.ebitdaNormalise.ebitdaComptable)}
+              </Text>
+            </View>
+            {data.ebitdaNormalise.retraitements?.map((r, i) => (
+              <View key={i} style={styles.ebitdaRow}>
+                <Text style={styles.ebitdaLabel}>{r.montant >= 0 ? '+' : ''} {cleanText(r.libelle)}</Text>
+                <Text style={[styles.ebitdaValue, { color: r.montant >= 0 ? COLORS.success : COLORS.danger }]}>
+                  {r.montant >= 0 ? '+' : ''}{formatCurrency(r.montant)}
+                </Text>
+              </View>
+            ))}
+            <View style={styles.ebitdaSeparator} />
+            <View style={styles.ebitdaRow}>
+              <Text style={[styles.ebitdaLabel, { fontWeight: 'bold' }]}>EBITDA Normalise</Text>
+              <Text style={[styles.ebitdaValue, { color: COLORS.primary }]}>
+                {formatCurrency(data.ebitdaNormalise.ebitdaNormalise)}
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* Footer page 1 */}
         <View style={styles.footer}>
@@ -696,6 +970,65 @@ const EvaluationReport = ({ data }: { data: EvaluationData }) => {
             </View>
           </View>
         </View>
+
+        {/* Diagnostic financier (si disponible) */}
+        {data.diagnostic && (
+          <View style={styles.section}>
+            <View style={styles.diagnosticHeader}>
+              <Text style={styles.sectionTitle}>Diagnostic financier</Text>
+              <View>
+                <Text style={styles.diagnosticNote}>{data.diagnostic.noteGlobale}</Text>
+                <Text style={styles.diagnosticScore}>Score: {data.diagnostic.score}/100</Text>
+              </View>
+            </View>
+            <View style={styles.row}>
+              {data.diagnostic.categories.slice(0, 2).map((cat, i) => (
+                <View key={i} style={styles.col2}>
+                  <View style={styles.diagnosticCategorie}>
+                    <Text style={styles.diagnosticCategorieTitle}>{cat.nom}</Text>
+                    {cat.ratios.map((r, j) => (
+                      <View key={j} style={styles.diagnosticRatioRow}>
+                        <Text style={styles.diagnosticRatioLabel}>{r.nom}</Text>
+                        <Text style={styles.diagnosticRatioValue}>{r.valeurFormatee}</Text>
+                        <Text style={[
+                          styles.diagnosticRatioStatus,
+                          r.evaluation === 'bon' ? styles.statusBon :
+                          r.evaluation === 'moyen' ? styles.statusMoyen : styles.statusMauvais
+                        ]}>
+                          {r.evaluation === 'bon' ? '+' : r.evaluation === 'moyen' ? '~' : '!'}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ))}
+            </View>
+            {data.diagnostic.categories.length > 2 && (
+              <View style={styles.row}>
+                {data.diagnostic.categories.slice(2, 4).map((cat, i) => (
+                  <View key={i} style={styles.col2}>
+                    <View style={styles.diagnosticCategorie}>
+                      <Text style={styles.diagnosticCategorieTitle}>{cat.nom}</Text>
+                      {cat.ratios.map((r, j) => (
+                        <View key={j} style={styles.diagnosticRatioRow}>
+                          <Text style={styles.diagnosticRatioLabel}>{r.nom}</Text>
+                          <Text style={styles.diagnosticRatioValue}>{r.valeurFormatee}</Text>
+                          <Text style={[
+                            styles.diagnosticRatioStatus,
+                            r.evaluation === 'bon' ? styles.statusBon :
+                            r.evaluation === 'moyen' ? styles.statusMoyen : styles.statusMauvais
+                          ]}>
+                            {r.evaluation === 'bon' ? '+' : r.evaluation === 'moyen' ? '~' : '!'}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Historique financier */}
         {data.historique.length > 0 && (

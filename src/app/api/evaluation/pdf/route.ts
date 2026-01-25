@@ -1,10 +1,10 @@
 // API Route pour générer les rapports PDF d'évaluation
 import { NextRequest, NextResponse } from 'next/server'
-import { generateEvaluationPDFBuffer, type EvaluationData } from '@/lib/pdf/generator'
+import { generateProfessionalPDFBuffer, type ProfessionalReportData } from '@/lib/pdf'
 
 export async function POST(request: NextRequest) {
   try {
-    const data: EvaluationData = await request.json()
+    const data: ProfessionalReportData = await request.json()
 
     // Validation basique des données
     if (!data.entreprise?.nom || !data.entreprise?.siren) {
@@ -14,15 +14,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!data.valorisation?.moyenne) {
+    if (!data.valeurEntreprise?.moyenne) {
       return NextResponse.json(
         { error: 'Données de valorisation manquantes' },
         { status: 400 }
       )
     }
 
-    // Générer le PDF
-    const pdfBuffer = await generateEvaluationPDFBuffer(data)
+    // Générer le PDF professionnel (30 pages)
+    const pdfBuffer = await generateProfessionalPDFBuffer(data)
 
     // Nettoyer le nom de fichier
     const fileName = `evaluation-${data.entreprise.siren}-${new Date().toISOString().split('T')[0]}.pdf`
