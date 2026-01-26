@@ -224,9 +224,7 @@ export async function POST(request: NextRequest) {
 
     let claudeMessages = messages.map(m => ({
       role: m.role as 'user' | 'assistant',
-      content: m.content + (m.documents?.length
-        ? `\n\n[Documents joints: ${m.documents.map(d => d.name).join(', ')}]`
-        : ''),
+      content: m.content,  // Le contenu inclut déjà l'analyse des documents formatée
     }))
 
     // Compresser le contexte si nécessaire

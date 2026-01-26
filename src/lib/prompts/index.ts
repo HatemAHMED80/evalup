@@ -162,7 +162,7 @@ ${formatFinancials(context.financials)}
 
 **Documents analysés :**
 ${context.documents.length > 0
-  ? context.documents.map(d => `- ${d.name} (${d.type})`).join('\n')
+  ? formatDocuments(context.documents)
   : 'Aucun document uploadé pour l\'instant'}
 
 **Ce que tu sais déjà (réponses précédentes) :**
@@ -228,6 +228,66 @@ function formatResponses(responses: Record<string, string>): string {
   if (entries.length === 0) return 'Aucune réponse enregistrée'
 
   return entries.map(([key, value]) => `- ${key}: ${value}`).join('\n')
+}
+
+function formatDocuments(documents: ConversationContext['documents']): string {
+  return documents.map(doc => {
+    const parts: string[] = [`📄 **${doc.name}**`]
+
+    if (doc.analysis) {
+      const analysis = doc.analysis
+
+      if (analysis.error || analysis.parseError) {
+        parts.push(`  ⚠️ Erreur d'analyse: ${analysis.error || 'Format non reconnu'}`)
+      } else {
+        if (analysis.typeDocument) {
+          parts.push(`  - Type: ${analysis.typeDocument}`)
+        }
+        if (analysis.annee) {
+          parts.push(`  - Année: ${analysis.annee}`)
+        }
+
+        // Chiffres extraits
+        if (analysis.chiffresExtraits) {
+          const chiffres = analysis.chiffresExtraits as Record<string, number | null | Record<string, number>>
+          const lignes: string[] = []
+          if (chiffres.ca) lignes.push(`CA: ${(chiffres.ca as number).toLocaleString('fr-FR')} €`)
+          if (chiffres.resultatNet) lignes.push(`Résultat net: ${(chiffres.resultatNet as number).toLocaleString('fr-FR')} €`)
+          if (chiffres.ebitda) lignes.push(`EBITDA: ${(chiffres.ebitda as number).toLocaleString('fr-FR')} €`)
+          if (chiffres.tresorerie) lignes.push(`Trésorerie: ${(chiffres.tresorerie as number).toLocaleString('fr-FR')} €`)
+          if (chiffres.dettes) lignes.push(`Dettes: ${(chiffres.dettes as number).toLocaleString('fr-FR')} €`)
+
+          // Autres données
+          if (chiffres.autresDonnees && typeof chiffres.autresDonnees === 'object') {
+            const autres = chiffres.autresDonnees as Record<string, number>
+            for (const [key, val] of Object.entries(autres)) {
+              if (val) lignes.push(`${key}: ${val.toLocaleString('fr-FR')} €`)
+            }
+          }
+
+          if (lignes.length > 0) {
+            parts.push(`  - Données extraites: ${lignes.join(', ')}`)
+          }
+        }
+
+        // Points clés
+        if (analysis.pointsCles && analysis.pointsCles.length > 0) {
+          parts.push(`  - Points clés: ${analysis.pointsCles.slice(0, 3).join('; ')}`)
+        }
+
+        // Anomalies
+        if (analysis.anomalies && analysis.anomalies.length > 0) {
+          const anomaliesMsgs = analysis.anomalies.slice(0, 3).map(a => {
+            const anomalie = a as { message?: string; categorie?: string }
+            return anomalie.message || anomalie.categorie || 'Anomalie'
+          })
+          parts.push(`  - ⚠️ Alertes: ${anomaliesMsgs.join('; ')}`)
+        }
+      }
+    }
+
+    return parts.join('\n')
+  }).join('\n\n')
 }
 
 export { EVALUATION_FINALE_PROMPT }
