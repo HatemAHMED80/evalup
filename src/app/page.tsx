@@ -222,6 +222,14 @@ function getSuggestedReplies(lastMessage: string): SuggestedReply[] {
     ]
   }
 
+  // Confirmation pour passer les documents
+  if (msg.includes('sans documents') || msg.includes('continuer sans')) {
+    return [
+      { label: '📄 J\'ai un document', value: 'Finalement, j\'ai un document a partager' },
+      { label: '✓ Oui, continuer', value: 'Oui, je confirme vouloir continuer sans documents' },
+    ]
+  }
+
   // Par defaut, pas de suggestions
   return []
 }
@@ -305,6 +313,7 @@ export default function Home() {
   const [context, setContext] = useState<ConversationContext | null>(null)
   const [currentStep, setCurrentStep] = useState(1)
   const [uploadedDocs, setUploadedDocs] = useState<File[]>([])
+  const [skipDocsAttempted, setSkipDocsAttempted] = useState(false)
 
   // Calculer les reponses suggerees basees sur le dernier message assistant
   const suggestedReplies = useMemo(() => {
@@ -482,15 +491,48 @@ Ces documents permettent d'avoir une vision plus precise de la situation financi
     }
   }
 
-  // Passer l'upload de documents
+  // Passer l'upload de documents (avec confirmation)
   const handleSkipDocuments = () => {
+    if (!skipDocsAttempted) {
+      // Premier essai: insister sur l'importance des documents
+      setSkipDocsAttempted(true)
+
+      const userMessage: Message = {
+        id: crypto.randomUUID(),
+        role: 'user',
+        content: 'Je prefere passer cette etape',
+        timestamp: new Date(),
+      }
+
+      const warningMessage: Message = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: `⚠️ **Attention : l'evaluation sera moins precise sans documents**
+
+Sans vos documents financiers (bilans, comptes de resultat, liasse fiscale), je devrai :
+- Poser **beaucoup plus de questions** pour collecter les informations
+- Me baser uniquement sur les donnees publiques qui peuvent etre **incompletes ou datees**
+- L'evaluation finale sera **moins fiable**
+
+📄 **Meme un simple bilan ou compte de resultat PDF** peut accelerer considerablement le processus et ameliorer la precision.
+
+**Es-tu sur(e) de vouloir continuer sans documents ?**`,
+        timestamp: new Date(),
+      }
+
+      setMessages(prev => [...prev, userMessage, warningMessage])
+      return
+    }
+
+    // Deuxieme essai: l'utilisateur confirme, on demarre
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: 'user',
-      content: 'Passer cette etape',
+      content: 'Oui, je n\'ai vraiment pas de documents a partager',
       timestamp: new Date(),
     }
     setMessages(prev => [...prev, userMessage])
+    setSkipDocsAttempted(false) // Reset pour une prochaine evaluation
     startEvaluation()
   }
 
@@ -825,6 +867,7 @@ Ces documents permettent d'avoir une vision plus precise de la situation financi
     setError('')
     setCurrentStep(1)
     setUploadedDocs([])
+    setSkipDocsAttempted(false)
   }
 
   // Donnees entreprise pour la sidebar
@@ -984,6 +1027,7 @@ Ces documents permettent d'avoir une vision plus precise de la situation financi
                       <InitialDocumentUpload
                         onUpload={handleInitialDocumentUpload}
                         onSkip={handleSkipDocuments}
+                        skipLabel={skipDocsAttempted ? 'Confirmer sans documents' : undefined}
                       />
                     </div>
                   </div>

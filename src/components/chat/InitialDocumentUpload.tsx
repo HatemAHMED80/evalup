@@ -7,6 +7,7 @@ interface InitialDocumentUploadProps {
   onSkip: () => void
   isUploading?: boolean
   uploadedCount?: number
+  skipLabel?: string
 }
 
 const ACCEPTED_FILES = '.pdf,.xls,.xlsx,.csv,.doc,.docx,.jpg,.jpeg,.png'
@@ -25,6 +26,7 @@ export function InitialDocumentUpload({
   onSkip,
   isUploading = false,
   uploadedCount = 0,
+  skipLabel,
 }: InitialDocumentUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [dragActive, setDragActive] = useState(false)
@@ -192,9 +194,13 @@ export function InitialDocumentUpload({
         <button
           onClick={onSkip}
           disabled={isUploading}
-          className="flex-1 px-4 py-2.5 text-sm text-white/60 hover:text-white hover:bg-white/10 rounded-xl transition-colors disabled:opacity-50"
+          className={`flex-1 px-4 py-2.5 text-sm rounded-xl transition-colors disabled:opacity-50 ${
+            skipLabel
+              ? 'text-orange-400 hover:text-orange-300 hover:bg-orange-500/10 border border-orange-500/30'
+              : 'text-white/60 hover:text-white hover:bg-white/10'
+          }`}
         >
-          Passer cette étape
+          {skipLabel || 'Passer cette étape'}
         </button>
         <button
           onClick={handleSubmit}
