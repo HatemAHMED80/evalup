@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { Sidebar } from '@/components/chat/Sidebar'
 import { MessageBubble } from '@/components/chat/MessageBubble'
@@ -67,6 +67,164 @@ interface QuickValuationData {
 
 // Phases du chat unifie
 type ChatPhase = 'siren_input' | 'valuation_loading' | 'valuation_display' | 'documents_upload' | 'evaluation'
+
+// Type pour les reponses suggerees
+interface SuggestedReply {
+  label: string
+  value: string
+  icon?: string
+}
+
+// Fonction pour detecter le type de question et generer des suggestions
+function getSuggestedReplies(lastMessage: string): SuggestedReply[] {
+  const msg = lastMessage.toLowerCase()
+
+  // Questions Oui/Non
+  if (msg.includes('as-tu') || msg.includes('y a-t-il') || msg.includes('est-ce que') ||
+      msg.includes('possedes-tu') || msg.includes('disposes-tu') || msg.includes('existe-t-il')) {
+    return [
+      { label: 'Oui', value: 'Oui', icon: '✓' },
+      { label: 'Non', value: 'Non', icon: '✗' },
+      { label: 'Je ne sais pas', value: 'Je ne suis pas certain(e)', icon: '?' },
+    ]
+  }
+
+  // Questions sur la remuneration du dirigeant
+  if (msg.includes('salaire') || msg.includes('remuneration') || msg.includes('remuner')) {
+    return [
+      { label: '30 000 €/an', value: 'Ma remuneration est de 30 000 € brut charges par an' },
+      { label: '50 000 €/an', value: 'Ma remuneration est de 50 000 € brut charges par an' },
+      { label: '70 000 €/an', value: 'Ma remuneration est de 70 000 € brut charges par an' },
+      { label: '100 000 €/an', value: 'Ma remuneration est de 100 000 € brut charges par an' },
+    ]
+  }
+
+  // Questions sur le loyer / locaux
+  if (msg.includes('loyer') || msg.includes('locaux') || msg.includes('sci') || msg.includes('bail')) {
+    if (msg.includes('appartien') || msg.includes('sci') || msg.includes('proprietaire')) {
+      return [
+        { label: 'Oui, SCI', value: 'Oui, les locaux appartiennent a une SCI dont je suis associe' },
+        { label: 'Oui, perso', value: 'Oui, les locaux m\'appartiennent personnellement' },
+        { label: 'Non, location', value: 'Non, nous sommes locataires avec un bail commercial' },
+      ]
+    }
+    return [
+      { label: '1 000 €/mois', value: 'Le loyer est de 1 000 € par mois soit 12 000 € par an' },
+      { label: '2 000 €/mois', value: 'Le loyer est de 2 000 € par mois soit 24 000 € par an' },
+      { label: '3 000 €/mois', value: 'Le loyer est de 3 000 € par mois soit 36 000 € par an' },
+      { label: '5 000 €/mois', value: 'Le loyer est de 5 000 € par mois soit 60 000 € par an' },
+    ]
+  }
+
+  // Questions sur le credit-bail / leasing
+  if (msg.includes('credit-bail') || msg.includes('leasing') || msg.includes('vehicule')) {
+    return [
+      { label: 'Oui, vehicules', value: 'Oui, nous avons des vehicules en credit-bail' },
+      { label: 'Oui, equipements', value: 'Oui, nous avons des equipements en credit-bail' },
+      { label: 'Non, aucun', value: 'Non, nous n\'avons pas de credit-bail' },
+    ]
+  }
+
+  // Questions sur les emprunts / dettes
+  if (msg.includes('emprunt') || msg.includes('dette') || msg.includes('credit') || msg.includes('pret')) {
+    return [
+      { label: 'Aucun emprunt', value: 'Nous n\'avons pas d\'emprunt bancaire en cours' },
+      { label: '< 50 000 €', value: 'Le capital restant du sur nos emprunts est d\'environ 50 000 €' },
+      { label: '50-150 000 €', value: 'Le capital restant du sur nos emprunts est d\'environ 100 000 €' },
+      { label: '> 150 000 €', value: 'Le capital restant du sur nos emprunts est superieur a 150 000 €' },
+    ]
+  }
+
+  // Questions sur la tresorerie
+  if (msg.includes('tresorerie') || msg.includes('disponibilite') || msg.includes('cash')) {
+    return [
+      { label: '< 20 000 €', value: 'Notre tresorerie disponible est d\'environ 20 000 €' },
+      { label: '20-50 000 €', value: 'Notre tresorerie disponible est d\'environ 40 000 €' },
+      { label: '50-100 000 €', value: 'Notre tresorerie disponible est d\'environ 75 000 €' },
+      { label: '> 100 000 €', value: 'Notre tresorerie disponible est superieure a 100 000 €' },
+    ]
+  }
+
+  // Questions sur les clients / dependance
+  if (msg.includes('client') || msg.includes('dependance') || msg.includes('plus gros')) {
+    return [
+      { label: '< 10%', value: 'Notre plus gros client represente moins de 10% du CA' },
+      { label: '10-20%', value: 'Notre plus gros client represente environ 15% du CA' },
+      { label: '20-30%', value: 'Notre plus gros client represente environ 25% du CA' },
+      { label: '> 30%', value: 'Notre plus gros client represente plus de 30% du CA' },
+    ]
+  }
+
+  // Questions sur les employes / famille
+  if (msg.includes('famille') || msg.includes('conjoint') || msg.includes('proche')) {
+    return [
+      { label: 'Non, aucun', value: 'Non, aucun membre de ma famille ne travaille dans l\'entreprise' },
+      { label: 'Oui, salaire normal', value: 'Oui, mais leur remuneration correspond au marche' },
+      { label: 'Oui, sous-paye', value: 'Oui, et ils sont remuners en dessous du marche' },
+      { label: 'Oui, sur-paye', value: 'Oui, et ils sont remuners au-dessus du marche' },
+    ]
+  }
+
+  // Questions sur le compte courant
+  if (msg.includes('compte courant') || msg.includes('cca')) {
+    return [
+      { label: 'Non, aucun', value: 'Je n\'ai pas de compte courant d\'associe' },
+      { label: 'Oui, a rembourser', value: 'Oui, j\'ai un compte courant qui devra etre rembourse a la cession' },
+      { label: 'Oui, abandonne', value: 'Oui, mais il peut etre abandonne lors de la cession' },
+    ]
+  }
+
+  // Questions sur les charges exceptionnelles
+  if (msg.includes('exceptionnel') || msg.includes('non recurrent') || msg.includes('litige') || msg.includes('sinistre')) {
+    return [
+      { label: 'Non, aucun', value: 'Non, nous n\'avons pas eu de charges exceptionnelles' },
+      { label: 'Oui, litige', value: 'Oui, nous avons eu un litige exceptionnel' },
+      { label: 'Oui, travaux', value: 'Oui, nous avons eu des travaux exceptionnels' },
+      { label: 'Oui, autres', value: 'Oui, nous avons eu d\'autres charges exceptionnelles' },
+    ]
+  }
+
+  // Questions sur le modele economique / revenus
+  if (msg.includes('modele') || msg.includes('revenus') || msg.includes('comment genere') || msg.includes('activite principale')) {
+    return [
+      { label: 'Vente produits', value: 'Nous generons notre CA principalement par la vente de produits' },
+      { label: 'Prestations services', value: 'Nous generons notre CA principalement par des prestations de services' },
+      { label: 'Abonnements', value: 'Nous generons notre CA principalement par des abonnements recurrents' },
+      { label: 'Mixte', value: 'Nous avons un modele mixte (produits + services)' },
+    ]
+  }
+
+  // Questions sur les contrats / recurrence
+  if (msg.includes('contrat') || msg.includes('recurrent') || msg.includes('abonnement')) {
+    return [
+      { label: 'Oui, majoritaire', value: 'Oui, plus de 50% de notre CA est recurrent (contrats/abonnements)' },
+      { label: 'Oui, partiel', value: 'Oui, environ 20-50% de notre CA est recurrent' },
+      { label: 'Non, ponctuel', value: 'Non, notre activite est principalement ponctuelle' },
+    ]
+  }
+
+  // Questions generiques sur les montants
+  if (msg.includes('montant') || msg.includes('combien') || msg.includes('quel est')) {
+    return [
+      { label: 'Petit montant', value: 'C\'est un montant relativement faible' },
+      { label: 'Moyen', value: 'C\'est un montant moyen' },
+      { label: 'Important', value: 'C\'est un montant significatif' },
+    ]
+  }
+
+  // Questions sur les projets / perspectives
+  if (msg.includes('projet') || msg.includes('perspective') || msg.includes('developpement') || msg.includes('croissance')) {
+    return [
+      { label: 'Stable', value: 'Nous visons une stabilite de l\'activite' },
+      { label: 'Croissance moderee', value: 'Nous prevoyons une croissance moderee de 5-10%' },
+      { label: 'Forte croissance', value: 'Nous avons des projets de forte croissance (>20%)' },
+      { label: 'Nouveaux marches', value: 'Nous envisageons de nouveaux marches ou produits' },
+    ]
+  }
+
+  // Par defaut, pas de suggestions
+  return []
+}
 
 // Fonction pour formater l'analyse de document en texte lisible
 function formatDocumentAnalysis(doc: UploadedDocument): string {
@@ -147,6 +305,14 @@ export default function Home() {
   const [context, setContext] = useState<ConversationContext | null>(null)
   const [currentStep, setCurrentStep] = useState(1)
   const [uploadedDocs, setUploadedDocs] = useState<File[]>([])
+
+  // Calculer les reponses suggerees basees sur le dernier message assistant
+  const suggestedReplies = useMemo(() => {
+    if (phase !== 'evaluation' || isLoading || isStreaming) return []
+    const lastAssistantMsg = [...messages].reverse().find(m => m.role === 'assistant')
+    if (!lastAssistantMsg) return []
+    return getSuggestedReplies(lastAssistantMsg.content)
+  }, [messages, phase, isLoading, isStreaming])
 
 
   // Message d'accueil
@@ -845,6 +1011,36 @@ Ces documents permettent d'avoir une vision plus precise de la situation financi
             {/* Zone de saisie */}
             {showInput && (
               <div className="sticky bottom-0 bg-[#1a1a2e] shadow-[0_-8px_20px_rgba(0,0,0,0.3)] sticky-input-mobile">
+                {/* Reponses suggerees */}
+                {suggestedReplies.length > 0 && (
+                  <div className="px-3 sm:px-4 pt-3 pb-1">
+                    <div className="max-w-3xl mx-auto">
+                      <p className="text-xs text-white/40 mb-2">Reponses suggerees :</p>
+                      <div className="flex flex-wrap gap-2">
+                        {suggestedReplies.map((reply, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => {
+                              setInput(reply.value)
+                              // Auto-submit si c'est une reponse courte
+                              if (reply.value.length < 50) {
+                                setTimeout(() => {
+                                  sendMessage(reply.value)
+                                }, 100)
+                              }
+                            }}
+                            className="px-3 py-1.5 bg-[#c9a227]/20 border border-[#c9a227]/40 rounded-full text-sm text-[#c9a227] hover:bg-[#c9a227]/30 hover:border-[#c9a227]/60 transition-colors"
+                          >
+                            {reply.icon && <span className="mr-1">{reply.icon}</span>}
+                            {reply.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="p-3 sm:p-4 pb-safe">
                   <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
                     <div className="relative bg-white/5 rounded-2xl border border-white/20 focus-within:border-[#c9a227] focus-within:ring-2 focus-within:ring-[#c9a227]/20 transition-all">
