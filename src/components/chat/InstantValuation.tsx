@@ -43,12 +43,19 @@ interface QuickValuationData {
     pointsForts: string[]
     pointsVigilance: string[]
   }
+  dataQuality?: {
+    dataYear: number
+    dataAge: number
+    isDataOld: boolean
+    confidence: 'faible' | 'moyenne' | 'haute'
+  }
   avertissement?: string
 }
 
 interface InstantValuationProps {
   data: QuickValuationData
-  onContinue: () => void
+  onContinue?: () => void
+  showContinueButton?: boolean
 }
 
 function formatCurrency(value: number): string {
@@ -76,7 +83,7 @@ function getNoteColor(note: string): string {
   }
 }
 
-export function InstantValuation({ data, onContinue }: InstantValuationProps) {
+export function InstantValuation({ data, onContinue, showContinueButton = true }: InstantValuationProps) {
   const [isVisible, setIsVisible] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
 
@@ -105,21 +112,60 @@ export function InstantValuation({ data, onContinue }: InstantValuationProps) {
           </div>
           <h3 className="text-lg font-semibold text-white mb-2">{data.entreprise.nom}</h3>
           <p className="text-white/60 mb-4">{data.message || 'Pas de données financières disponibles'}</p>
-          <button
-            onClick={onContinue}
-            className="px-6 py-3 bg-[#c9a227] text-[#1a1a2e] font-semibold rounded-xl hover:bg-[#e8c547] transition-colors"
-          >
-            Saisir les données manuellement
-          </button>
+          {showContinueButton && onContinue && (
+            <button
+              onClick={onContinue}
+              className="px-6 py-3 bg-[#c9a227] text-[#1a1a2e] font-semibold rounded-xl hover:bg-[#e8c547] transition-colors"
+            >
+              Saisir les données manuellement
+            </button>
+          )}
         </div>
       </div>
     )
   }
 
-  const { entreprise, financier, valorisation, ratios, diagnostic } = data
+  const { entreprise, financier, valorisation, ratios, diagnostic, dataQuality } = data
+
+  // Utiliser dataQuality de l'API si disponible, sinon calculer localement
+  const currentYear = new Date().getFullYear()
+  const dataYear = dataQuality?.dataYear || financier?.anneeDernierBilan
+  const dataAge = dataQuality?.dataAge ?? (dataYear ? currentYear - dataYear : 0)
+  const isDataOld = dataQuality?.isDataOld ?? dataAge >= 2
+  const confidence = dataQuality?.confidence ?? (isDataOld ? 'faible' : dataAge === 1 ? 'moyenne' : 'haute')
+
+  const getConfidenceLabel = (conf: string) => {
+    switch (conf) {
+      case 'haute': return { label: 'Fiabilite haute', color: 'text-emerald-400', bg: 'bg-emerald-500/20' }
+      case 'moyenne': return { label: 'Fiabilite moyenne', color: 'text-yellow-400', bg: 'bg-yellow-500/20' }
+      case 'faible': return { label: 'Fiabilite faible', color: 'text-orange-400', bg: 'bg-orange-500/20' }
+      default: return { label: 'Fiabilite inconnue', color: 'text-gray-400', bg: 'bg-gray-500/20' }
+    }
+  }
+  const confidenceInfo = getConfidenceLabel(confidence)
 
   return (
     <div className={`space-y-4 transition-all duration-700 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+      {/* Banniere annee des donnees */}
+      {dataYear && (
+        <div className={`flex flex-wrap items-center gap-2 px-4 py-3 rounded-lg ${isDataOld ? 'bg-orange-500/20 border border-orange-500/30' : 'bg-blue-500/20 border border-blue-500/30'}`}>
+          <svg className={`w-5 h-5 ${isDataOld ? 'text-orange-400' : 'text-blue-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          <span className={`text-sm font-medium ${isDataOld ? 'text-orange-300' : 'text-blue-300'}`}>
+            Donnees financieres : exercice {dataYear}
+          </span>
+          <span className={`text-xs px-2 py-0.5 rounded-full ${confidenceInfo.bg} ${confidenceInfo.color}`}>
+            {confidenceInfo.label}
+          </span>
+          {isDataOld && (
+            <span className="text-xs text-orange-400 ml-auto">
+              ⚠️ Donnees de {dataAge} ans
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Header avec nom entreprise et note */}
       <div className="flex items-center justify-between">
         <div>
@@ -139,7 +185,14 @@ export function InstantValuation({ data, onContinue }: InstantValuationProps) {
         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent transform -skew-x-12 translate-x-[-200%] animate-shimmer" />
 
         <div className="relative">
-          <p className="text-[#c9a227] text-sm font-medium mb-1">Estimation du prix de cession</p>
+          <p className="text-[#c9a227] text-sm font-medium mb-1">
+            Estimation du prix de cession
+            {dataYear && (
+              <span className={`ml-2 text-xs ${isDataOld ? 'text-orange-400' : 'text-white/50'}`}>
+                (basée sur données {dataYear})
+              </span>
+            )}
+          </p>
 
           {/* Prix principal avec animation */}
           <div className={`transition-all duration-1000 delay-300 ${isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
@@ -172,28 +225,40 @@ export function InstantValuation({ data, onContinue }: InstantValuationProps) {
       {/* Grille de ratios */}
       <div className={`grid grid-cols-2 gap-3 transition-all duration-500 delay-700 ${showDetails ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
         {/* CA */}
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-          <p className="text-white/50 text-xs mb-1">Chiffre d'affaires {financier?.anneeDernierBilan}</p>
+        <div className={`bg-white/5 border rounded-xl p-4 ${isDataOld ? 'border-orange-500/30' : 'border-white/10'}`}>
+          <p className="text-white/50 text-xs mb-1">
+            Chiffre d'affaires
+            {dataYear && <span className={`ml-1 ${isDataOld ? 'text-orange-400' : 'text-blue-400'}`}>({dataYear})</span>}
+          </p>
           <p className="text-white font-semibold text-lg">{formatCurrency(financier!.chiffreAffaires)}</p>
         </div>
 
         {/* EBITDA */}
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-          <p className="text-white/50 text-xs mb-1">EBITDA</p>
+        <div className={`bg-white/5 border rounded-xl p-4 ${isDataOld ? 'border-orange-500/30' : 'border-white/10'}`}>
+          <p className="text-white/50 text-xs mb-1">
+            EBITDA
+            {dataYear && <span className={`ml-1 ${isDataOld ? 'text-orange-400' : 'text-blue-400'}`}>({dataYear})</span>}
+          </p>
           <p className="text-white font-semibold text-lg">{formatCurrency(financier!.ebitdaComptable)}</p>
         </div>
 
         {/* Marge EBITDA */}
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-          <p className="text-white/50 text-xs mb-1">Marge EBITDA</p>
+        <div className={`bg-white/5 border rounded-xl p-4 ${isDataOld ? 'border-orange-500/30' : 'border-white/10'}`}>
+          <p className="text-white/50 text-xs mb-1">
+            Marge EBITDA
+            {dataYear && <span className={`ml-1 ${isDataOld ? 'text-orange-400' : 'text-blue-400'}`}>({dataYear})</span>}
+          </p>
           <p className={`font-semibold text-lg ${ratios!.margeEbitda >= 0.08 ? 'text-emerald-400' : ratios!.margeEbitda >= 0.05 ? 'text-yellow-400' : 'text-red-400'}`}>
             {formatPercent(ratios!.margeEbitda)}
           </p>
         </div>
 
         {/* ROE */}
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-          <p className="text-white/50 text-xs mb-1">Rentabilité (ROE)</p>
+        <div className={`bg-white/5 border rounded-xl p-4 ${isDataOld ? 'border-orange-500/30' : 'border-white/10'}`}>
+          <p className="text-white/50 text-xs mb-1">
+            Rentabilité (ROE)
+            {dataYear && <span className={`ml-1 ${isDataOld ? 'text-orange-400' : 'text-blue-400'}`}>({dataYear})</span>}
+          </p>
           <p className={`font-semibold text-lg ${ratios!.roe >= 0.15 ? 'text-emerald-400' : ratios!.roe >= 0.08 ? 'text-yellow-400' : 'text-red-400'}`}>
             {formatPercent(ratios!.roe)}
           </p>
@@ -250,15 +315,17 @@ export function InstantValuation({ data, onContinue }: InstantValuationProps) {
       </div>
 
       {/* Bouton Continuer */}
-      <button
-        onClick={onContinue}
-        className={`w-full py-4 bg-[#c9a227] text-[#1a1a2e] font-semibold rounded-xl hover:bg-[#e8c547] transition-all duration-300 flex items-center justify-center gap-2 ${showDetails ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
-      >
-        <span>Affiner l'evaluation</span>
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-        </svg>
-      </button>
+      {showContinueButton && onContinue && (
+        <button
+          onClick={onContinue}
+          className={`w-full py-4 bg-[#c9a227] text-[#1a1a2e] font-semibold rounded-xl hover:bg-[#e8c547] transition-all duration-300 flex items-center justify-center gap-2 ${showDetails ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+        >
+          <span>Affiner l'evaluation</span>
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+          </svg>
+        </button>
+      )}
     </div>
   )
 }

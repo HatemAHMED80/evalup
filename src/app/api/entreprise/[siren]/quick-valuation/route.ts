@@ -121,6 +121,11 @@ export async function GET(request: Request, { params }: RouteParams) {
   const diagnostic = genererDiagnostic(bilanPourDiagnostic, secteurCode)
 
   // Construire la réponse
+  const currentYear = new Date().getFullYear()
+  const dataYear = bilansV2[0].annee
+  const dataAge = currentYear - dataYear
+  const isDataOld = dataAge >= 2
+
   return NextResponse.json({
     entreprise: {
       siren: entreprise.siren,
@@ -173,8 +178,18 @@ export async function GET(request: Request, { params }: RouteParams) {
       pointsForts: diagnostic.synthese.pointsForts.slice(0, 3),
       pointsVigilance: diagnostic.synthese.pointsVigilance.slice(0, 3),
     },
-    avertissement: 'Cette estimation est basée uniquement sur les données publiques. ' +
-      'Pour une valorisation précise, continuez l\'évaluation pour affiner avec vos données réelles ' +
-      '(rémunération dirigeant, crédit-bail, éléments exceptionnels...).',
+    dataQuality: {
+      dataYear,
+      dataAge,
+      isDataOld,
+      confidence: isDataOld ? 'faible' : dataAge === 1 ? 'moyenne' : 'haute',
+    },
+    avertissement: isDataOld
+      ? `Attention : cette estimation est basée sur des données de ${dataYear} (${dataAge} ans). ` +
+        'La situation financière actuelle peut avoir significativement évolué. ' +
+        'Pour une valorisation fiable, fournissez vos données financières récentes.'
+      : 'Cette estimation est basée uniquement sur les données publiques. ' +
+        'Pour une valorisation précise, continuez l\'évaluation pour affiner avec vos données réelles ' +
+        '(rémunération dirigeant, crédit-bail, éléments exceptionnels...).',
   })
 }
