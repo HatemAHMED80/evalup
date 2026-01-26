@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useState, useRef, useEffect, useCallback, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Sidebar } from '@/components/chat/Sidebar'
 import { MessageBubble } from '@/components/chat/MessageBubble'
@@ -10,8 +11,9 @@ import { DocumentUpload } from '@/components/chat/DocumentUpload'
 import { InitialDocumentUpload } from '@/components/chat/InitialDocumentUpload'
 import { DownloadReport } from '@/components/chat/DownloadReport'
 import { getEvaluations, type SavedEvaluation } from '@/lib/evaluations'
+import { getDraftBySiren } from '@/lib/evaluation-draft'
 import { useEvaluationDraft } from '@/hooks/useEvaluationDraft'
-import { MESSAGE_INITIAL } from '@/lib/prompts/base'
+import { MESSAGE_INITIAL, MESSAGE_INITIAL_SANS_DOCUMENTS } from '@/lib/prompts/base'
 import type { ConversationContext, Message, UploadedDocument } from '@/lib/anthropic'
 
 const exemplesSiren = [
@@ -68,170 +70,51 @@ interface QuickValuationData {
 // Phases du chat unifie
 type ChatPhase = 'siren_input' | 'valuation_loading' | 'valuation_display' | 'documents_upload' | 'evaluation'
 
+// Message d'accueil (constant pour reutilisation)
+const WELCOME_MESSAGE_CONTENT = `# Bienvenue sur EvalUp
+
+Je suis votre assistant expert en evaluation d'entreprises. Je vais analyser les donnees financieres, le secteur d'activite et les specificites de l'entreprise pour vous fournir une estimation precise.
+
+**Pour commencer, entrez le numero SIREN de l'entreprise a evaluer (9 chiffres).**
+
+_Le SIREN se trouve sur le Kbis, les factures ou le site societe.com_`
+
+function createWelcomeMessage(): Message {
+  return {
+    id: 'welcome',
+    role: 'assistant',
+    content: WELCOME_MESSAGE_CONTENT,
+    timestamp: new Date(),
+  }
+}
+
 // Type pour les reponses suggerees
 interface SuggestedReply {
   label: string
   value: string
-  icon?: string
 }
 
-// Fonction pour detecter le type de question et generer des suggestions
-function getSuggestedReplies(lastMessage: string): SuggestedReply[] {
-  const msg = lastMessage.toLowerCase()
+// Fonction pour extraire les suggestions de la reponse de Claude
+function extractSuggestions(text: string): { cleanText: string; suggestions: SuggestedReply[] } {
+  const suggestionsMatch = text.match(/\[SUGGESTIONS\]\s*([\s\S]*?)\s*\[\/SUGGESTIONS\]/i)
 
-  // Questions Oui/Non
-  if (msg.includes('as-tu') || msg.includes('y a-t-il') || msg.includes('est-ce que') ||
-      msg.includes('possedes-tu') || msg.includes('disposes-tu') || msg.includes('existe-t-il')) {
-    return [
-      { label: 'Oui', value: 'Oui', icon: '✓' },
-      { label: 'Non', value: 'Non', icon: '✗' },
-      { label: 'Je ne sais pas', value: 'Je ne suis pas certain(e)', icon: '?' },
-    ]
+  if (!suggestionsMatch) {
+    return { cleanText: text, suggestions: [] }
   }
 
-  // Questions sur la remuneration du dirigeant
-  if (msg.includes('salaire') || msg.includes('remuneration') || msg.includes('remuner')) {
-    return [
-      { label: '30 000 €/an', value: 'Ma remuneration est de 30 000 € brut charges par an' },
-      { label: '50 000 €/an', value: 'Ma remuneration est de 50 000 € brut charges par an' },
-      { label: '70 000 €/an', value: 'Ma remuneration est de 70 000 € brut charges par an' },
-      { label: '100 000 €/an', value: 'Ma remuneration est de 100 000 € brut charges par an' },
-    ]
-  }
+  // Nettoyer le texte en retirant le bloc suggestions
+  const cleanText = text.replace(/\[SUGGESTIONS\][\s\S]*?\[\/SUGGESTIONS\]/gi, '').trim()
 
-  // Questions sur le loyer / locaux
-  if (msg.includes('loyer') || msg.includes('locaux') || msg.includes('sci') || msg.includes('bail')) {
-    if (msg.includes('appartien') || msg.includes('sci') || msg.includes('proprietaire')) {
-      return [
-        { label: 'Oui, SCI', value: 'Oui, les locaux appartiennent a une SCI dont je suis associe' },
-        { label: 'Oui, perso', value: 'Oui, les locaux m\'appartiennent personnellement' },
-        { label: 'Non, location', value: 'Non, nous sommes locataires avec un bail commercial' },
-      ]
-    }
-    return [
-      { label: '1 000 €/mois', value: 'Le loyer est de 1 000 € par mois soit 12 000 € par an' },
-      { label: '2 000 €/mois', value: 'Le loyer est de 2 000 € par mois soit 24 000 € par an' },
-      { label: '3 000 €/mois', value: 'Le loyer est de 3 000 € par mois soit 36 000 € par an' },
-      { label: '5 000 €/mois', value: 'Le loyer est de 5 000 € par mois soit 60 000 € par an' },
-    ]
-  }
+  // Parser les suggestions (format: "Suggestion 1|Suggestion 2|Suggestion 3")
+  const suggestionsText = suggestionsMatch[1].trim()
+  const suggestionLabels = suggestionsText.split('|').map(s => s.trim()).filter(s => s.length > 0)
 
-  // Questions sur le credit-bail / leasing
-  if (msg.includes('credit-bail') || msg.includes('leasing') || msg.includes('vehicule')) {
-    return [
-      { label: 'Oui, vehicules', value: 'Oui, nous avons des vehicules en credit-bail' },
-      { label: 'Oui, equipements', value: 'Oui, nous avons des equipements en credit-bail' },
-      { label: 'Non, aucun', value: 'Non, nous n\'avons pas de credit-bail' },
-    ]
-  }
+  const suggestions: SuggestedReply[] = suggestionLabels.map(label => ({
+    label,
+    value: label, // La valeur envoyee est identique au label
+  }))
 
-  // Questions sur les emprunts / dettes
-  if (msg.includes('emprunt') || msg.includes('dette') || msg.includes('credit') || msg.includes('pret')) {
-    return [
-      { label: 'Aucun emprunt', value: 'Nous n\'avons pas d\'emprunt bancaire en cours' },
-      { label: '< 50 000 €', value: 'Le capital restant du sur nos emprunts est d\'environ 50 000 €' },
-      { label: '50-150 000 €', value: 'Le capital restant du sur nos emprunts est d\'environ 100 000 €' },
-      { label: '> 150 000 €', value: 'Le capital restant du sur nos emprunts est superieur a 150 000 €' },
-    ]
-  }
-
-  // Questions sur la tresorerie
-  if (msg.includes('tresorerie') || msg.includes('disponibilite') || msg.includes('cash')) {
-    return [
-      { label: '< 20 000 €', value: 'Notre tresorerie disponible est d\'environ 20 000 €' },
-      { label: '20-50 000 €', value: 'Notre tresorerie disponible est d\'environ 40 000 €' },
-      { label: '50-100 000 €', value: 'Notre tresorerie disponible est d\'environ 75 000 €' },
-      { label: '> 100 000 €', value: 'Notre tresorerie disponible est superieure a 100 000 €' },
-    ]
-  }
-
-  // Questions sur les clients / dependance
-  if (msg.includes('client') || msg.includes('dependance') || msg.includes('plus gros')) {
-    return [
-      { label: '< 10%', value: 'Notre plus gros client represente moins de 10% du CA' },
-      { label: '10-20%', value: 'Notre plus gros client represente environ 15% du CA' },
-      { label: '20-30%', value: 'Notre plus gros client represente environ 25% du CA' },
-      { label: '> 30%', value: 'Notre plus gros client represente plus de 30% du CA' },
-    ]
-  }
-
-  // Questions sur les employes / famille
-  if (msg.includes('famille') || msg.includes('conjoint') || msg.includes('proche')) {
-    return [
-      { label: 'Non, aucun', value: 'Non, aucun membre de ma famille ne travaille dans l\'entreprise' },
-      { label: 'Oui, salaire normal', value: 'Oui, mais leur remuneration correspond au marche' },
-      { label: 'Oui, sous-paye', value: 'Oui, et ils sont remuners en dessous du marche' },
-      { label: 'Oui, sur-paye', value: 'Oui, et ils sont remuners au-dessus du marche' },
-    ]
-  }
-
-  // Questions sur le compte courant
-  if (msg.includes('compte courant') || msg.includes('cca')) {
-    return [
-      { label: 'Non, aucun', value: 'Je n\'ai pas de compte courant d\'associe' },
-      { label: 'Oui, a rembourser', value: 'Oui, j\'ai un compte courant qui devra etre rembourse a la cession' },
-      { label: 'Oui, abandonne', value: 'Oui, mais il peut etre abandonne lors de la cession' },
-    ]
-  }
-
-  // Questions sur les charges exceptionnelles
-  if (msg.includes('exceptionnel') || msg.includes('non recurrent') || msg.includes('litige') || msg.includes('sinistre')) {
-    return [
-      { label: 'Non, aucun', value: 'Non, nous n\'avons pas eu de charges exceptionnelles' },
-      { label: 'Oui, litige', value: 'Oui, nous avons eu un litige exceptionnel' },
-      { label: 'Oui, travaux', value: 'Oui, nous avons eu des travaux exceptionnels' },
-      { label: 'Oui, autres', value: 'Oui, nous avons eu d\'autres charges exceptionnelles' },
-    ]
-  }
-
-  // Questions sur le modele economique / revenus
-  if (msg.includes('modele') || msg.includes('revenus') || msg.includes('comment genere') || msg.includes('activite principale')) {
-    return [
-      { label: 'Vente produits', value: 'Nous generons notre CA principalement par la vente de produits' },
-      { label: 'Prestations services', value: 'Nous generons notre CA principalement par des prestations de services' },
-      { label: 'Abonnements', value: 'Nous generons notre CA principalement par des abonnements recurrents' },
-      { label: 'Mixte', value: 'Nous avons un modele mixte (produits + services)' },
-    ]
-  }
-
-  // Questions sur les contrats / recurrence
-  if (msg.includes('contrat') || msg.includes('recurrent') || msg.includes('abonnement')) {
-    return [
-      { label: 'Oui, majoritaire', value: 'Oui, plus de 50% de notre CA est recurrent (contrats/abonnements)' },
-      { label: 'Oui, partiel', value: 'Oui, environ 20-50% de notre CA est recurrent' },
-      { label: 'Non, ponctuel', value: 'Non, notre activite est principalement ponctuelle' },
-    ]
-  }
-
-  // Questions generiques sur les montants
-  if (msg.includes('montant') || msg.includes('combien') || msg.includes('quel est')) {
-    return [
-      { label: 'Petit montant', value: 'C\'est un montant relativement faible' },
-      { label: 'Moyen', value: 'C\'est un montant moyen' },
-      { label: 'Important', value: 'C\'est un montant significatif' },
-    ]
-  }
-
-  // Questions sur les projets / perspectives
-  if (msg.includes('projet') || msg.includes('perspective') || msg.includes('developpement') || msg.includes('croissance')) {
-    return [
-      { label: 'Stable', value: 'Nous visons une stabilite de l\'activite' },
-      { label: 'Croissance moderee', value: 'Nous prevoyons une croissance moderee de 5-10%' },
-      { label: 'Forte croissance', value: 'Nous avons des projets de forte croissance (>20%)' },
-      { label: 'Nouveaux marches', value: 'Nous envisageons de nouveaux marches ou produits' },
-    ]
-  }
-
-  // Confirmation pour passer les documents
-  if (msg.includes('sans documents') || msg.includes('continuer sans')) {
-    return [
-      { label: '📄 J\'ai un document', value: 'Finalement, j\'ai un document a partager' },
-      { label: '✓ Oui, continuer', value: 'Oui, je confirme vouloir continuer sans documents' },
-    ]
-  }
-
-  // Par defaut, pas de suggestions
-  return []
+  return { cleanText, suggestions }
 }
 
 // Fonction pour formater l'analyse de document en texte lisible
@@ -294,7 +177,8 @@ function formatDocumentAnalysis(doc: UploadedDocument): string {
   return parts.join('\n')
 }
 
-export default function Home() {
+function HomeContent() {
+  const searchParams = useSearchParams()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [evaluations, setEvaluations] = useState<SavedEvaluation[]>([])
@@ -305,6 +189,7 @@ export default function Home() {
   const [error, setError] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const lastProcessedSiren = useRef<string | null>(null)
 
   // State unifie
   const [phase, setPhase] = useState<ChatPhase>('siren_input')
@@ -314,36 +199,137 @@ export default function Home() {
   const [currentStep, setCurrentStep] = useState(1)
   const [uploadedDocs, setUploadedDocs] = useState<File[]>([])
   const [skipDocsAttempted, setSkipDocsAttempted] = useState(false)
+  const [suggestedReplies, setSuggestedReplies] = useState<SuggestedReply[]>([])
 
-  // Calculer les reponses suggerees basees sur le dernier message assistant
-  const suggestedReplies = useMemo(() => {
-    if (phase !== 'evaluation' || isLoading || isStreaming) return []
-    const lastAssistantMsg = [...messages].reverse().find(m => m.role === 'assistant')
-    if (!lastAssistantMsg) return []
-    return getSuggestedReplies(lastAssistantMsg.content)
-  }, [messages, phase, isLoading, isStreaming])
-
-
-  // Message d'accueil
-  const welcomeMessage: Message = {
-    id: 'welcome',
-    role: 'assistant',
-    content: `# Bienvenue sur EvalUp
-
-Je suis votre assistant expert en evaluation d'entreprises. Je vais analyser les donnees financieres, le secteur d'activite et les specificites de l'entreprise pour vous fournir une estimation precise.
-
-**Pour commencer, entrez le numero SIREN de l'entreprise a evaluer (9 chiffres).**
-
-_Le SIREN se trouve sur le Kbis, les factures ou le site societe.com_`,
-    timestamp: new Date(),
-  }
 
   // Charger les evaluations et initialiser le message d'accueil
   useEffect(() => {
     const saved = getEvaluations()
     setEvaluations(saved)
-    setMessages([welcomeMessage])
+    setMessages([createWelcomeMessage()])
   }, [])
+
+  // Detecter les changements d'URL et reinitialiser si necessaire
+  useEffect(() => {
+    const sirenParam = searchParams.get('siren')
+    const cleanSiren = sirenParam ? sirenParam.replace(/\s/g, '') : null
+
+    // Si pas de SIREN dans l'URL et qu'on avait un SIREN avant -> nouvelle evaluation
+    if (!cleanSiren && lastProcessedSiren.current) {
+      lastProcessedSiren.current = null
+      // Reset complet pour nouvelle evaluation
+      setPhase('siren_input')
+      setMessages([createWelcomeMessage()])
+      setValuationData(null)
+      setContext(null)
+      setInput('')
+      setError('')
+      setCurrentStep(1)
+      setUploadedDocs([])
+      setSkipDocsAttempted(false)
+      setSuggestedReplies([])
+      return
+    }
+
+    // Si SIREN different de celui deja traite -> charger la nouvelle entreprise
+    if (cleanSiren && /^\d{9}$/.test(cleanSiren) && cleanSiren !== lastProcessedSiren.current) {
+      lastProcessedSiren.current = cleanSiren
+      // Reset et charger le nouveau SIREN
+      setPhase('siren_input')
+      setMessages([createWelcomeMessage()])
+      setValuationData(null)
+      setContext(null)
+      setInput('')
+      setError('')
+      setCurrentStep(1)
+      setUploadedDocs([])
+      setSkipDocsAttempted(false)
+      setSuggestedReplies([])
+      // Charger apres le reset
+      loadSirenFromUrl(cleanSiren)
+    }
+
+    // Fonction pour charger automatiquement un SIREN depuis l'URL
+    async function loadSirenFromUrl(siren: string) {
+      // Verifier d'abord s'il existe un brouillon pour ce SIREN
+      const existingDraft = getDraftBySiren(siren)
+
+      if (existingDraft && existingDraft.messages.length > 1 && existingDraft.context) {
+        // Restaurer la conversation depuis le brouillon
+        setMessages(existingDraft.messages.map(m => ({
+          ...m,
+          timestamp: new Date(m.timestamp),
+        })))
+        setContext(existingDraft.context)
+        setCurrentStep(existingDraft.step || 1)
+        setPhase('evaluation')
+
+        // Charger aussi les donnees de valorisation pour la sidebar
+        try {
+          const response = await fetch(`/api/entreprise/${siren}/quick-valuation`)
+          if (response.ok) {
+            const data = await response.json()
+            setValuationData(data)
+          }
+        } catch {
+          // Pas critique si on ne peut pas charger la valorisation
+        }
+
+        return
+      }
+
+      // Pas de brouillon, charger normalement
+      // Creer le message utilisateur (le welcome est deja set par le reset au-dessus)
+      const userMessage: Message = {
+        id: crypto.randomUUID(),
+        role: 'user',
+        content: `SIREN: ${formatSiren(siren)}`,
+        timestamp: new Date(),
+      }
+      // Ajouter au message de bienvenue
+      setMessages([createWelcomeMessage(), userMessage])
+      setIsLoading(true)
+      setPhase('valuation_loading')
+
+      try {
+        // Appeler l'API de valorisation rapide
+        const response = await fetch(`/api/entreprise/${siren}/quick-valuation`)
+        const data = await response.json()
+
+        if (!response.ok) {
+          const errorMsg = data.code === 'NOT_FOUND'
+            ? 'Entreprise non trouvee. Verifiez le numero SIREN.'
+            : data.error || 'Erreur lors de la recherche'
+
+          const errorMessage: Message = {
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content: `❌ **Erreur:** ${errorMsg}\n\nVeuillez verifier le numero SIREN et reessayer.`,
+            timestamp: new Date(),
+          }
+          setMessages(prev => [...prev, errorMessage])
+          setPhase('siren_input')
+          setIsLoading(false)
+          return
+        }
+
+        // Stocker les donnees de valorisation
+        setValuationData(data)
+        setPhase('valuation_display')
+        setIsLoading(false)
+      } catch {
+        const errorMessage: Message = {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: `❌ **Erreur de connexion.** Veuillez reessayer.`,
+          timestamp: new Date(),
+        }
+        setMessages(prev => [...prev, errorMessage])
+        setPhase('siren_input')
+        setIsLoading(false)
+      }
+    }
+  }, [searchParams])
 
   // Scroll auto vers le bas
   useEffect(() => {
@@ -494,50 +480,52 @@ Ces documents permettent d'avoir une vision plus precise de la situation financi
   // Passer l'upload de documents (avec confirmation)
   const handleSkipDocuments = () => {
     if (!skipDocsAttempted) {
-      // Premier essai: insister sur l'importance des documents
+      // Premier essai: afficher la question de confirmation directement dans l'UI
       setSkipDocsAttempted(true)
-
-      const userMessage: Message = {
-        id: crypto.randomUUID(),
-        role: 'user',
-        content: 'Je prefere passer cette etape',
-        timestamp: new Date(),
-      }
-
-      const warningMessage: Message = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: `⚠️ **Attention : l'evaluation sera moins precise sans documents**
-
-Sans vos documents financiers (bilans, comptes de resultat, liasse fiscale), je devrai :
-- Poser **beaucoup plus de questions** pour collecter les informations
-- Me baser uniquement sur les donnees publiques qui peuvent etre **incompletes ou datees**
-- L'evaluation finale sera **moins fiable**
-
-📄 **Meme un simple bilan ou compte de resultat PDF** peut accelerer considerablement le processus et ameliorer la precision.
-
-**Es-tu sur(e) de vouloir continuer sans documents ?**`,
-        timestamp: new Date(),
-      }
-
-      setMessages(prev => [...prev, userMessage, warningMessage])
       return
     }
 
     // Deuxieme essai: l'utilisateur confirme, on demarre
+    confirmSkipDocuments()
+  }
+
+  // Confirmer le skip des documents et demarrer l'evaluation
+  const confirmSkipDocuments = () => {
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: 'user',
-      content: 'Oui, je n\'ai vraiment pas de documents a partager',
+      content: 'Non, je n\'ai vraiment pas de documents disponibles',
       timestamp: new Date(),
     }
     setMessages(prev => [...prev, userMessage])
-    setSkipDocsAttempted(false) // Reset pour une prochaine evaluation
-    startEvaluation()
+    setSkipDocsAttempted(false)
+    startEvaluation(undefined, true) // true = sans documents
+  }
+
+  // Revenir a l'upload de documents apres avoir voulu passer
+  const goBackToDocumentUpload = () => {
+    const userMessage: Message = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: 'D\'accord, je vais ajouter un document',
+      timestamp: new Date(),
+    }
+
+    const confirmMessage: Message = {
+      id: crypto.randomUUID(),
+      role: 'assistant',
+      content: `Super ! 👍 Tu peux glisser ton fichier dans la zone ci-dessous ou cliquer pour parcourir tes documents.
+
+*Formats acceptes : PDF, Excel, CSV, images*`,
+      timestamp: new Date(),
+    }
+
+    setMessages(prev => [...prev, userMessage, confirmMessage])
+    setSkipDocsAttempted(false)
   }
 
   // Demarrer l'evaluation (avec documents optionnels deja analyses)
-  const startEvaluation = (analyzedDocs?: UploadedDocument[]) => {
+  const startEvaluation = (analyzedDocs?: UploadedDocument[], skippedDocuments: boolean = false) => {
     if (!valuationData || !context) return
 
     // Mettre a jour le contexte avec les documents analyses
@@ -563,19 +551,26 @@ Sans vos documents financiers (bilans, comptes de resultat, liasse fiscale), je 
       docsResume = `\n\n---\n**Documents fournis et analyses:**\n\n${docsSummary}\n\n---\n\n*Je vais adapter mes questions en fonction des informations deja disponibles dans vos documents.*`
     }
 
+    // Choisir le message initial selon si l'utilisateur a saute les documents
+    const entrepriseData = {
+      nom: valuationData.entreprise.nom,
+      secteur: valuationData.entreprise.secteur,
+      dateCreation: valuationData.entreprise.dateCreation,
+      effectif: valuationData.entreprise.effectif,
+      ville: valuationData.entreprise.ville,
+      ca: caFormate,
+      dataYear,
+    }
+
+    const messageContent = skippedDocuments
+      ? MESSAGE_INITIAL_SANS_DOCUMENTS(entrepriseData)
+      : MESSAGE_INITIAL(entrepriseData) + docsResume
+
     // Message initial de l'evaluation
     const evalMessage: Message = {
       id: crypto.randomUUID(),
       role: 'assistant',
-      content: MESSAGE_INITIAL({
-        nom: valuationData.entreprise.nom,
-        secteur: valuationData.entreprise.secteur,
-        dateCreation: valuationData.entreprise.dateCreation,
-        effectif: valuationData.entreprise.effectif,
-        ville: valuationData.entreprise.ville,
-        ca: caFormate,
-        dataYear,
-      }) + docsResume,
+      content: messageContent,
       timestamp: new Date(),
     }
     setMessages(prev => [...prev, evalMessage])
@@ -731,6 +726,7 @@ Sans vos documents financiers (bilans, comptes de resultat, liasse fiscale), je 
     setMessages(prev => [...prev, userMessage])
     setInput('')
     setUploadedDocs([])
+    setSuggestedReplies([]) // Effacer les suggestions pendant le chargement
     setIsLoading(true)
 
     try {
@@ -802,7 +798,11 @@ Sans vos documents financiers (bilans, comptes de resultat, liasse fiscale), je 
 
       await readStream(
         response,
-        (text) => setStreamingContent(text),
+        (text) => {
+          // Pendant le streaming, on cache les suggestions et on nettoie le texte en temps reel
+          const { cleanText } = extractSuggestions(text.replace(/\[STEP:\d+\]/g, ''))
+          setStreamingContent(cleanText)
+        },
         (fullText) => {
           // Extraire le nouveau step si present
           const stepMatch = fullText.match(/\[STEP:(\d+)\]/)
@@ -815,8 +815,12 @@ Sans vos documents financiers (bilans, comptes de resultat, liasse fiscale), je 
             } : prev)
           }
 
-          // Nettoyer le texte
-          const cleanText = fullText.replace(/\[STEP:\d+\]/g, '').trim()
+          // Nettoyer le texte et extraire les suggestions
+          const textWithoutStep = fullText.replace(/\[STEP:\d+\]/g, '').trim()
+          const { cleanText, suggestions } = extractSuggestions(textWithoutStep)
+
+          // Mettre a jour les suggestions
+          setSuggestedReplies(suggestions)
 
           // Ajouter le message assistant
           const assistantMessage: Message = {
@@ -860,7 +864,7 @@ Sans vos documents financiers (bilans, comptes de resultat, liasse fiscale), je 
   // Nouvelle evaluation (reset)
   const handleNewEvaluation = () => {
     setPhase('siren_input')
-    setMessages([welcomeMessage])
+    setMessages([createWelcomeMessage()])
     setValuationData(null)
     setContext(null)
     setInput('')
@@ -868,6 +872,7 @@ Sans vos documents financiers (bilans, comptes de resultat, liasse fiscale), je 
     setCurrentStep(1)
     setUploadedDocs([])
     setSkipDocsAttempted(false)
+    setSuggestedReplies([])
   }
 
   // Donnees entreprise pour la sidebar
@@ -1008,13 +1013,13 @@ Sans vos documents financiers (bilans, comptes de resultat, liasse fiscale), je 
                   />
                 )}
 
-                {/* Valorisation - reste visible dans l'historique */}
-                {valuationData && (
+                {/* Valorisation - seulement pendant la phase d'affichage */}
+                {valuationData && phase === 'valuation_display' && (
                   <div className="space-y-4">
                     <InstantValuation
                       data={valuationData}
-                      onContinue={phase === 'valuation_display' ? handleContinueAfterValuation : undefined}
-                      showContinueButton={phase === 'valuation_display'}
+                      onContinue={handleContinueAfterValuation}
+                      showContinueButton={true}
                     />
                   </div>
                 )}
@@ -1024,11 +1029,59 @@ Sans vos documents financiers (bilans, comptes de resultat, liasse fiscale), je 
                   <div className="flex justify-start">
                     <div className="flex-shrink-0 mr-2 sm:mr-3 w-8" />
                     <div className="space-y-3">
-                      <InitialDocumentUpload
-                        onUpload={handleInitialDocumentUpload}
-                        onSkip={handleSkipDocuments}
-                        skipLabel={skipDocsAttempted ? 'Confirmer sans documents' : undefined}
-                      />
+                      {/* Afficher la question et les boutons apres le message d'avertissement */}
+                      {skipDocsAttempted ? (
+                        <div className="bg-white/5 rounded-2xl border border-white/10 p-6 space-y-4">
+                          {/* Question/Message d'explication */}
+                          <div className="text-white/90 space-y-3">
+                            <p className="font-medium">
+                              Je comprends, mais laisse-moi t'expliquer pourquoi les documents sont vraiment utiles 📄
+                            </p>
+                            <div className="text-sm text-white/70 space-y-2">
+                              <p><strong className="text-white/90">Avec des documents financiers</strong> (bilan, compte de resultat, liasse fiscale) :</p>
+                              <ul className="list-disc list-inside space-y-1 ml-2">
+                                <li>L'evaluation sera <strong className="text-[#c9a227]">2x plus precise</strong></li>
+                                <li>Je te poserai <strong className="text-[#c9a227]">beaucoup moins de questions</strong></li>
+                                <li>Le processus sera <strong className="text-[#c9a227]">plus rapide</strong></li>
+                              </ul>
+                            </div>
+                            <p className="text-sm text-white/70">
+                              <strong className="text-white/90">Sans documents</strong>, je devrai te poser de nombreuses questions sur les chiffres, et l'estimation finale sera basee uniquement sur les donnees publiques.
+                            </p>
+                            <p className="text-sm text-[#c9a227]">
+                              💡 Meme un simple PDF de ton dernier bilan fait une grande difference !
+                            </p>
+                          </div>
+
+                          {/* Question finale */}
+                          <p className="font-medium text-white pt-2 border-t border-white/10">
+                            As-tu peut-etre un document a portee de main ?
+                          </p>
+
+                          {/* Boutons de choix */}
+                          <div className="flex flex-wrap gap-3 pt-2">
+                            <button
+                              onClick={goBackToDocumentUpload}
+                              className="flex-1 min-w-[200px] px-4 py-3 bg-[#c9a227] text-[#1a1a2e] font-medium rounded-xl hover:bg-[#e8c547] transition-colors flex items-center justify-center gap-2"
+                            >
+                              <span>📄</span>
+                              <span>Oui, je vais ajouter un document</span>
+                            </button>
+                            <button
+                              onClick={confirmSkipDocuments}
+                              className="flex-1 min-w-[200px] px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-sm text-white/70 hover:bg-white/10 hover:text-white transition-colors flex items-center justify-center gap-2"
+                            >
+                              <span>❌</span>
+                              <span>Non, je n'ai vraiment rien</span>
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <InitialDocumentUpload
+                          onUpload={handleInitialDocumentUpload}
+                          onSkip={handleSkipDocuments}
+                        />
+                      )}
                     </div>
                   </div>
                 )}
@@ -1076,7 +1129,6 @@ Sans vos documents financiers (bilans, comptes de resultat, liasse fiscale), je 
                             }}
                             className="px-3 py-1.5 bg-[#c9a227]/20 border border-[#c9a227]/40 rounded-full text-sm text-[#c9a227] hover:bg-[#c9a227]/30 hover:border-[#c9a227]/60 transition-colors"
                           >
-                            {reply.icon && <span className="mr-1">{reply.icon}</span>}
                             {reply.label}
                           </button>
                         ))}
@@ -1182,5 +1234,18 @@ Sans vos documents financiers (bilans, comptes de resultat, liasse fiscale), je 
         </main>
       </div>
     </div>
+  )
+}
+
+// Wrapper avec Suspense pour useSearchParams
+export default function Home() {
+  return (
+    <Suspense fallback={
+      <div className="h-screen-safe flex items-center justify-center bg-[#1a1a2e]">
+        <div className="animate-spin w-8 h-8 border-2 border-[#c9a227] border-t-transparent rounded-full" />
+      </div>
+    }>
+      <HomeContent />
+    </Suspense>
   )
 }

@@ -71,7 +71,16 @@ export function Sidebar({
       >
         {/* Logo / Header */}
         <div className={`p-4 border-b border-white/10 ${isCollapsed ? 'lg:px-3' : ''}`}>
-          <Link href="/" className="flex items-center gap-2 text-white/90 hover:text-white transition-colors">
+          <Link
+            href="/"
+            onClick={() => {
+              // Fermer la sidebar sur mobile
+              if (window.innerWidth < 1024 && isOpen) {
+                onToggle()
+              }
+            }}
+            className="flex items-center gap-2 text-white/90 hover:text-white transition-colors"
+          >
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#c9a227] to-[#e8c547] flex items-center justify-center flex-shrink-0">
               <span className="text-[#1a1a2e] font-bold text-sm">E</span>
             </div>
@@ -85,6 +94,12 @@ export function Sidebar({
         <div className={`p-3 border-b border-white/10 ${isCollapsed ? 'lg:p-2' : ''}`}>
           <Link
             href="/"
+            onClick={() => {
+              // Fermer la sidebar sur mobile
+              if (window.innerWidth < 1024 && isOpen) {
+                onToggle()
+              }
+            }}
             className={`flex items-center gap-2 px-3 py-2.5 text-sm text-white/80 bg-white/5 hover:bg-white/10 rounded-lg transition-colors ${isCollapsed ? 'lg:justify-center lg:px-2' : ''}`}
             title="Nouvelle évaluation"
           >
@@ -129,7 +144,13 @@ export function Sidebar({
                   return (
                     <div key={evaluation.id} className="group relative">
                       <Link
-                        href={`/chat/${evaluation.siren}`}
+                        href={`/?siren=${evaluation.siren}`}
+                        onClick={() => {
+                          // Fermer la sidebar sur mobile
+                          if (window.innerWidth < 1024 && isOpen) {
+                            onToggle()
+                          }
+                        }}
                         className="flex items-start gap-3 px-2 py-2 rounded-lg hover:bg-white/5 transition-colors"
                       >
                         <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0 mt-0.5">

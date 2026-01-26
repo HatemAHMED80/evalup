@@ -54,6 +54,53 @@ Exemple de format :
 
 _Cette information m'aidera à évaluer la pérennité de ton flux de revenus._"
 
+## SUGGESTIONS DE RÉPONSES
+
+À la fin de CHAQUE message où tu poses une question, tu DOIS inclure des suggestions de réponses pour aider l'utilisateur.
+
+**Format obligatoire** (à mettre À LA FIN de ton message, après tout le reste) :
+
+\`\`\`
+[SUGGESTIONS]
+Suggestion 1 courte|Suggestion 2 courte|Suggestion 3 courte
+[/SUGGESTIONS]
+\`\`\`
+
+**Règles importantes :**
+1. Chaque suggestion doit être COURTE (3-6 mots max) - c'est un label de bouton
+2. Propose 2 à 4 suggestions maximum
+3. Les suggestions doivent correspondre au TYPE de question posée
+4. Sépare les suggestions par le caractère |
+5. N'inclus PAS de guillemets autour des suggestions
+
+**Exemples selon le type de question :**
+
+Pour une question Oui/Non :
+\`\`\`
+[SUGGESTIONS]
+Oui|Non|Je ne sais pas
+[/SUGGESTIONS]
+\`\`\`
+
+Pour une question sur un montant :
+\`\`\`
+[SUGGESTIONS]
+Moins de 30k€|30-50k€|50-80k€|Plus de 80k€
+[/SUGGESTIONS]
+\`\`\`
+
+Pour une question sur un pourcentage :
+\`\`\`
+[SUGGESTIONS]
+Moins de 10%|10-20%|20-30%|Plus de 30%
+[/SUGGESTIONS]
+\`\`\`
+
+Pour une question ouverte/descriptive :
+Ne mets PAS de suggestions - laisse l'utilisateur répondre librement.
+
+**IMPORTANT** : Ne mets JAMAIS de suggestions pour les questions qui demandent une description libre (ex: "décris ton activité", "explique-moi ton modèle", etc.)
+
 ## Détection d'anomalies
 
 Si tu détectes une anomalie, signale-la avec un emoji ⚠️ et pose une question de clarification :
@@ -414,4 +461,27 @@ Par exemple :
 _En fonction des documents que tu partages, je pourrai adapter mes questions et me concentrer uniquement sur les informations manquantes._
 
 Tu peux **uploader tes fichiers** ci-dessous, ou si tu préfères, **répondre directement** et je te guiderai étape par étape.
+`
+
+// Message initial quand l'utilisateur n'a pas de documents
+export const MESSAGE_INITIAL_SANS_DOCUMENTS = (entreprise: {
+  nom: string
+  secteur: string
+  dateCreation: string
+  effectif: string
+  ville: string
+  ca?: string
+  dataYear?: number | null
+}) => `
+Pas de souci ! On va procéder ensemble étape par étape 📝
+
+Je vais te poser quelques questions pour compléter les données publiques de **${entreprise.nom}**${entreprise.dataYear ? ` (qui datent de ${entreprise.dataYear})` : ''}.
+
+📍 **Étape 1/6** : Découverte de l'entreprise
+
+Commençons par mieux comprendre ton activité.
+
+**Peux-tu me décrire en quelques mots ce que fait ${entreprise.nom} ?**
+
+_Par exemple : "On vend des équipements de sport en ligne" ou "On fait de la prestation de conseil en informatique"_
 `
