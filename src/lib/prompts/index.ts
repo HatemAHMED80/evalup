@@ -141,13 +141,26 @@ export function getSystemPrompt(codeNaf: string, context: ConversationContext): 
   const secteur = detecterSecteur(codeNaf)
   const secteurPrompt = SECTEUR_PROMPTS[secteur] || SERVICES_PROMPT
 
+  // Calculer l'année de référence (dernière année complète ou année en cours)
+  const now = new Date()
+  const currentYear = now.getFullYear()
+  // Si on est après juin, on peut demander les données de l'année en cours
+  // Sinon on demande l'année précédente (car les bilans ne sont pas encore disponibles)
+  const anneeReference = now.getMonth() >= 5 ? currentYear : currentYear - 1
+
+  // Injecter l'année dans le prompt de base
+  const basePromptWithYear = BASE_SYSTEM_PROMPT.replace(/\{\{ANNEE_REFERENCE\}\}/g, String(anneeReference))
+
   // Construire le prompt complet
   return `
-${BASE_SYSTEM_PROMPT}
+${basePromptWithYear}
 
 ${secteurPrompt}
 
 ## Contexte de cette entreprise
+
+**Date du jour : ${now.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}**
+**Année de référence pour les données financières : ${anneeReference}**
 
 **Informations générales :**
 - Nom : ${context.entreprise.nom}
