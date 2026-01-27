@@ -277,7 +277,18 @@ function HomeContent() {
   // Detecter les changements d'URL et reinitialiser si necessaire
   useEffect(() => {
     const sirenParam = searchParams.get('siren')
-    const cleanSiren = sirenParam ? sirenParam.replace(/\s/g, '') : null
+    const cleanInput = sirenParam ? sirenParam.replace(/\s/g, '') : null
+
+    // Extraire le SIREN (accepte SIREN 9 chiffres ou SIRET 14 chiffres)
+    let cleanSiren: string | null = null
+    if (cleanInput) {
+      if (/^\d{9}$/.test(cleanInput)) {
+        cleanSiren = cleanInput
+      } else if (/^\d{14}$/.test(cleanInput)) {
+        // SIRET = SIREN (9) + NIC (5), extraire le SIREN
+        cleanSiren = cleanInput.slice(0, 9)
+      }
+    }
 
     // Si pas de SIREN dans l'URL et qu'on avait un SIREN avant -> nouvelle evaluation
     if (!cleanSiren && lastProcessedSiren.current) {
@@ -298,7 +309,7 @@ function HomeContent() {
     }
 
     // Si SIREN different de celui deja traite -> charger la nouvelle entreprise
-    if (cleanSiren && /^\d{9}$/.test(cleanSiren) && cleanSiren !== lastProcessedSiren.current) {
+    if (cleanSiren && cleanSiren !== lastProcessedSiren.current) {
       lastProcessedSiren.current = cleanSiren
       // Reset et charger le nouveau SIREN
       setPhase('siren_input')
@@ -418,8 +429,24 @@ function HomeContent() {
   })
 
   const formatSiren = (value: string) => {
-    const numbers = value.replace(/\D/g, '').slice(0, 9)
-    return numbers.replace(/(\d{3})(?=\d)/g, '$1 ')
+    // Accepter jusqu'a 14 chiffres (SIRET) mais n'afficher que 9 (SIREN)
+    const numbers = value.replace(/\D/g, '').slice(0, 14)
+    // Si c'est un SIRET (14 chiffres), ne formater que les 9 premiers (SIREN)
+    const sirenPart = numbers.slice(0, 9)
+    return sirenPart.replace(/(\d{3})(?=\d)/g, '$1 ')
+  }
+
+  // Extraire le SIREN d'un SIREN ou SIRET
+  const extractSiren = (value: string): string | null => {
+    const numbers = value.replace(/\D/g, '')
+    // SIREN = 9 chiffres, SIRET = 14 chiffres
+    if (numbers.length === 9) {
+      return numbers
+    } else if (numbers.length === 14) {
+      // SIRET = SIREN (9) + NIC (5), on extrait le SIREN
+      return numbers.slice(0, 9)
+    }
+    return null
   }
 
   // Soumettre le SIREN
@@ -427,9 +454,11 @@ function HomeContent() {
     e.preventDefault()
     setError('')
 
-    const cleanSiren = input.replace(/\s/g, '')
-    if (!/^\d{9}$/.test(cleanSiren)) {
-      setError('Le SIREN doit contenir 9 chiffres')
+    const cleanInput = input.replace(/\s/g, '')
+    const cleanSiren = extractSiren(cleanInput)
+
+    if (!cleanSiren) {
+      setError('Entrez un SIREN (9 chiffres) ou SIRET (14 chiffres)')
       return
     }
 
