@@ -200,6 +200,7 @@ function HomeContent() {
   const [uploadedDocs, setUploadedDocs] = useState<File[]>([])
   const [skipDocsAttempted, setSkipDocsAttempted] = useState(false)
   const [suggestedReplies, setSuggestedReplies] = useState<SuggestedReply[]>([])
+  const [selectedSuggestions, setSelectedSuggestions] = useState<Set<string>>(new Set())
 
 
   // Charger les evaluations et initialiser le message d'accueil
@@ -228,6 +229,7 @@ function HomeContent() {
       setUploadedDocs([])
       setSkipDocsAttempted(false)
       setSuggestedReplies([])
+      setSelectedSuggestions(new Set())
       return
     }
 
@@ -245,6 +247,7 @@ function HomeContent() {
       setUploadedDocs([])
       setSkipDocsAttempted(false)
       setSuggestedReplies([])
+      setSelectedSuggestions(new Set())
       // Charger apres le reset
       loadSirenFromUrl(cleanSiren)
     }
@@ -727,6 +730,7 @@ Ces documents permettent d'avoir une vision plus precise de la situation financi
     setInput('')
     setUploadedDocs([])
     setSuggestedReplies([]) // Effacer les suggestions pendant le chargement
+    setSelectedSuggestions(new Set()) // Effacer les selections
     setIsLoading(true)
 
     try {
@@ -873,6 +877,7 @@ Ces documents permettent d'avoir une vision plus precise de la situation financi
     setUploadedDocs([])
     setSkipDocsAttempted(false)
     setSuggestedReplies([])
+    setSelectedSuggestions(new Set())
   }
 
   // Donnees entreprise pour la sidebar
@@ -1112,27 +1117,45 @@ Ces documents permettent d'avoir une vision plus precise de la situation financi
                 {suggestedReplies.length > 0 && (
                   <div className="px-3 sm:px-4 pt-3 pb-1">
                     <div className="max-w-3xl mx-auto">
-                      <p className="text-xs text-white/40 mb-2">Reponses suggerees :</p>
+                      <p className="text-xs text-white/40 mb-2">Reponses suggerees (cliquez pour selectionner) :</p>
                       <div className="flex flex-wrap gap-2">
-                        {suggestedReplies.map((reply, i) => (
-                          <button
-                            key={i}
-                            type="button"
-                            onClick={() => {
-                              setInput(reply.value)
-                              // Auto-submit si c'est une reponse courte
-                              if (reply.value.length < 50) {
-                                setTimeout(() => {
-                                  sendMessage(reply.value)
-                                }, 100)
-                              }
-                            }}
-                            className="px-3 py-1.5 bg-[#c9a227]/20 border border-[#c9a227]/40 rounded-full text-sm text-[#c9a227] hover:bg-[#c9a227]/30 hover:border-[#c9a227]/60 transition-colors"
-                          >
-                            {reply.label}
-                          </button>
-                        ))}
+                        {suggestedReplies.map((reply, i) => {
+                          const isSelected = selectedSuggestions.has(reply.value)
+                          return (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => {
+                                setSelectedSuggestions(prev => {
+                                  const newSet = new Set(prev)
+                                  if (newSet.has(reply.value)) {
+                                    newSet.delete(reply.value)
+                                  } else {
+                                    newSet.add(reply.value)
+                                  }
+                                  // Mettre a jour l'input avec les selections combinees
+                                  const combined = Array.from(newSet).join(', ')
+                                  setInput(combined)
+                                  return newSet
+                                })
+                              }}
+                              className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
+                                isSelected
+                                  ? 'bg-[#c9a227] text-[#1a1a2e] border border-[#c9a227]'
+                                  : 'bg-[#c9a227]/20 border border-[#c9a227]/40 text-[#c9a227] hover:bg-[#c9a227]/30 hover:border-[#c9a227]/60'
+                              }`}
+                            >
+                              {isSelected && <span className="mr-1">✓</span>}
+                              {reply.label}
+                            </button>
+                          )
+                        })}
                       </div>
+                      {selectedSuggestions.size > 0 && (
+                        <p className="text-xs text-white/30 mt-2">
+                          {selectedSuggestions.size} selection(s) - Appuyez sur Entree pour envoyer
+                        </p>
+                      )}
                     </div>
                   </div>
                 )}
