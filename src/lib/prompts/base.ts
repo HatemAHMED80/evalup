@@ -162,6 +162,20 @@ Tu peux suggérer à l'utilisateur d'uploader des documents pertinents pour acc�
 5. Formatter tes réponses en markdown pour une meilleure lisibilité
 6. Quand des documents sont partagés, exploite-les au maximum pour éviter les questions redondantes
 
+## RÈGLE CRITIQUE : ANNÉES DE RÉFÉRENCE
+
+**IMPORTANT** : Nous sommes en 2025. Quand tu demandes des chiffres financiers :
+- Demande TOUJOURS les données de **2024** (dernière année complète) ou **2025** (année en cours)
+- N'utilise JAMAIS les années des données publiques anciennes (2022, 2023) comme référence pour tes questions
+- Les données publiques (Pappers) peuvent dater de 2022-2023, mais TU DOIS demander les chiffres ACTUELS
+
+Exemple :
+❌ "Quel était ton CA en 2022 ?"
+✅ "Quel est ton CA sur 2024 ou ton CA prévisionnel 2025 ?"
+
+❌ "Ta marge de 2022 était de..."
+✅ "Quelle est ta marge actuelle (2024) ?"
+
 ## RÈGLE CRITIQUE : TOUJOURS DONNER LA RÉFÉRENCE SECTORIELLE
 
 Quand tu commentes un indicateur financier (marge, rentabilité, ratio, etc.), tu DOIS TOUJOURS :
@@ -443,10 +457,12 @@ export const MESSAGE_INITIAL = (entreprise: {
   ville: string
   ca?: string
   dataYear?: number | null
-}) => `
-Parfait ! Tu viens de voir le rapport des données publiques de **${entreprise.nom}**.
+}) => {
+  const currentYear = new Date().getFullYear()
+  const lastCompleteYear = currentYear - 1
+  return `Parfait ! Tu viens de voir le rapport des données publiques de **${entreprise.nom}**.
 
-${entreprise.dataYear ? `Ces informations datent de **${entreprise.dataYear}**. ` : ''}Pour réaliser une évaluation précise et actualisée, j'aurais besoin de données plus récentes.
+${entreprise.dataYear ? `Ces informations datent de **${entreprise.dataYear}**. ` : ''}Pour réaliser une évaluation précise, j'aurais besoin des **données ${lastCompleteYear}** (ou ${currentYear} si disponibles).
 
 📍 **Étape 1/6** : Préparation de l'évaluation
 
@@ -462,6 +478,7 @@ _En fonction des documents que tu partages, je pourrai adapter mes questions et 
 
 Tu peux **uploader tes fichiers** ci-dessous, ou si tu préfères, **répondre directement** et je te guiderai étape par étape.
 `
+}
 
 // Message initial quand l'utilisateur n'a pas de documents
 export const MESSAGE_INITIAL_SANS_DOCUMENTS = (entreprise: {
@@ -472,10 +489,12 @@ export const MESSAGE_INITIAL_SANS_DOCUMENTS = (entreprise: {
   ville: string
   ca?: string
   dataYear?: number | null
-}) => `
-Pas de souci ! On va procéder ensemble étape par étape 📝
+}) => {
+  const currentYear = new Date().getFullYear()
+  const lastCompleteYear = currentYear - 1
+  return `Pas de souci ! On va procéder ensemble étape par étape 📝
 
-Je vais te poser quelques questions pour compléter les données publiques de **${entreprise.nom}**${entreprise.dataYear ? ` (qui datent de ${entreprise.dataYear})` : ''}.
+Je vais te poser quelques questions pour obtenir tes **données ${lastCompleteYear}/${currentYear}** et compléter les informations publiques de **${entreprise.nom}**${entreprise.dataYear ? ` (qui datent de ${entreprise.dataYear})` : ''}.
 
 📍 **Étape 1/6** : Découverte de l'entreprise
 
@@ -485,3 +504,4 @@ Commençons par mieux comprendre ton activité.
 
 _Par exemple : "On vend des équipements de sport en ligne" ou "On fait de la prestation de conseil en informatique"_
 `
+}
