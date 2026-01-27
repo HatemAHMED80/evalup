@@ -117,6 +117,70 @@ function extractSuggestions(text: string): { cleanText: string; suggestions: Sug
   return { cleanText, suggestions }
 }
 
+// Fonction pour creer un resume de la valorisation pour l'historique du chat
+function createValorisationResume(data: QuickValuationData): string {
+  const parts: string[] = []
+
+  parts.push(`## 📊 Synthese des donnees publiques - ${data.entreprise.nom}`)
+  parts.push('')
+
+  // Informations entreprise
+  parts.push(`**Entreprise:** ${data.entreprise.nom}`)
+  parts.push(`**Secteur:** ${data.entreprise.secteur}`)
+  parts.push(`**SIREN:** ${data.entreprise.siren}`)
+  parts.push('')
+
+  // Donnees financieres
+  if (data.financier) {
+    const f = data.financier
+    parts.push(`### Donnees financieres (${f.anneeDernierBilan})`)
+    parts.push('')
+    if (f.chiffreAffaires) parts.push(`- **CA:** ${f.chiffreAffaires.toLocaleString('fr-FR')} €`)
+    if (f.resultatNet) parts.push(`- **Resultat net:** ${f.resultatNet.toLocaleString('fr-FR')} €`)
+    if (f.ebitdaComptable) parts.push(`- **EBITDA:** ${f.ebitdaComptable.toLocaleString('fr-FR')} €`)
+    if (f.tresorerie) parts.push(`- **Tresorerie:** ${f.tresorerie.toLocaleString('fr-FR')} €`)
+    if (f.dettes) parts.push(`- **Dettes:** ${f.dettes.toLocaleString('fr-FR')} €`)
+    parts.push('')
+  }
+
+  // Valorisation estimee
+  if (data.valorisation) {
+    const v = data.valorisation
+    parts.push(`### Estimation de valorisation`)
+    parts.push('')
+    parts.push(`| | Basse | Moyenne | Haute |`)
+    parts.push(`|--|-------|---------|-------|`)
+    parts.push(`| **Valeur Entreprise** | ${v.valeurEntreprise.basse.toLocaleString('fr-FR')} € | ${v.valeurEntreprise.moyenne.toLocaleString('fr-FR')} € | ${v.valeurEntreprise.haute.toLocaleString('fr-FR')} € |`)
+    parts.push(`| **Prix de Cession** | ${v.prixCession.basse.toLocaleString('fr-FR')} € | ${v.prixCession.moyenne.toLocaleString('fr-FR')} € | ${v.prixCession.haute.toLocaleString('fr-FR')} € |`)
+    parts.push('')
+  }
+
+  // Diagnostic
+  if (data.diagnostic) {
+    const d = data.diagnostic
+    parts.push(`### Diagnostic: Note ${d.noteGlobale} (${d.score}/100)`)
+    parts.push('')
+    if (d.pointsForts.length > 0) {
+      parts.push(`**Points forts:** ${d.pointsForts.slice(0, 3).join(', ')}`)
+    }
+    if (d.pointsVigilance.length > 0) {
+      parts.push(`**Points de vigilance:** ${d.pointsVigilance.slice(0, 3).join(', ')}`)
+    }
+    parts.push('')
+  }
+
+  // Avertissement
+  if (data.avertissement) {
+    parts.push(`> ⚠️ ${data.avertissement}`)
+    parts.push('')
+  }
+
+  parts.push(`---`)
+  parts.push(`_Ces donnees proviennent des sources publiques et seront affinees avec vos informations._`)
+
+  return parts.join('\n')
+}
+
 // Fonction pour formater l'analyse de document en texte lisible
 function formatDocumentAnalysis(doc: UploadedDocument): string {
   const analysis = doc.analysis
@@ -427,14 +491,25 @@ function HomeContent() {
   const handleContinueAfterValuation = async () => {
     if (!valuationData) return
 
+    // Creer un resume de la valorisation pour l'historique du chat
+    const valorisationResume = createValorisationResume(valuationData)
+
+    // Ajouter le resume comme message assistant avant le message utilisateur
+    const resumeMessage: Message = {
+      id: crypto.randomUUID(),
+      role: 'assistant',
+      content: valorisationResume,
+      timestamp: new Date(),
+    }
+
     // Ajouter message utilisateur
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: 'user',
-      content: 'Continuer l\'evaluation',
+      content: 'Affiner l\'evaluation',
       timestamp: new Date(),
     }
-    setMessages(prev => [...prev, userMessage])
+    setMessages(prev => [...prev, resumeMessage, userMessage])
     setIsLoading(true)
 
     try {
