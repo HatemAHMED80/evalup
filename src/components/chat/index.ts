@@ -1,17 +1,10 @@
-// V1 components (functional)
 export { ChatInterface } from './ChatInterface'
 export { ChatLayout } from './ChatLayout'
 export { MessageBubble } from './MessageBubble'
 export { DocumentUpload } from './DocumentUpload'
-export { ProgressTracker } from './ProgressTracker'
 export { Sidebar } from './Sidebar'
 export { DownloadReport } from './DownloadReport'
-export { PappersReport } from './PappersReport'
-export { InstantValuation } from './InstantValuation'
 export { FlashValuationDisplay } from './FlashValuationDisplay'
-export { InitialDocumentUpload } from './InitialDocumentUpload'
-
-// V2 components (new design)
 export { MessageAI } from './MessageAI'
 export { MessageUser } from './MessageUser'
 export { QuickReplies, QUICK_REPLIES } from './QuickReplies'
