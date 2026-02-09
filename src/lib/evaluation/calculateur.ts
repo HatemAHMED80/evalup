@@ -6,6 +6,37 @@ import type {
 } from './types'
 import { detecterSecteurEvaluation, DEFAULT } from './secteurs'
 
+// ============================================================
+// CONSTANTES DE VALORISATION
+// ============================================================
+
+/** Taux de rémunération des capitaux propres (rendement sans risque + prime) */
+const TAUX_REMUNERATION_CAPITAUX = 0.05
+
+/** Taux de capitalisation par défaut pour la méthode du Goodwill */
+const TAUX_CAPITALISATION_GOODWILL = 0.15
+
+/** Taux de capitalisation pour la méthode des praticiens */
+const TAUX_CAPITALISATION_PRATICIENS = 0.10
+
+/** Taux d'actualisation par défaut pour le DCF */
+const TAUX_ACTUALISATION_DCF = 0.12
+
+/** Taux de croissance long terme pour la valeur terminale (DCF) */
+const TAUX_CROISSANCE_LONG_TERME = 0.02
+
+/** Ratio FCF/EBITDA approximatif pour le DCF simplifié */
+const RATIO_FCF_EBITDA = 0.7
+
+/** Nombre d'années de projection pour le DCF */
+const ANNEES_PROJECTION_DCF = 5
+
+/** Valeur plancher minimale du fonds de commerce (euros) */
+const FONDS_COMMERCE_MINIMUM = 5000
+
+/** Pourcentage du CA utilisé comme valorisation plancher */
+const POURCENTAGE_CA_PLANCHER = 0.15
+
 /**
  * Calcule la valeur par la méthode des multiples de CA
  */
@@ -90,10 +121,10 @@ function calculerActifNetCorrige(
  */
 function calculerGoodwill(
   donnees: DonneesFinancieres,
-  tauxCapitalisation: number = 0.15
+  tauxCapitalisation: number = TAUX_CAPITALISATION_GOODWILL
 ): { basse: number; moyenne: number; haute: number; explication: string } {
   // Goodwill = (Résultat net - Rémunération capitaux) / Taux capitalisation
-  const remunerationCapitaux = donnees.capitauxPropres * 0.05 // 5% de rémunération
+  const remunerationCapitaux = donnees.capitauxPropres * TAUX_REMUNERATION_CAPITAUX
   const superProfit = Math.max(0, donnees.resultatNet - remunerationCapitaux)
   const goodwill = superProfit / tauxCapitalisation
   const anc = donnees.capitauxPropres
@@ -115,11 +146,11 @@ function calculerGoodwill(
  */
 function calculerDCF(
   donnees: DonneesFinancieres,
-  tauxActualisation: number = 0.12,
-  anneesProjection: number = 5
+  tauxActualisation: number = TAUX_ACTUALISATION_DCF,
+  anneesProjection: number = ANNEES_PROJECTION_DCF
 ): { basse: number; moyenne: number; haute: number; explication: string } {
-  const croissance = donnees.croissance || 0.02 // 2% par défaut
-  const fluxBase = donnees.ebitda * 0.7 // Approximation du FCF
+  const croissance = donnees.croissance || TAUX_CROISSANCE_LONG_TERME
+  const fluxBase = donnees.ebitda * RATIO_FCF_EBITDA
 
   let sommeFlux = 0
   for (let i = 1; i <= anneesProjection; i++) {
@@ -130,7 +161,7 @@ function calculerDCF(
   // Valeur terminale
   const fluxTerminal = fluxBase * Math.pow(1 + croissance, anneesProjection + 1)
   const valeurTerminale =
-    fluxTerminal / (tauxActualisation - 0.02) / Math.pow(1 + tauxActualisation, anneesProjection)
+    fluxTerminal / (tauxActualisation - TAUX_CROISSANCE_LONG_TERME) / Math.pow(1 + tauxActualisation, anneesProjection)
 
   const moyenne = sommeFlux + valeurTerminale
   const basse = moyenne * 0.8
@@ -173,7 +204,7 @@ function calculerPraticiens(
   const valeurPatrimoniale = Math.max(0, donnees.capitauxPropres + donnees.tresorerie - donnees.dettes)
 
   // Valeur de rentabilité (capitalisation du résultat)
-  const tauxCapitalisation = 0.10 // 10%
+  const tauxCapitalisation = TAUX_CAPITALISATION_PRATICIENS
   const valeurRentabilite = Math.max(0, donnees.resultatNet / tauxCapitalisation)
 
   // Moyenne des deux
@@ -403,15 +434,15 @@ function calculerValorisationPlancher(
   }
 
   // 3. Fonds de commerce minimum (même sans CA, le nom et la structure ont une valeur)
-  const fondsCommerceMinimum = 5000 // 5000€ minimum pour le fonds
+  const fondsCommerceMinimum = FONDS_COMMERCE_MINIMUM
   if (valeurPlancher < fondsCommerceMinimum) {
     valeurPlancher = fondsCommerceMinimum
     elements.push(`Fonds de commerce minimum: ${formatEuro(fondsCommerceMinimum)}`)
   }
 
-  // 4. Si CA disponible mais EBITDA négatif, on valorise quand même à 10-20% du CA
+  // 4. Si CA disponible mais EBITDA négatif, on valorise quand même à un % du CA
   if (donnees.ca > 0 && donnees.ebitda <= 0) {
-    const valeurCA = donnees.ca * 0.15
+    const valeurCA = donnees.ca * POURCENTAGE_CA_PLANCHER
     if (valeurCA > valeurPlancher) {
       valeurPlancher = valeurCA
       elements.push(`Valorisation minimale (15% CA): ${formatEuro(valeurCA)}`)

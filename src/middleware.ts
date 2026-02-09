@@ -5,35 +5,32 @@ import { updateSession } from '@/lib/supabase/middleware'
 // Origines autorisées pour CORS
 const ALLOWED_ORIGINS = [
   process.env.NEXT_PUBLIC_APP_URL,
-  'http://localhost:3000',
+  ...(process.env.NODE_ENV === 'development' ? ['http://localhost:3000'] : []),
 ].filter(Boolean) as string[]
 
 // Headers de sécurité
 const securityHeaders: Record<string, string> = {
-  // Empêche le clickjacking
   'X-Frame-Options': 'DENY',
-  // Empêche le sniffing MIME
   'X-Content-Type-Options': 'nosniff',
-  // Protection XSS (navigateurs anciens)
   'X-XSS-Protection': '1; mode=block',
-  // Politique de référent
   'Referrer-Policy': 'strict-origin-when-cross-origin',
-  // Permissions policy
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-  // Content Security Policy
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  // CSP : unsafe-inline requis pour Stripe et les styles Tailwind en mode dev
+  // En production, idéalement utiliser des nonces
   'Content-Security-Policy': [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline' https://js.stripe.com",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https: blob:",
     "font-src 'self'",
-    `connect-src 'self' https://api.anthropic.com https://*.supabase.co https://api.stripe.com wss://*.supabase.co`,
+    `connect-src 'self' https://api.anthropic.com https://*.supabase.co https://api.stripe.com https://api.pappers.fr wss://*.supabase.co`,
     "frame-src https://js.stripe.com https://hooks.stripe.com",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
+    "upgrade-insecure-requests",
   ].join('; '),
-  // HSTS
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
 }
 

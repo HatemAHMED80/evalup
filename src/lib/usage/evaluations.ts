@@ -204,33 +204,34 @@ export async function checkEvaluationAccess(
 }
 
 /**
- * Incremente le compteur de questions
+ * Incremente le compteur de questions (atomique via RPC)
  */
 export async function incrementQuestionCount(evaluationId: string): Promise<number> {
   const supabase = getSupabaseAdmin()
 
   const { data, error } = await supabase
-    .from('evaluations')
-    .update({ questions_count: supabase.rpc('', {}) }) // TODO: use proper increment
-    .eq('id', evaluationId)
-    .select('questions_count')
-    .single()
+    .rpc('increment_question_count', { p_evaluation_id: evaluationId })
 
-  // Fallback: faire un select puis update
-  const { data: current } = await supabase
-    .from('evaluations')
-    .select('questions_count')
-    .eq('id', evaluationId)
-    .single()
+  if (error) {
+    console.error('[Evaluations] Erreur increment_question_count RPC:', error)
+    // Fallback non-atomique si la fonction RPC n'existe pas encore
+    const { data: current } = await supabase
+      .from('evaluations')
+      .select('questions_count')
+      .eq('id', evaluationId)
+      .single()
 
-  const newCount = (current?.questions_count || 0) + 1
+    const newCount = (current?.questions_count || 0) + 1
 
-  await supabase
-    .from('evaluations')
-    .update({ questions_count: newCount })
-    .eq('id', evaluationId)
+    await supabase
+      .from('evaluations')
+      .update({ questions_count: newCount })
+      .eq('id', evaluationId)
 
-  return newCount
+    return newCount
+  }
+
+  return (data as number) || 0
 }
 
 /**
@@ -349,25 +350,34 @@ export async function completeEvaluation(
 }
 
 /**
- * Incremente le compteur de documents
+ * Incremente le compteur de documents (atomique via RPC)
  */
 export async function incrementDocumentCount(evaluationId: string): Promise<number> {
   const supabase = getSupabaseAdmin()
 
-  const { data: current } = await supabase
-    .from('evaluations')
-    .select('documents_count')
-    .eq('id', evaluationId)
-    .single()
+  const { data, error } = await supabase
+    .rpc('increment_document_count', { p_evaluation_id: evaluationId })
 
-  const newCount = (current?.documents_count || 0) + 1
+  if (error) {
+    console.error('[Evaluations] Erreur increment_document_count RPC:', error)
+    // Fallback non-atomique si la fonction RPC n'existe pas encore
+    const { data: current } = await supabase
+      .from('evaluations')
+      .select('documents_count')
+      .eq('id', evaluationId)
+      .single()
 
-  await supabase
-    .from('evaluations')
-    .update({ documents_count: newCount })
-    .eq('id', evaluationId)
+    const newCount = (current?.documents_count || 0) + 1
 
-  return newCount
+    await supabase
+      .from('evaluations')
+      .update({ documents_count: newCount })
+      .eq('id', evaluationId)
+
+    return newCount
+  }
+
+  return (data as number) || 0
 }
 
 // ============================================

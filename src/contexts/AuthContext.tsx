@@ -39,20 +39,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Fonction pour charger l'abonnement
   const loadSubscription = useCallback(async (userId: string) => {
-    try {
-      const { data } = await (supabase
-        .from('subscriptions') as any)
-        .select('*')
-        .eq('user_id', userId)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single() as { data: Subscription | null }
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
 
-      setSubscription(data)
-    } catch {
-      // Pas d'abonnement actif
+    if (error || !data) {
       setSubscription(null)
+    } else {
+      setSubscription(data as Subscription)
     }
   }, [])
 

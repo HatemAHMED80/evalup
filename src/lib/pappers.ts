@@ -2,6 +2,7 @@
 // Documentation API : https://api.pappers.fr/documentation
 
 import { nafToSecteur } from './naf-mapping'
+import { isValidSiren } from './security/validation'
 
 // ============================================================
 // TYPES POUR L'API PAPPERS
@@ -215,6 +216,78 @@ export class PappersError extends Error {
 }
 
 // ============================================================
+// RETRY AVEC BACKOFF EXPONENTIEL
+// ============================================================
+
+const MAX_RETRIES = 2
+const RETRYABLE_STATUS_CODES = [429, 500, 502, 503, 504]
+
+async function fetchWithRetry<T>(
+  url: string,
+  transform: (data: EntreprisePappers) => T,
+  retries = MAX_RETRIES
+): Promise<T> {
+  let lastError: PappersError | null = null
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(url)
+
+      if (!response.ok) {
+        const errorMessages: Record<number, { message: string; code: string }> = {
+          400: { message: 'Requête invalide', code: 'BAD_REQUEST' },
+          401: { message: 'Clé API invalide', code: 'INVALID_API_KEY' },
+          404: { message: 'Entreprise non trouvée', code: 'NOT_FOUND' },
+          429: { message: 'Limite de requêtes atteinte. Réessayez plus tard.', code: 'RATE_LIMIT' },
+          500: { message: 'Erreur serveur Pappers', code: 'SERVER_ERROR' },
+        }
+
+        const error = errorMessages[response.status] || {
+          message: `Erreur API Pappers: ${response.status}`,
+          code: 'UNKNOWN_ERROR',
+        }
+
+        lastError = new PappersError(error.message, response.status, error.code)
+
+        // Ne retenter que pour les erreurs transitoires
+        if (RETRYABLE_STATUS_CODES.includes(response.status) && attempt < retries) {
+          const delay = Math.pow(2, attempt) * 500 // 500ms, 1s, 2s
+          await new Promise(resolve => setTimeout(resolve, delay))
+          continue
+        }
+
+        throw lastError
+      }
+
+      const data: EntreprisePappers = await response.json()
+      return transform(data)
+    } catch (error) {
+      if (error instanceof PappersError) {
+        // Erreurs non-retryables (400, 401, 404) : lancer immédiatement
+        if (!RETRYABLE_STATUS_CODES.includes(error.statusCode || 0)) {
+          throw error
+        }
+        lastError = error
+      } else {
+        // Erreur réseau : retenter
+        lastError = new PappersError(
+          `Erreur de connexion à l'API Pappers: ${error}`,
+          500,
+          'CONNECTION_ERROR'
+        )
+      }
+
+      if (attempt < retries) {
+        const delay = Math.pow(2, attempt) * 500
+        await new Promise(resolve => setTimeout(resolve, delay))
+      }
+    }
+  }
+
+  throw lastError || new PappersError('Erreur inconnue après tentatives', 500, 'UNKNOWN_ERROR')
+}
+
+// ============================================================
 // FONCTIONS PRINCIPALES
 // ============================================================
 
@@ -237,8 +310,11 @@ export async function rechercherEntreprise(sirenOuSiret: string): Promise<Donnee
   // Nettoyer le numéro
   const numero = sirenOuSiret.replace(/[\s-]/g, '')
 
-  // Valider le format
-  if (!/^\d{9}$/.test(numero) && !/^\d{14}$/.test(numero)) {
+  // Valider le format (SIREN 9 chiffres ou SIRET 14 chiffres)
+  const isSiren = numero.length === 9
+  const isSiret = numero.length === 14
+
+  if (!isSiren && !isSiret) {
     throw new PappersError(
       'Format invalide. Entrez un SIREN (9 chiffres) ou SIRET (14 chiffres)',
       400,
@@ -246,7 +322,15 @@ export async function rechercherEntreprise(sirenOuSiret: string): Promise<Donnee
     )
   }
 
-  const isSiren = numero.length === 9
+  // Validation Luhn pour SIREN
+  const sirenPart = isSiren ? numero : numero.substring(0, 9)
+  if (!isValidSiren(sirenPart)) {
+    throw new PappersError(
+      'Numéro SIREN invalide (échec vérification Luhn)',
+      400,
+      'INVALID_SIREN'
+    )
+  }
   const baseUrl = 'https://api.pappers.fr/v2/entreprise'
 
   const params = new URLSearchParams({
@@ -254,32 +338,8 @@ export async function rechercherEntreprise(sirenOuSiret: string): Promise<Donnee
     [isSiren ? 'siren' : 'siret']: numero,
   })
 
-  try {
-    const response = await fetch(`${baseUrl}?${params}`)
-
-    if (!response.ok) {
-      const errorMessages: Record<number, { message: string; code: string }> = {
-        400: { message: 'Requête invalide', code: 'BAD_REQUEST' },
-        401: { message: 'Clé API invalide', code: 'INVALID_API_KEY' },
-        404: { message: 'Entreprise non trouvée', code: 'NOT_FOUND' },
-        429: { message: 'Limite de requêtes atteinte. Réessayez plus tard.', code: 'RATE_LIMIT' },
-        500: { message: 'Erreur serveur Pappers', code: 'SERVER_ERROR' },
-      }
-
-      const error = errorMessages[response.status] || {
-        message: `Erreur API Pappers: ${response.status}`,
-        code: 'UNKNOWN_ERROR',
-      }
-
-      throw new PappersError(error.message, response.status, error.code)
-    }
-
-    const data: EntreprisePappers = await response.json()
-    return normaliserDonnees(data)
-  } catch (error) {
-    if (error instanceof PappersError) throw error
-    throw new PappersError(`Erreur de connexion à l'API Pappers: ${error}`, 500, 'CONNECTION_ERROR')
-  }
+  const url = `${baseUrl}?${params}`
+  return fetchWithRetry(url, normaliserDonnees)
 }
 
 // Récupère uniquement les bilans d'une entreprise (pour rafraîchir les données)
@@ -296,19 +356,8 @@ export async function rechercherBilans(siren: string): Promise<BilanNormalise[]>
     siren: siren.replace(/[\s-]/g, ''),
   })
 
-  try {
-    const response = await fetch(`${baseUrl}?${params}`)
-
-    if (!response.ok) {
-      throw new PappersError(`Erreur API: ${response.status}`, response.status)
-    }
-
-    const data: EntreprisePappers = await response.json()
-    return normaliserBilans(data.finances, data.bilans)
-  } catch (error) {
-    if (error instanceof PappersError) throw error
-    throw new PappersError(`Erreur: ${error}`, 500)
-  }
+  const url = `${baseUrl}?${params}`
+  return fetchWithRetry(url, (data) => normaliserBilans(data.finances, data.bilans))
 }
 
 // ============================================================

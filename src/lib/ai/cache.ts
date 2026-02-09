@@ -317,12 +317,13 @@ export function invalidateOnDocumentUpload(siren: string): number {
 }
 
 /**
- * Nettoie les entrées expirées du cache
+ * Nettoie les entrées expirées du cache avec éviction LRU
  */
 export function cleanupCache(): void {
   const now = Date.now()
   let removed = 0
 
+  // 1. Supprimer les entrées expirées
   for (const [key, entry] of memoryCache.entries()) {
     if (now > entry.expiresAt) {
       memoryCache.delete(key)
@@ -330,10 +331,15 @@ export function cleanupCache(): void {
     }
   }
 
-  // Si toujours trop d'entrées, supprimer les plus anciennes
+  // 2. Éviction LRU si toujours au-dessus de la limite
   if (memoryCache.size > DEFAULT_CONFIG.maxEntries) {
     const entries = Array.from(memoryCache.entries())
-      .sort((a, b) => a[1].createdAt - b[1].createdAt)
+      .sort((a, b) => {
+        // Score LRU : dernière activité estimée via creation + hits
+        const scoreA = a[1].createdAt + (a[1].hitCount * 60000)
+        const scoreB = b[1].createdAt + (b[1].hitCount * 60000)
+        return scoreA - scoreB
+      })
 
     const toRemove = entries.slice(0, memoryCache.size - DEFAULT_CONFIG.maxEntries)
     for (const [key] of toRemove) {
@@ -343,7 +349,7 @@ export function cleanupCache(): void {
   }
 
   if (removed > 0) {
-    console.log(`[Cache] Nettoyé ${removed} entrées`)
+    console.log(`[Cache] Nettoyé ${removed} entrées (restant: ${memoryCache.size})`)
   }
 }
 

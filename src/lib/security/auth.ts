@@ -63,12 +63,13 @@ export async function optionalAuth(): Promise<User | null> {
 
 /**
  * Vérifie si un utilisateur est admin
- * Pour l'instant, vérifie si l'email est dans la liste des admins
+ * Les emails admin sont configurés via ADMIN_EMAILS (séparés par des virgules)
  */
-const ADMIN_EMAILS = [
-  'hatem@posse.fr',
-  'admin@evalup.fr',
-]
+function getAdminEmails(): string[] {
+  const envEmails = process.env.ADMIN_EMAILS
+  if (!envEmails) return []
+  return envEmails.split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
+}
 
 export async function requireAdmin(): Promise<AuthResult> {
   const authResult = await requireAuth()
@@ -77,7 +78,10 @@ export async function requireAdmin(): Promise<AuthResult> {
     return authResult
   }
 
-  if (!authResult.user.email || !ADMIN_EMAILS.includes(authResult.user.email)) {
+  const adminEmails = getAdminEmails()
+  const userEmail = authResult.user.email?.toLowerCase()
+
+  if (!userEmail || !adminEmails.includes(userEmail)) {
     return {
       authenticated: false,
       error: NextResponse.json(

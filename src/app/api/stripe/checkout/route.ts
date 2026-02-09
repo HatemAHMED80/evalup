@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { stripe } from '@/lib/stripe/client'
 import { PLANS } from '@/lib/stripe/plans'
 import { createPurchase } from '@/lib/usage'
 import { checkoutBodySchema } from '@/lib/security/schemas'
+
+// Client admin pour les opérations sur profiles (bypass RLS)
+function getAdminClient() {
+  return createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,17 +58,19 @@ export async function POST(request: NextRequest) {
     // Recuperer ou creer le profil avec stripe_customer_id
     let customerId: string | null = null
 
-    try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('stripe_customer_id')
-        .eq('id', user.id)
-        .single() as { data: { stripe_customer_id: string | null } | null }
+    // Utiliser le client admin pour les opérations sur profiles (bypass RLS)
+    const adminClient = getAdminClient()
 
+    const { data: profile, error: profileError } = await adminClient
+      .from('profiles')
+      .select('stripe_customer_id')
+      .eq('id', user.id)
+      .single()
+
+    if (profileError) {
+      console.warn('[Checkout] Profil non trouvé:', profileError.message)
+    } else {
       customerId = profile?.stripe_customer_id || null
-    } catch {
-      // Table profiles peut ne pas exister
-      console.log('Profil non trouvé, création customer Stripe')
     }
 
     // Creer un customer Stripe si necessaire
@@ -72,14 +83,14 @@ export async function POST(request: NextRequest) {
       })
       customerId = customer.id
 
-      // Sauvegarder le customer_id dans le profil (optionnel)
-      try {
-        await (supabase
-          .from('profiles') as any)
-          .update({ stripe_customer_id: customerId })
-          .eq('id', user.id)
-      } catch {
-        console.log('Impossible de sauvegarder stripe_customer_id (non-bloquant)')
+      // Sauvegarder le customer_id dans le profil
+      const { error: updateError } = await adminClient
+        .from('profiles')
+        .update({ stripe_customer_id: customerId })
+        .eq('id', user.id)
+
+      if (updateError) {
+        console.warn('[Checkout] Impossible de sauvegarder stripe_customer_id:', updateError.message)
       }
     }
 

@@ -144,7 +144,9 @@ async function handleSubscriptionChange(subscription: Stripe.Subscription) {
   const planId = subscription.metadata.plan_id || 'pro_monthly'
 
   // Upsert la subscription dans Supabase
-  const periodEnd = (subscription as any).current_period_end
+  // En Stripe SDK v20, current_period_end est sur les items, pas sur la subscription
+  const firstItem = subscription.items?.data?.[0]
+  const periodEnd = firstItem?.current_period_end
   const { error } = await getSupabaseAdmin()
     .from('subscriptions')
     .upsert({

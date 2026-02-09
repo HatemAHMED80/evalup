@@ -22,6 +22,9 @@ type RateLimitKey = keyof typeof RATE_LIMITS
 
 // Rate-limiter en mémoire (fallback quand Redis n'est pas disponible)
 const inMemoryStore = new Map<string, number[]>()
+const MAX_STORE_ENTRIES = 1000
+let lastCleanup = 0
+const CLEANUP_INTERVAL = 60 // seconds
 
 function checkInMemoryRateLimit(
   identifier: string,
@@ -31,6 +34,25 @@ function checkInMemoryRateLimit(
   const key = `${action}:${identifier}`
   const now = Math.floor(Date.now() / 1000)
   const windowStart = now - config.window
+
+  // Nettoyage périodique proactif (toutes les 60s, pas quand c'est trop tard)
+  if (now - lastCleanup > CLEANUP_INTERVAL) {
+    lastCleanup = now
+    for (const [k, v] of inMemoryStore.entries()) {
+      const filtered = v.filter(t => t > now - 3600)
+      if (filtered.length === 0) inMemoryStore.delete(k)
+      else inMemoryStore.set(k, filtered)
+    }
+
+    // Éviction forcée si toujours trop d'entrées
+    if (inMemoryStore.size > MAX_STORE_ENTRIES) {
+      const keys = Array.from(inMemoryStore.keys())
+      const toRemove = keys.slice(0, inMemoryStore.size - MAX_STORE_ENTRIES)
+      for (const k of toRemove) {
+        inMemoryStore.delete(k)
+      }
+    }
+  }
 
   // Récupérer et filtrer les timestamps dans la fenêtre
   const timestamps = (inMemoryStore.get(key) || []).filter(t => t > windowStart)
@@ -47,15 +69,6 @@ function checkInMemoryRateLimit(
 
   timestamps.push(now)
   inMemoryStore.set(key, timestamps)
-
-  // Nettoyage périodique (éviter fuite mémoire) : supprimer les clés anciennes toutes les 1000 entrées
-  if (inMemoryStore.size > 10000) {
-    for (const [k, v] of inMemoryStore.entries()) {
-      const filtered = v.filter(t => t > now - 3600)
-      if (filtered.length === 0) inMemoryStore.delete(k)
-      else inMemoryStore.set(k, filtered)
-    }
-  }
 
   return {
     success: true,
