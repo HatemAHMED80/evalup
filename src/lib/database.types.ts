@@ -299,6 +299,113 @@ export interface Database {
           updated_at?: string
         }
       }
+      profiles: {
+        Row: {
+          id: string
+          email: string | null
+          full_name: string | null
+          company_name: string | null
+          stripe_customer_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          email?: string | null
+          full_name?: string | null
+          company_name?: string | null
+          stripe_customer_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          email?: string | null
+          full_name?: string | null
+          company_name?: string | null
+          stripe_customer_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      subscriptions: {
+        Row: {
+          id: string
+          user_id: string
+          status: string
+          plan_id: string
+          current_period_end: string | null
+          cancel_at_period_end: boolean
+          created_at: string
+        }
+        Insert: {
+          id: string
+          user_id: string
+          status: string
+          plan_id: string
+          current_period_end?: string | null
+          cancel_at_period_end?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          status?: string
+          plan_id?: string
+          current_period_end?: string | null
+          cancel_at_period_end?: boolean
+          created_at?: string
+        }
+      }
+      usage: {
+        Row: {
+          id: string
+          user_id: string
+          date: string
+          tokens_used: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          date: string
+          tokens_used?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          date?: string
+          tokens_used?: number
+          created_at?: string
+        }
+      }
+      invoices: {
+        Row: {
+          id: string
+          user_id: string
+          amount_paid: number | null
+          invoice_url: string | null
+          invoice_pdf: string | null
+          created_at: string
+        }
+        Insert: {
+          id: string
+          user_id: string
+          amount_paid?: number | null
+          invoice_url?: string | null
+          invoice_pdf?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          amount_paid?: number | null
+          invoice_url?: string | null
+          invoice_pdf?: string | null
+          created_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -328,6 +435,22 @@ export type CriteresRechercheUpdate = Database['public']['Tables']['criteres_rec
 export type Matching = Database['public']['Tables']['matchings']['Row']
 export type MatchingInsert = Database['public']['Tables']['matchings']['Insert']
 export type MatchingUpdate = Database['public']['Tables']['matchings']['Update']
+
+export type Profile = Database['public']['Tables']['profiles']['Row']
+export type ProfileInsert = Database['public']['Tables']['profiles']['Insert']
+export type ProfileUpdate = Database['public']['Tables']['profiles']['Update']
+
+export type Subscription = Database['public']['Tables']['subscriptions']['Row']
+export type SubscriptionInsert = Database['public']['Tables']['subscriptions']['Insert']
+export type SubscriptionUpdate = Database['public']['Tables']['subscriptions']['Update']
+
+export type Usage = Database['public']['Tables']['usage']['Row']
+export type UsageInsert = Database['public']['Tables']['usage']['Insert']
+export type UsageUpdate = Database['public']['Tables']['usage']['Update']
+
+export type Invoice = Database['public']['Tables']['invoices']['Row']
+export type InvoiceInsert = Database['public']['Tables']['invoices']['Insert']
+export type InvoiceUpdate = Database['public']['Tables']['invoices']['Update']
 
 // Types pour le scoring
 export type ScoreGrade = 'A' | 'B' | 'C' | 'D' | 'E'

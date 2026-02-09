@@ -6,30 +6,46 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "tsx tests/run-tests.ts chat payment",
+    "test:chat": "tsx tests/run-tests.ts chat",
+    "test:payment": "tsx tests/run-tests.ts payment",
+    "test:full-flow": "tsx tests/run-tests.ts full-flow",
+    "test:all": "tsx tests/run-tests.ts",
+    "test:visible": "TEST_HEADLESS=false tsx tests/run-tests.ts",
+    "test:slow": "TEST_HEADLESS=false TEST_SLOW_MO=100 tsx tests/run-tests.ts",
+    "test:report": "tsx tests/utils/pdf-report.tsx"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
     "@react-pdf/renderer": "^4.3.2",
+    "@stripe/stripe-js": "^8.6.4",
+    "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.91.1",
     "@upstash/redis": "^1.36.1",
+    "canvas": "^3.2.1",
     "next": "16.1.4",
     "pdf-parse": "^2.4.5",
+    "pdfjs-dist": "^5.4.530",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-markdown": "^10.1.0",
-    "xlsx": "^0.18.5"
+    "stripe": "^20.2.0",
+    "xlsx": "^0.18.5",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^20.19.30",
     "@types/pdf-parse": "^1.1.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "babel-plugin-react-compiler": "^1.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.4",
+    "puppeteer": "^24.36.1",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }

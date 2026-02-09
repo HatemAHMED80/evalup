@@ -39,3 +39,19 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# backups & old versions
+/src-backup/
+/v2/
+
+# test/dev scripts
+/scripts/
+generate-pdf-sofia.ts
+
+# test artifacts
+tests/logs/
+tests/screenshots/
+tests/reports/
+
+# claude code settings (local)
+.claude/settings.local.json
