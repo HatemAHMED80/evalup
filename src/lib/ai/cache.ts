@@ -126,28 +126,17 @@ export function determineContentType(
 }
 
 /**
- * Génère un hash fort (compatible Vercel Edge)
- * Utilise un algorithme de hash plus robuste que le simple bitwise
+ * Génère un hash cryptographique SHA-256 (compatible Node.js runtime)
  */
 function generateStrongHash(content: string): string {
-  // djb2 hash - meilleur que le simple bitwise, pas de collision crypto
-  let hash1 = 5381
-  let hash2 = 52711
-
-  for (let i = 0; i < content.length; i++) {
-    const char = content.charCodeAt(i)
-    hash1 = ((hash1 << 5) + hash1) ^ char
-    hash2 = ((hash2 << 5) + hash2) ^ char
-  }
-
-  // Combiner les deux hash pour réduire les collisions
-  const combined = Math.abs(hash1 * 4096 + hash2)
-  return combined.toString(36).padStart(16, '0').substring(0, 16)
+  const { createHash } = require('crypto') as typeof import('crypto')
+  return createHash('sha256').update(content).digest('hex').substring(0, 32)
 }
 
 /**
  * Génère une clé de cache unique basée sur le contenu
  * IMPORTANT: Inclut le SIREN pour les contenus spécifiques à l'entreprise
+ * IMPORTANT: Inclut la dernière question (assistant) pour différencier les réponses courtes
  */
 export function generateCacheKey(
   prompt: string,
@@ -156,12 +145,20 @@ export function generateCacheKey(
     siren?: string
     step?: number
     totalSteps?: number
+    lastAssistantMessage?: string  // La question à laquelle l'utilisateur répond
   }
 ): string {
   const contentType = determineContentType(prompt, context)
 
   // Pour le contenu sectoriel général, ne pas inclure le SIREN (partageable)
   const isSectorGeneral = contentType === 'sector_general'
+
+  // Pour les réponses courtes (< 50 caractères), inclure le contexte de la question
+  // Cela évite que "20" pour "% de parts" soit confondu avec "20" pour "places assises"
+  const isShortResponse = prompt.length < 50
+  const questionContext = isShortResponse && context.lastAssistantMessage
+    ? generateStrongHash(context.lastAssistantMessage.slice(-200)) // Hash des 200 derniers caractères de la question
+    : 'no_context'
 
   const keyComponents = {
     // SIREN: 'GLOBAL' pour contenu partageable, sinon le SIREN réel
@@ -174,6 +171,8 @@ export function generateCacheKey(
     step: context.step || 0,
     // Type de contenu
     contentType,
+    // Contexte de la question pour les réponses courtes
+    questionContext,
   }
 
   // Générer la clé finale
@@ -445,6 +444,7 @@ export function checkCache(
     siren?: string
     step?: number
     totalSteps?: number
+    lastAssistantMessage?: string
   },
   options?: CacheCheckOptions
 ): { cached: true; response: string; entry: CacheEntry } | { cached: false } {
@@ -474,6 +474,7 @@ export function saveToCache(
     siren?: string
     step?: number
     totalSteps?: number
+    lastAssistantMessage?: string
   },
   metadata: {
     model: string

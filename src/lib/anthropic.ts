@@ -44,6 +44,9 @@ export interface Anomalie {
   valeurs?: Record<string, number | string>
 }
 
+// Type de parcours utilisateur
+export type UserParcours = 'dirigeant' | 'cedant' | 'repreneur' | 'conseil'
+
 // Contexte de conversation
 export interface ConversationContext {
   entreprise: {
@@ -68,6 +71,14 @@ export interface ConversationContext {
     completedTopics: string[]
     pendingTopics: string[]
   }
+  parcours?: UserParcours
+  pedagogyLevel?: 'fort' | 'moyen' | 'expert'
+  objectif?: 'vente' | 'achat' | 'associe' | 'divorce' | 'transmission' | 'conflit' | 'financement' | 'pilotage'
+  objet?: 'titres_100' | 'titres_partiel' | 'fonds_commerce'
+  pourcentageParts?: number
+  // Évaluation complète (après paiement)
+  evaluationType?: 'flash' | 'complete'
+  isPaid?: boolean
 }
 
 export interface BilanAnnuel {
@@ -96,4 +107,79 @@ export interface RatiosFinanciers {
 // Fonction utilitaire pour vérifier la config
 export function isAnthropicConfigured(): boolean {
   return !!process.env.ANTHROPIC_API_KEY
+}
+
+/**
+ * Crée un message avec fallback automatique si le modèle n'est pas disponible
+ * Essaie les modèles dans l'ordre jusqu'à ce qu'un fonctionne
+ */
+export async function createMessageWithFallback(
+  params: Anthropic.MessageCreateParamsNonStreaming,
+  fallbacks: string[]
+): Promise<Anthropic.Message> {
+  const modelsToTry = [params.model, ...fallbacks.filter(f => f !== params.model)]
+  let lastError: Error | null = null
+
+  for (const modelId of modelsToTry) {
+    try {
+      console.log(`[Anthropic] Essai avec modèle: ${modelId}`)
+      const response = await anthropic.messages.create({
+        ...params,
+        model: modelId,
+      })
+      return response
+    } catch (error: unknown) {
+      lastError = error as Error
+      const status = (error as { status?: number }).status
+
+      // Si c'est une erreur 404 (modèle non trouvé), essayer le suivant
+      if (status === 404) {
+        console.warn(`[Anthropic] Modèle ${modelId} non disponible, essai du suivant...`)
+        continue
+      }
+
+      // Pour les autres erreurs (rate limit, auth, etc.), ne pas réessayer
+      throw error
+    }
+  }
+
+  // Si tous les modèles ont échoué
+  throw lastError || new Error('Tous les modèles ont échoué')
+}
+
+/**
+ * Crée un stream avec fallback automatique si le modèle n'est pas disponible
+ */
+export async function createStreamWithFallback(
+  params: Anthropic.MessageCreateParamsStreaming,
+  fallbacks: string[]
+): Promise<AsyncIterable<Anthropic.MessageStreamEvent>> {
+  const modelsToTry = [params.model, ...fallbacks.filter(f => f !== params.model)]
+  let lastError: Error | null = null
+
+  for (const modelId of modelsToTry) {
+    try {
+      console.log(`[Anthropic] Stream avec modèle: ${modelId}`)
+      const stream = await anthropic.messages.create({
+        ...params,
+        model: modelId,
+        stream: true,
+      })
+      return stream
+    } catch (error: unknown) {
+      lastError = error as Error
+      const status = (error as { status?: number }).status
+
+      // Si c'est une erreur 404 (modèle non trouvé), essayer le suivant
+      if (status === 404) {
+        console.warn(`[Anthropic] Modèle ${modelId} non disponible, essai du suivant...`)
+        continue
+      }
+
+      // Pour les autres erreurs, ne pas réessayer
+      throw error
+    }
+  }
+
+  throw lastError || new Error('Tous les modèles ont échoué')
 }

@@ -1,12 +1,17 @@
-// Sélecteur de prompt basé sur le code NAF
+// Sélecteur de prompt basé sur le code NAF et le parcours utilisateur
 
 import { BASE_SYSTEM_PROMPT, EVALUATION_FINALE_PROMPT } from './base'
+import { FLASH_SYSTEM_PROMPT } from './flash'
 import { TRANSPORT_PROMPT } from './secteurs/transport'
 import { SAAS_PROMPT } from './secteurs/saas'
 import { RESTAURANT_PROMPT } from './secteurs/restaurant'
 import { COMMERCE_PROMPT } from './secteurs/commerce'
 import { SERVICES_PROMPT } from './secteurs/services'
+import { SYSTEM_PROMPTS, PEDAGOGY_PROMPTS, type UserParcours, type PedagogyLevel } from './parcours'
 import type { ConversationContext } from '../anthropic'
+
+// Type d'évaluation
+export type EvaluationType = 'flash' | 'complete'
 
 // Mapping code NAF → secteur
 const NAF_TO_SECTEUR: Record<string, string> = {
@@ -122,7 +127,10 @@ const SECTEUR_NOMS: Record<string, string> = {
   services: 'Services B2B',
 }
 
-export function detecterSecteur(codeNaf: string): string {
+export function detecterSecteur(codeNaf: string | undefined): string {
+  // Si pas de code NAF, retourner services par défaut
+  if (!codeNaf) return 'services'
+
   // Nettoyer le code NAF
   const codeClean = codeNaf.replace(/[.\s]/g, '').toUpperCase()
   const codeFormatted = codeClean.length === 5
@@ -136,7 +144,13 @@ export function getNomSecteur(secteur: string): string {
   return SECTEUR_NOMS[secteur] || 'Services'
 }
 
-export function getSystemPrompt(codeNaf: string, context: ConversationContext): string {
+export function getSystemPrompt(
+  codeNaf: string | undefined,
+  context: ConversationContext,
+  parcours?: UserParcours,
+  pedagogyLevel?: PedagogyLevel,
+  evaluationType: EvaluationType = 'flash'  // Par défaut Flash
+): string {
   // Détecter le secteur depuis le code NAF
   const secteur = detecterSecteur(codeNaf)
   const secteurPrompt = SECTEUR_PROMPTS[secteur] || SERVICES_PROMPT
@@ -148,12 +162,48 @@ export function getSystemPrompt(codeNaf: string, context: ConversationContext): 
   // Sinon on demande l'année précédente (car les bilans ne sont pas encore disponibles)
   const anneeReference = now.getMonth() >= 5 ? currentYear : currentYear - 1
 
-  // Injecter l'année dans le prompt de base
-  const basePromptWithYear = BASE_SYSTEM_PROMPT.replace(/\{\{ANNEE_REFERENCE\}\}/g, String(anneeReference))
+  // Choisir le prompt de base selon le type d'évaluation
+  const basePrompt = evaluationType === 'flash' ? FLASH_SYSTEM_PROMPT : BASE_SYSTEM_PROMPT
+  const basePromptWithYear = basePrompt.replace(/\{\{ANNEE_REFERENCE\}\}/g, String(anneeReference))
 
-  // Construire le prompt complet
-  return `
+  // Pour Flash, on n'utilise pas les prompts de parcours/pédagogie complexes
+  const parcoursPrompt = evaluationType === 'complete' && parcours ? SYSTEM_PROMPTS[parcours] : ''
+  const pedagogyPrompt = evaluationType === 'complete' && pedagogyLevel ? PEDAGOGY_PROMPTS[pedagogyLevel] : ''
+
+  // Valeurs par défaut pour éviter les crashes sur null/undefined
+  const entreprise = context?.entreprise || {}
+  const financials = context?.financials || { bilans: [], ratios: null, anomaliesDetectees: [] }
+  const documents = context?.documents || []
+  const responses = context?.responses || {}
+  const evaluationProgress = context?.evaluationProgress || { step: 1, completedTopics: [], pendingTopics: [] }
+
+  // Pour Flash, on a un contexte simplifié
+  if (evaluationType === 'flash') {
+    return `
 ${basePromptWithYear}
+
+## Contexte de cette entreprise
+
+**Date du jour : ${now.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}**
+**Année de référence : ${anneeReference}**
+
+**Entreprise :**
+- Nom : ${entreprise.nom || 'Non renseigné'}
+- SIREN : ${entreprise.siren || 'Non renseigné'}
+- Secteur : ${entreprise.secteur || 'Non déterminé'}
+- Création : ${entreprise.dateCreation || 'Non renseigné'}
+- Effectif : ${entreprise.effectif || 'Non renseigné'}
+
+**Ce que tu sais déjà :**
+${formatResponses(responses)}
+
+**RAPPEL : Dès que tu as assez d'informations (CA, résultat, contexte), donne la valorisation Flash.**
+`
+  }
+
+  // Pour Complete, on garde le prompt complet existant
+  return `
+${parcoursPrompt ? `## PROFIL UTILISATEUR\n\n${parcoursPrompt}\n\n---\n\n` : ''}${pedagogyPrompt ? `${pedagogyPrompt}\n\n---\n\n` : ''}${basePromptWithYear}
 
 ${secteurPrompt}
 
@@ -163,38 +213,38 @@ ${secteurPrompt}
 **Année de référence pour les données financières : ${anneeReference}**
 
 **Informations générales :**
-- Nom : ${context.entreprise.nom}
-- SIREN : ${context.entreprise.siren}
-- Secteur : ${context.entreprise.secteur} (${context.entreprise.codeNaf})
-- Création : ${context.entreprise.dateCreation}
-- Effectif : ${context.entreprise.effectif}
-- Localisation : ${context.entreprise.adresse}, ${context.entreprise.ville}
+- Nom : ${entreprise.nom || 'Non renseigné'}
+- SIREN : ${entreprise.siren || 'Non renseigné'}
+- Secteur : ${entreprise.secteur || 'Non déterminé'} (${entreprise.codeNaf || 'N/A'})
+- Création : ${entreprise.dateCreation || 'Non renseigné'}
+- Effectif : ${entreprise.effectif || 'Non renseigné'}
+- Localisation : ${entreprise.adresse || 'Non renseigné'}, ${entreprise.ville || 'Non renseigné'}
 
 **Données financières disponibles :**
-${formatFinancials(context.financials)}
+${formatFinancials(financials)}
 
 **Documents analysés :**
-${context.documents.length > 0
-  ? formatDocuments(context.documents)
+${documents.length > 0
+  ? formatDocuments(documents)
   : 'Aucun document uploadé pour l\'instant'}
 
 **Ce que tu sais déjà (réponses précédentes) :**
-${formatResponses(context.responses)}
+${formatResponses(responses)}
 
 **Progression :**
-📍 Étape ${context.evaluationProgress.step}/6
-✅ Complété : ${context.evaluationProgress.completedTopics.join(', ') || 'Aucun'}
-⏳ À faire : ${context.evaluationProgress.pendingTopics.join(', ')}
+📍 Étape ${evaluationProgress.step || 1}/6
+✅ Complété : ${evaluationProgress.completedTopics?.join(', ') || 'Aucun'}
+⏳ À faire : ${evaluationProgress.pendingTopics?.join(', ') || 'À déterminer'}
 
-${context.financials.anomaliesDetectees.length > 0 ? `
+${financials.anomaliesDetectees && financials.anomaliesDetectees.length > 0 ? `
 **Anomalies détectées à mentionner :**
-${context.financials.anomaliesDetectees.map(a => `- [${a.type.toUpperCase()}] ${a.categorie}: ${a.message}`).join('\n')}
+${financials.anomaliesDetectees.map(a => `- [${a.type.toUpperCase()}] ${a.categorie}: ${a.message}`).join('\n')}
 ` : ''}
 `
 }
 
-function formatFinancials(financials: ConversationContext['financials']): string {
-  if (!financials.bilans || financials.bilans.length === 0) {
+function formatFinancials(financials: ConversationContext['financials'] | null | undefined): string {
+  if (!financials || !financials.bilans || financials.bilans.length === 0) {
     return 'Aucune donnée financière disponible - Tu devras estimer le CA à partir des données opérationnelles (ticket moyen × clients/jour × jours ouverture)'
   }
 
@@ -304,3 +354,4 @@ function formatDocuments(documents: ConversationContext['documents']): string {
 }
 
 export { EVALUATION_FINALE_PROMPT }
+export type { UserParcours, PedagogyLevel }

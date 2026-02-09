@@ -102,7 +102,45 @@ export function compresserHistorique(
 }
 
 /**
+ * Extrait les paires question/réponse d'un historique de messages
+ * Crucial pour éviter de reposer les mêmes questions
+ */
+function extraireQuestionsReponses(messages: SimpleMessage[]): string[] {
+  const qr: string[] = []
+
+  for (let i = 0; i < messages.length - 1; i++) {
+    const msg = messages[i]
+    const nextMsg = messages[i + 1]
+
+    // Si c'est un message assistant suivi d'un message user, c'est une paire Q/R
+    if (msg.role === 'assistant' && nextMsg.role === 'user') {
+      // Extraire la question (texte en gras ou la dernière phrase interrogative)
+      const questionMatch = msg.content.match(/\*\*([^*]+\?)\*\*/g) ||
+                           msg.content.match(/[^.!?]*\?/g)
+
+      if (questionMatch && questionMatch.length > 0) {
+        // Prendre la dernière question trouvée
+        const question = questionMatch[questionMatch.length - 1]
+          .replace(/\*\*/g, '')
+          .trim()
+          .slice(0, 80) // Limiter la longueur
+
+        // Réponse courte
+        const reponse = nextMsg.content.slice(0, 100).trim()
+
+        if (question && reponse) {
+          qr.push(`Q: ${question} → R: ${reponse}`)
+        }
+      }
+    }
+  }
+
+  return qr
+}
+
+/**
  * Résume une liste de messages en extrayant les points clés
+ * INCLUT les questions déjà posées et leurs réponses
  */
 function resumerMessages(messages: SimpleMessage[]): string {
   const points: string[] = []
@@ -113,9 +151,27 @@ function resumerMessages(messages: SimpleMessage[]): string {
     points.push(...extracted)
   }
 
-  // Dédupliquer et formater
+  // Extraire les paires Q/R - CRUCIAL pour ne pas reposer les questions
+  const questionsReponses = extraireQuestionsReponses(messages)
+
+  // Dédupliquer les points
   const uniquePoints = [...new Set(points)]
-  return uniquePoints.slice(0, 10).map(p => `• ${p}`).join('\n')
+
+  // Construire le résumé avec section Q/R explicite
+  let summary = ''
+
+  if (questionsReponses.length > 0) {
+    summary += '**Questions déjà posées et réponses :**\n'
+    summary += questionsReponses.slice(-10).map(qr => `• ${qr}`).join('\n')
+    summary += '\n\n'
+  }
+
+  if (uniquePoints.length > 0) {
+    summary += '**Informations collectées :**\n'
+    summary += uniquePoints.slice(0, 8).map(p => `• ${p}`).join('\n')
+  }
+
+  return summary
 }
 
 /**

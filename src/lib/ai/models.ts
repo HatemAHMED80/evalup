@@ -10,15 +10,36 @@ export interface ModelConfig {
   contextWindow: number
   strengths: string[]
   useCases: string[]
+  fallbacks: string[] // Modèles de secours si celui-ci n'est pas disponible
+}
+
+// Modèles par défaut avec fallbacks (du plus récent au plus stable)
+const DEFAULT_HAIKU_ID = 'claude-3-5-haiku-20241022'
+const DEFAULT_SONNET_ID = 'claude-sonnet-4-20250514'
+
+// Fallbacks connus stables
+const HAIKU_FALLBACKS = [
+  'claude-3-5-haiku-20241022',
+  'claude-3-haiku-20240307',
+]
+const SONNET_FALLBACKS = [
+  'claude-sonnet-4-20250514',
+  'claude-3-5-sonnet-20241022',
+  'claude-3-5-sonnet-20240620',
+]
+
+// Récupère l'ID du modèle depuis env ou utilise le défaut
+function getModelId(envKey: string, defaultId: string): string {
+  return process.env[envKey] || defaultId
 }
 
 export const MODELS: Record<string, ModelConfig> = {
   haiku: {
-    id: 'claude-3-haiku-20240307',
-    name: 'Claude 3 Haiku',
-    inputCostPer1M: 0.25,
-    outputCostPer1M: 1.25,
-    maxTokens: 4096,
+    id: getModelId('ANTHROPIC_MODEL_HAIKU', DEFAULT_HAIKU_ID),
+    name: 'Claude Haiku',
+    inputCostPer1M: 0.80,
+    outputCostPer1M: 4,
+    maxTokens: 8192,
     contextWindow: 200000,
     strengths: [
       'Très rapide',
@@ -31,10 +52,11 @@ export const MODELS: Record<string, ModelConfig> = {
       'Extraction de données structurées',
       'Classification simple',
     ],
+    fallbacks: HAIKU_FALLBACKS,
   },
   sonnet: {
-    id: 'claude-3-5-sonnet-20241022',
-    name: 'Claude 3.5 Sonnet',
+    id: getModelId('ANTHROPIC_MODEL_SONNET', DEFAULT_SONNET_ID),
+    name: 'Claude Sonnet',
     inputCostPer1M: 3,
     outputCostPer1M: 15,
     maxTokens: 8192,
@@ -50,7 +72,15 @@ export const MODELS: Record<string, ModelConfig> = {
       'Cas complexes ou atypiques',
       'Situations critiques',
     ],
+    fallbacks: SONNET_FALLBACKS,
   },
+}
+
+/**
+ * Récupère les fallbacks pour un modèle donné
+ */
+export function getModelFallbacks(modelType: 'haiku' | 'sonnet'): string[] {
+  return MODELS[modelType]?.fallbacks || []
 }
 
 // Alias par défaut

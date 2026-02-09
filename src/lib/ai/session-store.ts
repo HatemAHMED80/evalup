@@ -3,6 +3,7 @@
 // Fallback vers mémoire locale si Redis non configuré (dev local)
 
 import { Redis } from '@upstash/redis'
+import { randomUUID } from 'crypto'
 import { invalidateOnDocumentUpload } from './cache'
 
 // ============================================
@@ -64,6 +65,7 @@ export interface ConversationEntry {
     step?: number
     topic?: string
     semantics?: { isFinancial: boolean; complexity: number }
+    cache?: { cacheCreationTokens: number; cacheReadTokens: number; savings: number }
   }
 }
 
@@ -129,9 +131,7 @@ const SESSION_CONFIG = {
 // ============================================
 
 function generateSessionId(): string {
-  const timestamp = Date.now().toString(36)
-  const randomPart = Math.random().toString(36).substring(2, 10)
-  return `sess_${timestamp}_${randomPart}`
+  return `sess_${randomUUID()}`
 }
 
 function sessionKey(id: string): string {
@@ -328,7 +328,7 @@ export async function addConversationEntry(
 
   const conversationEntry: ConversationEntry = {
     ...entry,
-    id: `msg_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 6)}`,
+    id: `msg_${randomUUID()}`,
     timestamp: Date.now(),
   }
 
