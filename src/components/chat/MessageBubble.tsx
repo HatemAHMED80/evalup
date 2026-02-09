@@ -1,6 +1,8 @@
 'use client'
 
+import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
+import { FlashValuationDisplay, parseFlashValuation } from './FlashValuationDisplay'
 
 interface MessageBubbleProps {
   message: {
@@ -11,10 +13,120 @@ interface MessageBubbleProps {
     documents?: Array<{ name: string; type: string; size: number }>
   }
   isStreaming?: boolean
+  onSuggestionClick?: (suggestion: string) => void
+  onUpgrade?: () => void
+  entrepriseNom?: string
+  entrepriseActivite?: string
+  siren?: string
 }
 
-export function MessageBubble({ message, isStreaming = false }: MessageBubbleProps) {
+// Types pour le parsing
+interface ParsedContent {
+  mainContent: string
+  context: string | null
+  question: string | null
+  suggestions: string[]
+}
+
+// Parser pour extraire les différentes sections du contenu
+function parseContent(content: string): ParsedContent {
+  let mainContent = content
+  let context: string | null = null
+  let question: string | null = null
+  let suggestions: string[] = []
+
+  // Nettoyer le contenu des code blocks qui contiennent les suggestions
+  // Le modèle met parfois les suggestions dans un bloc ```
+  mainContent = mainContent.replace(/```\s*\n?\[SUGGESTIONS\]/g, '[SUGGESTIONS]')
+  mainContent = mainContent.replace(/\[\/SUGGESTIONS\]\s*\n?```/g, '[/SUGGESTIONS]')
+
+  // Extraire les suggestions (plusieurs formats possibles)
+  // Format 1: [SUGGESTIONS]opt1|opt2|opt3[/SUGGESTIONS]
+  // Format 2: [SUGGESTIONS]\nopt1|opt2|opt3\n[/SUGGESTIONS]
+  // Format 3: [SUGGESTIONS] opt1|opt2|opt3 (sans balise fermante)
+  const suggestionsMatchClosed = mainContent.match(/\[SUGGESTIONS\]\s*\n?([\s\S]+?)\n?\s*\[\/SUGGESTIONS\]/i)
+  const suggestionsMatchOpen = mainContent.match(/\[SUGGESTIONS\]\s*\n?(.+?)(?:\n|$)/im)
+
+  if (suggestionsMatchClosed) {
+    // Extraire les options séparées par |
+    const rawSuggestions = suggestionsMatchClosed[1].trim()
+    suggestions = rawSuggestions.split('|').map(s => s.trim()).filter(Boolean)
+    // Supprimer le bloc complet
+    mainContent = mainContent.replace(/\[SUGGESTIONS\]\s*\n?[\s\S]+?\n?\s*\[\/SUGGESTIONS\]/i, '').trim()
+  } else if (suggestionsMatchOpen) {
+    const rawSuggestions = suggestionsMatchOpen[1].trim()
+    suggestions = rawSuggestions.split('|').map(s => s.trim()).filter(Boolean)
+    mainContent = mainContent.replace(/\[SUGGESTIONS\]\s*\n?.+?(?:\n|$)/im, '').trim()
+  }
+
+  // Si on a extrait des suggestions, supprimer aussi les lignes qui les répètent
+  // (le modèle liste parfois les suggestions en texte après le bloc)
+  if (suggestions.length > 0) {
+    for (const suggestion of suggestions) {
+      // Supprimer les lignes qui ne contiennent que cette suggestion
+      const escapedSuggestion = suggestion.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      mainContent = mainContent.replace(new RegExp(`^\\s*${escapedSuggestion}\\s*$`, 'gm'), '')
+    }
+    // Nettoyer les lignes vides multiples
+    mainContent = mainContent.replace(/\n{3,}/g, '\n\n').trim()
+  }
+
+  // Extraire le contexte
+  const contextMatch = mainContent.match(/\[CONTEXT\]([\s\S]*?)\[\/CONTEXT\]/m)
+  if (contextMatch) {
+    context = contextMatch[1].trim()
+    mainContent = mainContent.replace(/\[CONTEXT\][\s\S]*?\[\/CONTEXT\]/m, '').trim()
+  }
+
+  // Extraire la question
+  const questionMatch = mainContent.match(/\[QUESTION\]([\s\S]*?)\[\/QUESTION\]/m)
+  if (questionMatch) {
+    question = questionMatch[1].trim()
+    mainContent = mainContent.replace(/\[QUESTION\][\s\S]*?\[\/QUESTION\]/m, '').trim()
+  }
+
+  return { mainContent, context, question, suggestions }
+}
+
+export function MessageBubble({
+  message,
+  isStreaming = false,
+  onSuggestionClick,
+  onUpgrade,
+  entrepriseNom,
+  entrepriseActivite,
+  siren
+}: MessageBubbleProps) {
   const isUser = message.role === 'user'
+  const [selectedSuggestions, setSelectedSuggestions] = useState<string[]>([])
+
+  // Détecter si c'est une valorisation Flash complète
+  const isFlashValuation = !isUser && message.content.includes('[FLASH_VALUATION_COMPLETE]')
+
+  // Parser les données de valorisation si c'est une évaluation Flash
+  const flashData = isFlashValuation ? parseFlashValuation(message.content) : null
+
+  // Extraire les différentes sections du contenu
+  const { mainContent, context, question, suggestions } = isUser
+    ? { mainContent: message.content, context: null, question: null, suggestions: [] }
+    : parseContent(message.content.replace('[FLASH_VALUATION_COMPLETE]', ''))
+
+  // Toggle une suggestion
+  const toggleSuggestion = (suggestion: string) => {
+    setSelectedSuggestions(prev =>
+      prev.includes(suggestion)
+        ? prev.filter(s => s !== suggestion)
+        : [...prev, suggestion]
+    )
+  }
+
+  // Envoyer les suggestions sélectionnées
+  const sendSelectedSuggestions = () => {
+    if (selectedSuggestions.length > 0 && onSuggestionClick) {
+      onSuggestionClick(selectedSuggestions.join(', '))
+      setSelectedSuggestions([])
+    }
+  }
 
   if (isUser) {
     // Style utilisateur - bulle alignée à droite
@@ -34,6 +146,36 @@ export function MessageBubble({ message, isStreaming = false }: MessageBubblePro
           <div className="bg-[#c9a227] text-[#1a1a2e] rounded-2xl rounded-br-md px-4 py-3">
             <p className="whitespace-pre-wrap">{message.content}</p>
           </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Si c'est une valorisation Flash avec données parsées, afficher le composant visuel
+  if (isFlashValuation && flashData && !isStreaming) {
+    // Enrichir les données avec le nom et l'activité de l'entreprise
+    const enrichedData = {
+      ...flashData,
+      entreprise: entrepriseNom || flashData.entreprise,
+      activite: entrepriseActivite || flashData.activite,
+    }
+
+    return (
+      <div className="flex gap-3">
+        {/* Avatar */}
+        <div className="flex-shrink-0">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#c9a227] to-[#e8c547] flex items-center justify-center">
+            <span className="text-[#1a1a2e] font-bold text-xs">E</span>
+          </div>
+        </div>
+
+        {/* Contenu - Composant Flash Valuation */}
+        <div className="flex-1 min-w-0 pt-1">
+          <FlashValuationDisplay
+            data={enrichedData}
+            onUpgrade={onUpgrade}
+            siren={siren}
+          />
         </div>
       </div>
     )
@@ -83,13 +225,67 @@ export function MessageBubble({ message, isStreaming = false }: MessageBubblePro
               ),
             }}
           >
-            {message.content}
+            {mainContent}
           </ReactMarkdown>
+
+          {/* Contexte en petit, gris, italique */}
+          {context && (
+            <div className="mt-3 text-xs text-white/50 italic leading-relaxed">
+              {context.split('\n').map((line, i) => (
+                <p key={i} className="mb-1">{line}</p>
+              ))}
+            </div>
+          )}
+
+          {/* Question en jaune gras - toujours à la fin */}
+          {question && (
+            <p className="mt-4 text-[#c9a227] font-semibold text-base">
+              {question}
+            </p>
+          )}
+
           {/* Curseur clignotant pendant le streaming */}
           {isStreaming && (
             <span className="inline-block w-2 h-4 bg-[#c9a227] ml-0.5 animate-pulse rounded-sm" />
           )}
         </div>
+
+        {/* Réponses suggérées avec multi-sélection */}
+        {suggestions.length > 0 && !isStreaming && (
+          <div className="mt-4">
+            <div className="flex flex-wrap gap-2">
+              {suggestions.map((suggestion: string, index: number) => {
+                const isSelected = selectedSuggestions.includes(suggestion)
+                return (
+                  <button
+                    key={index}
+                    onClick={() => toggleSuggestion(suggestion)}
+                    className={`px-4 py-2 border rounded-full text-sm transition-all ${
+                      isSelected
+                        ? 'bg-[#c9a227]/30 border-[#c9a227] text-white'
+                        : 'bg-white/5 border-white/20 text-white/80 hover:bg-[#c9a227]/20 hover:border-[#c9a227]/50 hover:text-white'
+                    }`}
+                  >
+                    {isSelected && <span className="mr-1">✓</span>}
+                    {suggestion}
+                  </button>
+                )
+              })}
+            </div>
+            {/* Bouton envoyer quand des suggestions sont sélectionnées */}
+            {selectedSuggestions.length > 0 && (
+              <button
+                onClick={sendSelectedSuggestions}
+                className="mt-3 px-5 py-2 bg-[#c9a227] text-[#1a1a2e] rounded-full text-sm font-medium hover:bg-[#e8c547] transition-all flex items-center gap-2"
+              >
+                Envoyer {selectedSuggestions.length > 1 ? `(${selectedSuggestions.length})` : ''}
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

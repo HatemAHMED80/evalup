@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { ChatInterface } from './ChatInterface'
 import { Sidebar } from './Sidebar'
 import type { ConversationContext } from '@/lib/anthropic'
@@ -11,6 +12,43 @@ import {
   deleteEvaluation,
   type SavedEvaluation,
 } from '@/lib/evaluations'
+
+interface BentoGridData {
+  financier?: {
+    chiffreAffaires: number
+    resultatNet: number
+    ebitdaComptable: number
+    tresorerie: number
+    dettes: number
+    capitauxPropres: number
+    anneeDernierBilan: number
+  }
+  valorisation?: {
+    valeurEntreprise: { basse: number; moyenne: number; haute: number }
+    prixCession: { basse: number; moyenne: number; haute: number }
+    detteNette: number
+    multipleSectoriel: { min: number; max: number }
+    methodePrincipale: string
+  }
+  ratios?: {
+    margeNette: number
+    margeEbitda: number
+    ratioEndettement: number
+    roe: number
+  }
+  diagnostic?: {
+    noteGlobale: string
+    score: number
+    pointsForts: string[]
+    pointsVigilance: string[]
+  }
+  dataQuality?: {
+    dataYear: number
+    dataAge: number
+    isDataOld: boolean
+    confidence: 'faible' | 'moyenne' | 'haute'
+  }
+}
 
 interface ChatLayoutProps {
   entreprise: {
@@ -25,9 +63,12 @@ interface ChatLayoutProps {
     chiffreAffaires?: number
   }
   initialContext: ConversationContext
+  bentoGridData?: BentoGridData
+  upgradeSuccess?: boolean
 }
 
-export function ChatLayout({ entreprise, initialContext }: ChatLayoutProps) {
+export function ChatLayout({ entreprise, initialContext, bentoGridData, upgradeSuccess }: ChatLayoutProps) {
+  const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false) // Mobile
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false) // Desktop
   const [currentStep, setCurrentStep] = useState(initialContext.evaluationProgress.step)
@@ -62,6 +103,16 @@ export function ChatLayout({ entreprise, initialContext }: ChatLayoutProps) {
     setEvaluations(getEvaluations())
   }
 
+  // Nouvelle évaluation - retour à l'accueil
+  const handleNewEvaluation = () => {
+    router.push('/')
+  }
+
+  // Sélectionner une évaluation existante
+  const handleSelectEvaluation = (siren: string) => {
+    router.push(`/chat/${siren}`)
+  }
+
   return (
     <div className="h-screen-safe flex bg-[#1a1a2e] no-overscroll">
       {/* Sidebar */}
@@ -78,6 +129,8 @@ export function ChatLayout({ entreprise, initialContext }: ChatLayoutProps) {
         onCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         evaluations={evaluations}
         onDeleteEvaluation={handleDeleteEvaluation}
+        onNewEvaluation={handleNewEvaluation}
+        onSelectEvaluation={handleSelectEvaluation}
       />
 
       {/* Main content */}
@@ -124,6 +177,8 @@ export function ChatLayout({ entreprise, initialContext }: ChatLayoutProps) {
             entreprise={entreprise}
             initialContext={initialContext}
             onStepChange={handleStepChange}
+            bentoGridData={bentoGridData}
+            upgradeSuccess={upgradeSuccess}
           />
         </main>
       </div>

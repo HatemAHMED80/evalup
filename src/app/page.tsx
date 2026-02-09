@@ -1,1378 +1,431 @@
-'use client'
-
-import { useState, useRef, useEffect, useCallback, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { Navbar } from '../components/layout/Navbar'
+import { Footer } from '../components/layout/Footer'
+import { Hero } from '../components/landing/Hero'
+import { Button } from '../components/ui/Button'
+import { Badge } from '../components/ui/Badge'
 import Link from 'next/link'
-import { Sidebar } from '@/components/chat/Sidebar'
-import { MessageBubble } from '@/components/chat/MessageBubble'
-import { TypingIndicator } from '@/components/chat/TypingIndicator'
-import { InstantValuation } from '@/components/chat/InstantValuation'
-import { DocumentUpload } from '@/components/chat/DocumentUpload'
-import { InitialDocumentUpload } from '@/components/chat/InitialDocumentUpload'
-import { DownloadReport } from '@/components/chat/DownloadReport'
-import { getEvaluations, type SavedEvaluation } from '@/lib/evaluations'
-import { getDraftBySiren } from '@/lib/evaluation-draft'
-import { useEvaluationDraft } from '@/hooks/useEvaluationDraft'
-import { MESSAGE_INITIAL, MESSAGE_INITIAL_SANS_DOCUMENTS } from '@/lib/prompts/base'
-import type { ConversationContext, Message, UploadedDocument } from '@/lib/anthropic'
 
-const exemplesSiren = [
-  { siren: '443061841', nom: 'Google France' },
-  { siren: '542107651', nom: 'Engie' },
-  { siren: '552081317', nom: 'EDF' },
-]
-
-// Type pour les donnees de valorisation rapide
-interface QuickValuationData {
-  entreprise: {
-    siren: string
-    nom: string
-    secteur: string
-    codeNaf: string
-    dateCreation: string
-    effectif: string
-    adresse: string
-    ville: string
-  }
-  hasValuation: boolean
-  message?: string
-  financier?: {
-    chiffreAffaires: number
-    resultatNet: number
-    ebitdaComptable: number
-    tresorerie: number
-    dettes: number
-    capitauxPropres: number
-    anneeDernierBilan: number
-  }
-  valorisation?: {
-    valeurEntreprise: { basse: number; moyenne: number; haute: number }
-    prixCession: { basse: number; moyenne: number; haute: number }
-    detteNette: number
-    multipleSectoriel: { min: number; max: number }
-    methodePrincipale: string
-  }
-  ratios?: {
-    margeEbitda: number
-    margeNette: number
-    ratioEndettement: number
-    roe: number
-  }
-  diagnostic?: {
-    noteGlobale: 'A' | 'B' | 'C' | 'D' | 'E'
-    score: number
-    pointsForts: string[]
-    pointsVigilance: string[]
-  }
-  avertissement?: string
-}
-
-// Phases du chat unifie
-type ChatPhase = 'siren_input' | 'valuation_loading' | 'valuation_display' | 'documents_upload' | 'evaluation'
-
-// Message d'accueil (constant pour reutilisation)
-const WELCOME_MESSAGE_CONTENT = `# Bienvenue sur EvalUp
-
-Je suis votre assistant expert en evaluation d'entreprises. Je vais analyser les donnees financieres, le secteur d'activite et les specificites de l'entreprise pour vous fournir une estimation precise.
-
-**Pour commencer, entrez le numero SIREN de l'entreprise a evaluer (9 chiffres).**
-
-_Le SIREN se trouve sur le Kbis, les factures ou le site societe.com_`
-
-function createWelcomeMessage(): Message {
-  return {
-    id: 'welcome',
-    role: 'assistant',
-    content: WELCOME_MESSAGE_CONTENT,
-    timestamp: new Date(),
-  }
-}
-
-// Type pour les reponses suggerees
-interface SuggestedReply {
-  label: string
-  value: string
-}
-
-// Fonction pour extraire les suggestions de la reponse de Claude
-function extractSuggestions(text: string): { cleanText: string; suggestions: SuggestedReply[] } {
-  const suggestionsMatch = text.match(/\[SUGGESTIONS\]\s*([\s\S]*?)\s*\[\/SUGGESTIONS\]/i)
-
-  if (!suggestionsMatch) {
-    return { cleanText: text, suggestions: [] }
-  }
-
-  // Nettoyer le texte en retirant le bloc suggestions
-  const cleanText = text.replace(/\[SUGGESTIONS\][\s\S]*?\[\/SUGGESTIONS\]/gi, '').trim()
-
-  // Parser les suggestions (format: "Suggestion 1|Suggestion 2|Suggestion 3")
-  const suggestionsText = suggestionsMatch[1].trim()
-  const suggestionLabels = suggestionsText.split('|').map(s => s.trim()).filter(s => s.length > 0)
-
-  const suggestions: SuggestedReply[] = suggestionLabels.map(label => ({
-    label,
-    value: label, // La valeur envoyee est identique au label
-  }))
-
-  return { cleanText, suggestions }
-}
-
-// Fonction pour creer un resume de la valorisation pour l'historique du chat
-function createValorisationResume(data: QuickValuationData): string {
-  const parts: string[] = []
-
-  parts.push(`## 📊 Synthese des donnees publiques - ${data.entreprise.nom}`)
-  parts.push('')
-
-  // Informations entreprise
-  parts.push(`**Entreprise:** ${data.entreprise.nom}`)
-  parts.push(`**Secteur:** ${data.entreprise.secteur}`)
-  parts.push(`**SIREN:** ${data.entreprise.siren}`)
-  parts.push('')
-
-  // Donnees financieres
-  if (data.financier) {
-    const f = data.financier
-    parts.push(`### Donnees financieres (${f.anneeDernierBilan})`)
-    parts.push('')
-    if (f.chiffreAffaires) parts.push(`- **CA:** ${f.chiffreAffaires.toLocaleString('fr-FR')} €`)
-    if (f.resultatNet) parts.push(`- **Resultat net:** ${f.resultatNet.toLocaleString('fr-FR')} €`)
-    if (f.ebitdaComptable) parts.push(`- **EBITDA:** ${f.ebitdaComptable.toLocaleString('fr-FR')} €`)
-    if (f.tresorerie) parts.push(`- **Tresorerie:** ${f.tresorerie.toLocaleString('fr-FR')} €`)
-    if (f.dettes) parts.push(`- **Dettes:** ${f.dettes.toLocaleString('fr-FR')} €`)
-    parts.push('')
-  }
-
-  // Valorisation estimee
-  if (data.valorisation) {
-    const v = data.valorisation
-    parts.push(`### Estimation de valorisation`)
-    parts.push('')
-    parts.push(`| | Basse | Moyenne | Haute |`)
-    parts.push(`|--|-------|---------|-------|`)
-    parts.push(`| **Valeur Entreprise** | ${v.valeurEntreprise.basse.toLocaleString('fr-FR')} € | ${v.valeurEntreprise.moyenne.toLocaleString('fr-FR')} € | ${v.valeurEntreprise.haute.toLocaleString('fr-FR')} € |`)
-    parts.push(`| **Prix de Cession** | ${v.prixCession.basse.toLocaleString('fr-FR')} € | ${v.prixCession.moyenne.toLocaleString('fr-FR')} € | ${v.prixCession.haute.toLocaleString('fr-FR')} € |`)
-    parts.push('')
-  }
-
-  // Diagnostic
-  if (data.diagnostic) {
-    const d = data.diagnostic
-    parts.push(`### Diagnostic: Note ${d.noteGlobale} (${d.score}/100)`)
-    parts.push('')
-    if (d.pointsForts.length > 0) {
-      parts.push(`**Points forts:** ${d.pointsForts.slice(0, 3).join(', ')}`)
-    }
-    if (d.pointsVigilance.length > 0) {
-      parts.push(`**Points de vigilance:** ${d.pointsVigilance.slice(0, 3).join(', ')}`)
-    }
-    parts.push('')
-  }
-
-  // Avertissement
-  if (data.avertissement) {
-    parts.push(`> ⚠️ ${data.avertissement}`)
-    parts.push('')
-  }
-
-  parts.push(`---`)
-  parts.push(`_Ces donnees proviennent des sources publiques et seront affinees avec vos informations._`)
-
-  return parts.join('\n')
-}
-
-// Fonction pour formater l'analyse de document en texte lisible
-function formatDocumentAnalysis(doc: UploadedDocument): string {
-  const analysis = doc.analysis
-  if (!analysis) return `Document "${doc.name}" - Analyse en attente`
-
-  if (analysis.error || analysis.parseError) {
-    return `Document "${doc.name}" - Erreur d'analyse: ${analysis.error || 'Format non reconnu'}`
-  }
-
-  const parts: string[] = [`📄 **${doc.name}**`]
-
-  if (analysis.typeDocument) {
-    parts.push(`Type: ${analysis.typeDocument}`)
-  }
-  if (analysis.annee) {
-    parts.push(`Annee: ${analysis.annee}`)
-  }
-
-  // Chiffres extraits
-  if (analysis.chiffresExtraits) {
-    const chiffres = analysis.chiffresExtraits as Record<string, number | null>
-    const lignes: string[] = []
-    if (chiffres.ca) lignes.push(`  - CA: ${chiffres.ca.toLocaleString('fr-FR')} €`)
-    if (chiffres.resultatNet) lignes.push(`  - Resultat net: ${chiffres.resultatNet.toLocaleString('fr-FR')} €`)
-    if (chiffres.ebitda) lignes.push(`  - EBITDA: ${chiffres.ebitda.toLocaleString('fr-FR')} €`)
-    if (chiffres.tresorerie) lignes.push(`  - Tresorerie: ${chiffres.tresorerie.toLocaleString('fr-FR')} €`)
-    if (chiffres.dettes) lignes.push(`  - Dettes: ${chiffres.dettes.toLocaleString('fr-FR')} €`)
-
-    // Autres donnees
-    if (chiffres.autresDonnees && typeof chiffres.autresDonnees === 'object') {
-      const autres = chiffres.autresDonnees as Record<string, number>
-      for (const [key, val] of Object.entries(autres)) {
-        if (val) lignes.push(`  - ${key}: ${val.toLocaleString('fr-FR')} €`)
-      }
-    }
-
-    if (lignes.length > 0) {
-      parts.push('Donnees extraites:')
-      parts.push(...lignes)
-    }
-  }
-
-  // Points cles
-  if (analysis.pointsCles && analysis.pointsCles.length > 0) {
-    parts.push('Points cles:')
-    analysis.pointsCles.slice(0, 3).forEach(p => parts.push(`  • ${p}`))
-  }
-
-  // Anomalies
-  if (analysis.anomalies && analysis.anomalies.length > 0) {
-    parts.push('⚠️ Alertes:')
-    analysis.anomalies.slice(0, 3).forEach(a => {
-      const anomalie = a as { message?: string; categorie?: string }
-      parts.push(`  - ${anomalie.message || anomalie.categorie || 'Anomalie detectee'}`)
-    })
-  }
-
-  return parts.join('\n')
-}
-
-function HomeContent() {
-  const searchParams = useSearchParams()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [evaluations, setEvaluations] = useState<SavedEvaluation[]>([])
-  const [input, setInput] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [isStreaming, setIsStreaming] = useState(false)
-  const [streamingContent, setStreamingContent] = useState('')
-  const [error, setError] = useState('')
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const lastProcessedSiren = useRef<string | null>(null)
-
-  // State unifie
-  const [phase, setPhase] = useState<ChatPhase>('siren_input')
-  const [messages, setMessages] = useState<Message[]>([])
-  const [valuationData, setValuationData] = useState<QuickValuationData | null>(null)
-  const [context, setContext] = useState<ConversationContext | null>(null)
-  const [currentStep, setCurrentStep] = useState(1)
-  const [uploadedDocs, setUploadedDocs] = useState<File[]>([])
-  const [skipDocsAttempted, setSkipDocsAttempted] = useState(false)
-  const [suggestedReplies, setSuggestedReplies] = useState<SuggestedReply[]>([])
-  const [selectedSuggestions, setSelectedSuggestions] = useState<Set<string>>(new Set())
-
-
-  // Charger les evaluations et initialiser le message d'accueil
-  useEffect(() => {
-    const saved = getEvaluations()
-    setEvaluations(saved)
-    setMessages([createWelcomeMessage()])
-  }, [])
-
-  // Detecter les changements d'URL et reinitialiser si necessaire
-  useEffect(() => {
-    const sirenParam = searchParams.get('siren')
-    const cleanInput = sirenParam ? sirenParam.replace(/\s/g, '') : null
-
-    // Extraire le SIREN (accepte SIREN 9 chiffres ou SIRET 14 chiffres)
-    let cleanSiren: string | null = null
-    if (cleanInput) {
-      if (/^\d{9}$/.test(cleanInput)) {
-        cleanSiren = cleanInput
-      } else if (/^\d{14}$/.test(cleanInput)) {
-        // SIRET = SIREN (9) + NIC (5), extraire le SIREN
-        cleanSiren = cleanInput.slice(0, 9)
-      }
-    }
-
-    // Si pas de SIREN dans l'URL et qu'on avait un SIREN avant -> nouvelle evaluation
-    if (!cleanSiren && lastProcessedSiren.current) {
-      lastProcessedSiren.current = null
-      // Reset complet pour nouvelle evaluation
-      setPhase('siren_input')
-      setMessages([createWelcomeMessage()])
-      setValuationData(null)
-      setContext(null)
-      setInput('')
-      setError('')
-      setCurrentStep(1)
-      setUploadedDocs([])
-      setSkipDocsAttempted(false)
-      setSuggestedReplies([])
-      setSelectedSuggestions(new Set())
-      return
-    }
-
-    // Si SIREN different de celui deja traite -> charger la nouvelle entreprise
-    if (cleanSiren && cleanSiren !== lastProcessedSiren.current) {
-      lastProcessedSiren.current = cleanSiren
-      // Reset et charger le nouveau SIREN
-      setPhase('siren_input')
-      setMessages([createWelcomeMessage()])
-      setValuationData(null)
-      setContext(null)
-      setInput('')
-      setError('')
-      setCurrentStep(1)
-      setUploadedDocs([])
-      setSkipDocsAttempted(false)
-      setSuggestedReplies([])
-      setSelectedSuggestions(new Set())
-      // Charger apres le reset
-      loadSirenFromUrl(cleanSiren)
-    }
-
-    // Fonction pour charger automatiquement un SIREN depuis l'URL
-    async function loadSirenFromUrl(siren: string) {
-      // Verifier d'abord s'il existe un brouillon pour ce SIREN
-      const existingDraft = getDraftBySiren(siren)
-
-      if (existingDraft && existingDraft.messages.length > 1 && existingDraft.context) {
-        // Restaurer la conversation depuis le brouillon
-        setMessages(existingDraft.messages.map(m => ({
-          ...m,
-          timestamp: new Date(m.timestamp),
-        })))
-        setContext(existingDraft.context)
-        setCurrentStep(existingDraft.step || 1)
-        setPhase('evaluation')
-
-        // Charger aussi les donnees de valorisation pour la sidebar
-        try {
-          const response = await fetch(`/api/entreprise/${siren}/quick-valuation`)
-          if (response.ok) {
-            const data = await response.json()
-            setValuationData(data)
-          }
-        } catch {
-          // Pas critique si on ne peut pas charger la valorisation
-        }
-
-        return
-      }
-
-      // Pas de brouillon, charger normalement
-      // Creer le message utilisateur (le welcome est deja set par le reset au-dessus)
-      const userMessage: Message = {
-        id: crypto.randomUUID(),
-        role: 'user',
-        content: `SIREN: ${formatSiren(siren)}`,
-        timestamp: new Date(),
-      }
-      // Ajouter au message de bienvenue
-      setMessages([createWelcomeMessage(), userMessage])
-      setIsLoading(true)
-      setPhase('valuation_loading')
-
-      try {
-        // Appeler l'API de valorisation rapide
-        const response = await fetch(`/api/entreprise/${siren}/quick-valuation`)
-        const data = await response.json()
-
-        if (!response.ok) {
-          const errorMsg = data.code === 'NOT_FOUND'
-            ? 'Entreprise non trouvee. Verifiez le numero SIREN.'
-            : data.error || 'Erreur lors de la recherche'
-
-          const errorMessage: Message = {
-            id: crypto.randomUUID(),
-            role: 'assistant',
-            content: `❌ **Erreur:** ${errorMsg}\n\nVeuillez verifier le numero SIREN et reessayer.`,
-            timestamp: new Date(),
-          }
-          setMessages(prev => [...prev, errorMessage])
-          setPhase('siren_input')
-          setIsLoading(false)
-          return
-        }
-
-        // Stocker les donnees de valorisation
-        setValuationData(data)
-        setPhase('valuation_display')
-        setIsLoading(false)
-      } catch {
-        const errorMessage: Message = {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: `❌ **Erreur de connexion.** Veuillez reessayer.`,
-          timestamp: new Date(),
-        }
-        setMessages(prev => [...prev, errorMessage])
-        setPhase('siren_input')
-        setIsLoading(false)
-      }
-    }
-  }, [searchParams])
-
-  // Scroll auto vers le bas
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, isLoading, streamingContent])
-
-  // Auto-resize textarea
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 150)}px`
-    }
-  }, [input])
-
-  // Hook pour la sauvegarde automatique
-  const { save: saveDraft } = useEvaluationDraft({
-    siren: valuationData?.entreprise.siren || '',
-    entrepriseNom: valuationData?.entreprise.nom || '',
-  })
-
-  const formatSiren = (value: string) => {
-    // Accepter jusqu'a 14 chiffres (SIRET) mais n'afficher que 9 (SIREN)
-    const numbers = value.replace(/\D/g, '').slice(0, 14)
-    // Si c'est un SIRET (14 chiffres), ne formater que les 9 premiers (SIREN)
-    const sirenPart = numbers.slice(0, 9)
-    return sirenPart.replace(/(\d{3})(?=\d)/g, '$1 ')
-  }
-
-  // Extraire le SIREN d'un SIREN ou SIRET
-  const extractSiren = (value: string): string | null => {
-    const numbers = value.replace(/\D/g, '')
-    // SIREN = 9 chiffres, SIRET = 14 chiffres
-    if (numbers.length === 9) {
-      return numbers
-    } else if (numbers.length === 14) {
-      // SIRET = SIREN (9) + NIC (5), on extrait le SIREN
-      return numbers.slice(0, 9)
-    }
-    return null
-  }
-
-  // Soumettre le SIREN
-  const handleSirenSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-
-    const cleanInput = input.replace(/\s/g, '')
-    const cleanSiren = extractSiren(cleanInput)
-
-    if (!cleanSiren) {
-      setError('Entrez un SIREN (9 chiffres) ou SIRET (14 chiffres)')
-      return
-    }
-
-    // Ajouter le message utilisateur
-    const userMessage: Message = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: `SIREN: ${formatSiren(cleanSiren)}`,
-      timestamp: new Date(),
-    }
-    setMessages(prev => [...prev, userMessage])
-    setInput('')
-    setIsLoading(true)
-    setPhase('valuation_loading')
-
-    try {
-      // Appeler l'API de valorisation rapide
-      const response = await fetch(`/api/entreprise/${cleanSiren}/quick-valuation`)
-      const data = await response.json()
-
-      if (!response.ok) {
-        const errorMsg = data.code === 'NOT_FOUND'
-          ? 'Entreprise non trouvee. Verifiez le numero SIREN.'
-          : data.code === 'INVALID_SIREN'
-            ? 'Le SIREN doit contenir 9 chiffres'
-            : data.error || 'Erreur lors de la recherche'
-
-        // Ajouter message d'erreur
-        const errorMessage: Message = {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: `❌ **Erreur:** ${errorMsg}\n\nVeuillez verifier le numero SIREN et reessayer.`,
-          timestamp: new Date(),
-        }
-        setMessages(prev => [...prev, errorMessage])
-        setPhase('siren_input')
-        setIsLoading(false)
-        return
-      }
-
-      // Stocker les donnees de valorisation
-      setValuationData(data)
-      setPhase('valuation_display')
-      setIsLoading(false)
-    } catch {
-      const errorMessage: Message = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: `❌ **Erreur de connexion.** Veuillez reessayer.`,
-        timestamp: new Date(),
-      }
-      setMessages(prev => [...prev, errorMessage])
-      setPhase('siren_input')
-      setIsLoading(false)
-    }
-  }
-
-  // Continuer apres la valorisation
-  const handleContinueAfterValuation = async () => {
-    if (!valuationData) return
-
-    // Creer un resume de la valorisation pour l'historique du chat
-    const valorisationResume = createValorisationResume(valuationData)
-
-    // Ajouter le resume comme message assistant avant le message utilisateur
-    const resumeMessage: Message = {
-      id: crypto.randomUUID(),
-      role: 'assistant',
-      content: valorisationResume,
-      timestamp: new Date(),
-    }
-
-    // Ajouter message utilisateur
-    const userMessage: Message = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: 'Affiner l\'evaluation',
-      timestamp: new Date(),
-    }
-    setMessages(prev => [...prev, resumeMessage, userMessage])
-    setIsLoading(true)
-
-    try {
-      // Charger le contexte complet pour le chat
-      const response = await fetch(`/api/entreprise/${valuationData.entreprise.siren}`)
-      const data = await response.json()
-
-      if (!response.ok) {
-        const errorMessage: Message = {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: `❌ **Erreur lors du chargement des donnees.** Veuillez reessayer.`,
-          timestamp: new Date(),
-        }
-        setMessages(prev => [...prev, errorMessage])
-        setIsLoading(false)
-        return
-      }
-
-      setContext(data.initialContext)
-
-      // Ajouter le message d'introduction pour les documents
-      const docMessage: Message = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: `## Documents complementaires
-
-Pour affiner l'evaluation, vous pouvez ajouter des documents:
-- **Bilans comptables** (PDF ou images)
-- **Liasses fiscales**
-- **Rapports financiers**
-
-Ces documents permettent d'avoir une vision plus precise de la situation financiere.
-
-**Vous pouvez passer cette etape si vous n'avez pas de documents a ajouter.**`,
-        timestamp: new Date(),
-      }
-      setMessages(prev => [...prev, docMessage])
-      setPhase('documents_upload')
-      setIsLoading(false)
-    } catch {
-      setIsLoading(false)
-    }
-  }
-
-  // Passer l'upload de documents (avec confirmation)
-  const handleSkipDocuments = () => {
-    if (!skipDocsAttempted) {
-      // Premier essai: afficher la question de confirmation directement dans l'UI
-      setSkipDocsAttempted(true)
-      return
-    }
-
-    // Deuxieme essai: l'utilisateur confirme, on demarre
-    confirmSkipDocuments()
-  }
-
-  // Confirmer le skip des documents et demarrer l'evaluation
-  const confirmSkipDocuments = () => {
-    const userMessage: Message = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: 'Non, je n\'ai vraiment pas de documents disponibles',
-      timestamp: new Date(),
-    }
-    setMessages(prev => [...prev, userMessage])
-    setSkipDocsAttempted(false)
-    startEvaluation(undefined, true) // true = sans documents
-  }
-
-  // Revenir a l'upload de documents apres avoir voulu passer
-  const goBackToDocumentUpload = () => {
-    const userMessage: Message = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: 'D\'accord, je vais ajouter un document',
-      timestamp: new Date(),
-    }
-
-    const confirmMessage: Message = {
-      id: crypto.randomUUID(),
-      role: 'assistant',
-      content: `Super ! 👍 Tu peux glisser ton fichier dans la zone ci-dessous ou cliquer pour parcourir tes documents.
-
-*Formats acceptes : PDF, Excel, CSV, images*`,
-      timestamp: new Date(),
-    }
-
-    setMessages(prev => [...prev, userMessage, confirmMessage])
-    setSkipDocsAttempted(false)
-  }
-
-  // Demarrer l'evaluation (avec documents optionnels deja analyses)
-  const startEvaluation = (analyzedDocs?: UploadedDocument[], skippedDocuments: boolean = false) => {
-    if (!valuationData || !context) return
-
-    // Mettre a jour le contexte avec les documents analyses
-    let updatedContext = context
-    if (analyzedDocs && analyzedDocs.length > 0) {
-      updatedContext = {
-        ...context,
-        documents: [...context.documents, ...analyzedDocs],
-      }
-      setContext(updatedContext)
-    }
-
-    // Extraire l'annee des donnees
-    const dataYear = updatedContext.financials?.bilans?.[0]?.annee || null
-    const caFormate = valuationData.financier?.chiffreAffaires
-      ? `${valuationData.financier.chiffreAffaires.toLocaleString('fr-FR')} €`
-      : undefined
-
-    // Construire le resume des documents si presents
-    let docsResume = ''
-    if (analyzedDocs && analyzedDocs.length > 0) {
-      const docsSummary = analyzedDocs.map(d => formatDocumentAnalysis(d)).join('\n\n')
-      docsResume = `\n\n---\n**Documents fournis et analyses:**\n\n${docsSummary}\n\n---\n\n*Je vais adapter mes questions en fonction des informations deja disponibles dans vos documents.*`
-    }
-
-    // Choisir le message initial selon si l'utilisateur a saute les documents
-    const entrepriseData = {
-      nom: valuationData.entreprise.nom,
-      secteur: valuationData.entreprise.secteur,
-      dateCreation: valuationData.entreprise.dateCreation,
-      effectif: valuationData.entreprise.effectif,
-      ville: valuationData.entreprise.ville,
-      ca: caFormate,
-      dataYear,
-    }
-
-    const messageContent = skippedDocuments
-      ? MESSAGE_INITIAL_SANS_DOCUMENTS(entrepriseData)
-      : MESSAGE_INITIAL(entrepriseData) + docsResume
-
-    // Message initial de l'evaluation
-    const evalMessage: Message = {
-      id: crypto.randomUUID(),
-      role: 'assistant',
-      content: messageContent,
-      timestamp: new Date(),
-    }
-    setMessages(prev => [...prev, evalMessage])
-    setPhase('evaluation')
-    setCurrentStep(1)
-  }
-
-  // Gerer l'upload initial de documents avec analyse
-  const handleInitialDocumentUpload = async (files: File[]) => {
-    if (!context) return
-
-    setIsLoading(true)
-    setUploadedDocs(files)
-
-    // Message utilisateur
-    const userMsg: Message = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: `J'ajoute ${files.length} document(s) pour l'evaluation`,
-      timestamp: new Date(),
-      documents: files.map(f => ({
-        id: crypto.randomUUID(),
-        name: f.name,
-        type: f.type,
-        size: f.size,
-      })),
-    }
-    setMessages(prev => [...prev, userMsg])
-
-    // Message d'analyse en cours
-    const analyzingMsg: Message = {
-      id: 'analyzing-docs',
-      role: 'assistant',
-      content: `📄 Analyse de ${files.length} document(s) en cours...`,
-      timestamp: new Date(),
-    }
-    setMessages(prev => [...prev, analyzingMsg])
-
-    try {
-      // Analyser chaque document
-      const analyzedDocs: UploadedDocument[] = []
-
-      for (const file of files) {
-        const formData = new FormData()
-        formData.append('file', file)
-        formData.append('context', JSON.stringify(context))
-
-        const response = await fetch('/api/documents/analyze', {
-          method: 'POST',
-          body: formData,
-        })
-
-        if (response.ok) {
-          const result = await response.json()
-          analyzedDocs.push({
-            id: result.documentId || crypto.randomUUID(),
-            name: file.name,
-            type: file.type,
-            size: file.size,
-            extractedText: result.extractedText,
-            analysis: result.analysis,
-          })
-        } else {
-          analyzedDocs.push({
-            id: crypto.randomUUID(),
-            name: file.name,
-            type: file.type,
-            size: file.size,
-            analysis: { error: 'Erreur lors de l\'analyse' },
-          })
-        }
-      }
-
-      // Supprimer le message d'analyse en cours
-      setMessages(prev => prev.filter(m => m.id !== 'analyzing-docs'))
-
-      // Demarrer l'evaluation avec les documents analyses
-      startEvaluation(analyzedDocs)
-    } catch (error) {
-      console.error('Erreur analyse documents:', error)
-      setMessages(prev => prev.filter(m => m.id !== 'analyzing-docs'))
-      // Demarrer quand meme sans les analyses
-      startEvaluation()
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // Fonction pour lire le stream SSE
-  const readStream = useCallback(async (
-    response: Response,
-    onChunk: (text: string) => void,
-    onComplete: (fullText: string) => void
-  ) => {
-    const reader = response.body?.getReader()
-    if (!reader) return
-
-    const decoder = new TextDecoder()
-    let fullText = ''
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        const chunk = decoder.decode(value, { stream: true })
-        const lines = chunk.split('\n')
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6)
-            if (data === '[DONE]') {
-              onComplete(fullText)
-              return
-            }
-            try {
-              const parsed = JSON.parse(data)
-              if (parsed.text) {
-                fullText += parsed.text
-                onChunk(fullText)
-              }
-            } catch {
-              // Ignorer les erreurs de parsing
-            }
-          }
-        }
-      }
-      onComplete(fullText)
-    } catch (error) {
-      console.error('Erreur lecture stream:', error)
-      onComplete(fullText)
-    }
-  }, [])
-
-  // Envoyer un message pendant l'evaluation
-  const sendMessage = async (content: string, documents?: File[]) => {
-    if (!content.trim() && !documents?.length) return
-    if (!context) return
-
-    // Ajouter le message utilisateur
-    const userMessage: Message = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content,
-      timestamp: new Date(),
-      documents: documents?.map(f => ({
-        id: crypto.randomUUID(),
-        name: f.name,
-        type: f.type,
-        size: f.size,
-      })),
-    }
-    setMessages(prev => [...prev, userMessage])
-    setInput('')
-    setUploadedDocs([])
-    setSuggestedReplies([]) // Effacer les suggestions pendant le chargement
-    setSelectedSuggestions(new Set()) // Effacer les selections
-    setIsLoading(true)
-
-    try {
-      // Si documents uploades, les analyser d'abord
-      const documentsAnalysis: UploadedDocument[] = []
-      if (documents?.length) {
-        for (const doc of documents) {
-          const formData = new FormData()
-          formData.append('file', doc)
-          formData.append('context', JSON.stringify(context))
-
-          const analysisRes = await fetch('/api/documents/analyze', {
-            method: 'POST',
-            body: formData,
-          })
-          const analysis = await analysisRes.json()
-          documentsAnalysis.push({
-            id: analysis.documentId,
-            name: doc.name,
-            type: doc.type,
-            size: doc.size,
-            extractedText: analysis.extractedText,
-            analysis: analysis.analysis,
-          })
-        }
-      }
-
-      // Mettre a jour le contexte avec les documents
-      const updatedContext: ConversationContext = {
-        ...context,
-        documents: [...context.documents, ...documentsAnalysis],
-      }
-      setContext(updatedContext)
-
-      // Construire le contenu avec les analyses de documents
-      let messageContent = content
-      if (documentsAnalysis.length > 0) {
-        const docsSummary = documentsAnalysis.map(d => formatDocumentAnalysis(d)).join('\n\n')
-        messageContent = `${content}\n\n---\n**Documents analyses:**\n\n${docsSummary}`
-      }
-
-      // Construire l'historique pour l'API (filtrer les messages systeme)
-      const apiMessages = messages
-        .filter(m => m.id !== 'welcome')
-        .map(m => ({
-          role: m.role as 'user' | 'assistant',
-          content: m.content,
-        }))
-
-      // Ajouter le nouveau message
-      apiMessages.push({ role: 'user', content: messageContent })
-
-      // Appeler l'API de chat en streaming
-      setIsStreaming(true)
-      setStreamingContent('')
-
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: apiMessages,
-          context: updatedContext,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Erreur API')
-      }
-
-      await readStream(
-        response,
-        (text) => {
-          // Pendant le streaming, on cache les suggestions et on nettoie le texte en temps reel
-          const { cleanText } = extractSuggestions(text.replace(/\[STEP:\d+\]/g, ''))
-          setStreamingContent(cleanText)
-        },
-        (fullText) => {
-          // Extraire le nouveau step si present
-          const stepMatch = fullText.match(/\[STEP:(\d+)\]/)
-          if (stepMatch) {
-            const newStep = parseInt(stepMatch[1])
-            setCurrentStep(newStep)
-            setContext(prev => prev ? {
-              ...prev,
-              evaluationProgress: { ...prev.evaluationProgress, step: newStep }
-            } : prev)
-          }
-
-          // Nettoyer le texte et extraire les suggestions
-          const textWithoutStep = fullText.replace(/\[STEP:\d+\]/g, '').trim()
-          const { cleanText, suggestions } = extractSuggestions(textWithoutStep)
-
-          // Mettre a jour les suggestions
-          setSuggestedReplies(suggestions)
-
-          // Ajouter le message assistant
-          const assistantMessage: Message = {
-            id: crypto.randomUUID(),
-            role: 'assistant',
-            content: cleanText,
-            timestamp: new Date(),
-          }
-          setMessages(prev => [...prev, assistantMessage])
-          setStreamingContent('')
-          setIsStreaming(false)
-          setIsLoading(false)
-
-          // Sauvegarder le brouillon
-          if (valuationData) {
-            saveDraft(updatedContext, [...messages, userMessage, assistantMessage], currentStep)
-          }
-        }
-      )
-    } catch (error) {
-      console.error('Erreur envoi message:', error)
-      setIsLoading(false)
-      setIsStreaming(false)
-    }
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (phase === 'siren_input') {
-      handleSirenSubmit(e)
-    } else if (phase === 'evaluation') {
-      sendMessage(input, uploadedDocs.length > 0 ? uploadedDocs : undefined)
-    }
-  }
-
-  const handleExemple = (sirenExemple: string) => {
-    setInput(formatSiren(sirenExemple))
-    setError('')
-  }
-
-  // Nouvelle evaluation (reset)
-  const handleNewEvaluation = () => {
-    setPhase('siren_input')
-    setMessages([createWelcomeMessage()])
-    setValuationData(null)
-    setContext(null)
-    setInput('')
-    setError('')
-    setCurrentStep(1)
-    setUploadedDocs([])
-    setSkipDocsAttempted(false)
-    setSuggestedReplies([])
-    setSelectedSuggestions(new Set())
-  }
-
-  // Donnees entreprise pour la sidebar
-  const entrepriseData = valuationData ? {
-    siren: valuationData.entreprise.siren,
-    nom: valuationData.entreprise.nom,
-    secteur: valuationData.entreprise.secteur,
-  } : null
-
-  // Placeholder selon la phase
-  const getPlaceholder = () => {
-    switch (phase) {
-      case 'siren_input':
-        return 'Entrez un SIREN (ex: 443 061 841)'
-      case 'evaluation':
-        return 'Votre reponse...'
-      default:
-        return ''
-    }
-  }
-
-  // Afficher la zone de saisie
-  const showInput = phase === 'siren_input' || phase === 'evaluation'
-
+export default function LandingPage() {
   return (
-    <div className="h-screen-safe flex bg-[#1a1a2e] no-overscroll">
-      {/* Sidebar */}
-      <Sidebar
-        entreprise={entrepriseData ? {
-          nom: entrepriseData.nom,
-          secteur: entrepriseData.secteur,
-          siren: entrepriseData.siren,
-        } : {
-          nom: 'Nouvelle evaluation',
-          secteur: '',
-          siren: '',
-        }}
-        currentStep={currentStep}
-        isOpen={sidebarOpen}
-        isCollapsed={sidebarCollapsed}
-        onToggle={() => setSidebarOpen(!sidebarOpen)}
-        onCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
-        evaluations={evaluations}
-      />
+    <div className="min-h-screen">
+      <Navbar />
 
-      {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
-        <header className="relative z-10 flex items-center gap-3 px-4 py-3 sm:py-4 pt-safe bg-[#1a1a2e] shadow-lg shadow-black/20">
-          <button
-            onClick={() => {
-              if (window.innerWidth < 1024) {
-                setSidebarOpen(true)
-              } else {
-                setSidebarCollapsed(!sidebarCollapsed)
-              }
-            }}
-            className="p-2.5 sm:p-2 -ml-2 text-white/70 hover:bg-white/10 rounded-lg transition-colors touch-target"
-            title={sidebarCollapsed ? 'Ouvrir le menu' : 'Fermer le menu'}
-          >
-            {sidebarCollapsed ? (
-              <svg className="w-6 h-6 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            ) : (
-              <svg className="w-6 h-6 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-              </svg>
-            )}
-          </button>
+      {/* Hero Section */}
+      <Hero />
 
-          <div className="flex-1 min-w-0">
-            <h1 className="text-sm font-medium text-white truncate">
-              {entrepriseData ? entrepriseData.nom : 'Nouvelle evaluation'}
-            </h1>
-          </div>
-
-          {phase === 'evaluation' && (
-            <div className="text-xs text-white/60 bg-white/10 px-2.5 py-1.5 sm:px-2 sm:py-1 rounded-full whitespace-nowrap">
-              Etape {currentStep}/6
-            </div>
-          )}
-
-          {valuationData && (
-            <button
-              onClick={handleNewEvaluation}
-              className="p-2 text-white/70 hover:bg-white/10 rounded-lg transition-colors"
-              title="Nouvelle evaluation"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-            </button>
-          )}
-        </header>
-
-        {/* Zone principale - Chat unifie */}
-        <main className="flex-1 overflow-hidden bg-[#1a1a2e]">
-          <div className="flex flex-col h-full relative">
-            <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 pb-0 scroll-smooth-mobile">
-              <div className="max-w-3xl mx-auto space-y-3 sm:space-y-4 pb-4">
-
-                {/* Tous les messages */}
-                {messages.map((message) => (
-                  <MessageBubble key={message.id} message={message} />
-                ))}
-
-                {/* Suggestions SIREN (phase input uniquement) */}
-                {phase === 'siren_input' && messages.length === 1 && (
-                  <div className="flex justify-start">
-                    <div className="flex-shrink-0 mr-2 sm:mr-3 w-8" />
-                    <div className="flex flex-wrap gap-2">
-                      {exemplesSiren.map((exemple) => (
-                        <button
-                          key={exemple.siren}
-                          onClick={() => handleExemple(exemple.siren)}
-                          className="px-3.5 py-2 sm:px-3 sm:py-1.5 bg-white/5 border border-white/10 rounded-full text-sm text-white/70 hover:bg-white/10 hover:text-white transition-colors touch-target"
-                        >
-                          {exemple.nom}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Loading indicator */}
-                {isLoading && !isStreaming && <TypingIndicator />}
-
-                {/* Streaming content */}
-                {isStreaming && streamingContent && (
-                  <MessageBubble
-                    message={{
-                      id: 'streaming',
-                      role: 'assistant',
-                      content: streamingContent,
-                      timestamp: new Date(),
-                    }}
-                  />
-                )}
-
-                {/* Valorisation - seulement pendant la phase d'affichage */}
-                {valuationData && phase === 'valuation_display' && (
-                  <div className="space-y-4">
-                    <InstantValuation
-                      data={valuationData}
-                      onContinue={handleContinueAfterValuation}
-                      showContinueButton={true}
-                    />
-                  </div>
-                )}
-
-                {/* Phase upload documents */}
-                {phase === 'documents_upload' && (
-                  <div className="flex justify-start">
-                    <div className="flex-shrink-0 mr-2 sm:mr-3 w-8" />
-                    <div className="space-y-3">
-                      {/* Afficher la question et les boutons apres le message d'avertissement */}
-                      {skipDocsAttempted ? (
-                        <div className="bg-white/5 rounded-2xl border border-white/10 p-6 space-y-4">
-                          {/* Question/Message d'explication */}
-                          <div className="text-white/90 space-y-3">
-                            <p className="font-medium">
-                              Je comprends, mais laisse-moi t'expliquer pourquoi les documents sont vraiment utiles 📄
-                            </p>
-                            <div className="text-sm text-white/70 space-y-2">
-                              <p><strong className="text-white/90">Avec des documents financiers</strong> (bilan, compte de resultat, liasse fiscale) :</p>
-                              <ul className="list-disc list-inside space-y-1 ml-2">
-                                <li>L'evaluation sera <strong className="text-[#c9a227]">2x plus precise</strong></li>
-                                <li>Je te poserai <strong className="text-[#c9a227]">beaucoup moins de questions</strong></li>
-                                <li>Le processus sera <strong className="text-[#c9a227]">plus rapide</strong></li>
-                              </ul>
-                            </div>
-                            <p className="text-sm text-white/70">
-                              <strong className="text-white/90">Sans documents</strong>, je devrai te poser de nombreuses questions sur les chiffres, et l'estimation finale sera basee uniquement sur les donnees publiques.
-                            </p>
-                            <p className="text-sm text-[#c9a227]">
-                              💡 Meme un simple PDF de ton dernier bilan fait une grande difference !
-                            </p>
-                          </div>
-
-                          {/* Question finale */}
-                          <p className="font-medium text-white pt-2 border-t border-white/10">
-                            As-tu peut-etre un document a portee de main ?
-                          </p>
-
-                          {/* Boutons de choix */}
-                          <div className="flex flex-wrap gap-3 pt-2">
-                            <button
-                              onClick={goBackToDocumentUpload}
-                              className="flex-1 min-w-[200px] px-4 py-3 bg-[#c9a227] text-[#1a1a2e] font-medium rounded-xl hover:bg-[#e8c547] transition-colors flex items-center justify-center gap-2"
-                            >
-                              <span>📄</span>
-                              <span>Oui, je vais ajouter un document</span>
-                            </button>
-                            <button
-                              onClick={confirmSkipDocuments}
-                              className="flex-1 min-w-[200px] px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-sm text-white/70 hover:bg-white/10 hover:text-white transition-colors flex items-center justify-center gap-2"
-                            >
-                              <span>❌</span>
-                              <span>Non, je n'ai vraiment rien</span>
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <InitialDocumentUpload
-                          onUpload={handleInitialDocumentUpload}
-                          onSkip={handleSkipDocuments}
-                        />
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Telecharger le rapport (fin d'evaluation) */}
-                {phase === 'evaluation' && context && currentStep >= 6 && (
-                  <DownloadReport context={context} messages={messages} />
-                )}
-
-                {/* Message d'erreur */}
-                {error && (
-                  <div className="flex justify-start">
-                    <div className="flex-shrink-0 mr-2 sm:mr-3 w-8" />
-                    <div className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-3 sm:px-4 py-2">
-                      {error}
-                    </div>
-                  </div>
-                )}
-
-                <div ref={messagesEndRef} />
+      {/* App Preview / Demo */}
+      <section className="pb-16">
+        <div className="max-w-[900px] mx-auto px-8 relative">
+          <div className="bg-[var(--bg-primary)] border border-[var(--border)] rounded-[var(--radius-2xl)] shadow-[var(--shadow-xl)] overflow-hidden">
+            {/* Browser toolbar */}
+            <div className="flex items-center justify-between px-5 py-3 bg-[var(--bg-secondary)] border-b border-[var(--border)]">
+              <div className="flex gap-2">
+                <div className="w-3 h-3 rounded-full bg-[#FF605C]" />
+                <div className="w-3 h-3 rounded-full bg-[#FFBD44]" />
+                <div className="w-3 h-3 rounded-full bg-[#00CA4E]" />
               </div>
+              <div className="flex items-center gap-2 text-[12px] text-[var(--text-muted)]">
+                <span className="text-[var(--success)]">&#128274;</span>
+                app.evalup.fr
+              </div>
+              <div className="w-12" />
             </div>
 
-            {/* Zone de saisie */}
-            {showInput && (
-              <div className="sticky bottom-0 bg-[#1a1a2e] shadow-[0_-8px_20px_rgba(0,0,0,0.3)] sticky-input-mobile">
-                {/* Reponses suggerees */}
-                {suggestedReplies.length > 0 && (
-                  <div className="px-3 sm:px-4 pt-3 pb-1">
-                    <div className="max-w-3xl mx-auto">
-                      <p className="text-xs text-white/40 mb-2">Reponses suggerees (cliquez pour selectionner) :</p>
-                      <div className="flex flex-wrap gap-2">
-                        {suggestedReplies.map((reply, i) => {
-                          const isSelected = selectedSuggestions.has(reply.value)
-                          return (
-                            <button
-                              key={i}
-                              type="button"
-                              onClick={() => {
-                                setSelectedSuggestions(prev => {
-                                  const newSet = new Set(prev)
-                                  if (newSet.has(reply.value)) {
-                                    newSet.delete(reply.value)
-                                  } else {
-                                    newSet.add(reply.value)
-                                  }
-                                  // Mettre a jour l'input avec les selections combinees
-                                  const combined = Array.from(newSet).join(', ')
-                                  setInput(combined)
-                                  return newSet
-                                })
-                              }}
-                              className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
-                                isSelected
-                                  ? 'bg-[#c9a227] text-[#1a1a2e] border border-[#c9a227]'
-                                  : 'bg-[#c9a227]/20 border border-[#c9a227]/40 text-[#c9a227] hover:bg-[#c9a227]/30 hover:border-[#c9a227]/60'
-                              }`}
-                            >
-                              {isSelected && <span className="mr-1">✓</span>}
-                              {reply.label}
-                            </button>
-                          )
-                        })}
-                      </div>
-                      {selectedSuggestions.size > 0 && (
-                        <p className="text-xs text-white/30 mt-2">
-                          {selectedSuggestions.size} selection(s) - Appuyez sur Entree pour envoyer
-                        </p>
-                      )}
-                    </div>
+            {/* App mockup content */}
+            <div className="flex min-h-[420px]">
+              {/* Mini sidebar */}
+              <div className="w-[200px] border-r border-[var(--border)] bg-[var(--bg-secondary)] p-4 hidden md:block">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-6 h-6 bg-[var(--accent)] rounded-md flex items-center justify-center text-white text-[10px] font-bold">E</div>
+                  <span className="text-[14px] font-bold text-[var(--text-primary)]">EvalUp</span>
+                </div>
+                <button className="w-full bg-[var(--accent)] text-white text-[12px] font-semibold py-2 px-3 rounded-[var(--radius-md)] mb-4 flex items-center justify-center gap-1">
+                  <span>+</span> Nouvelle evaluation
+                </button>
+                <p className="text-[10px] font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-2 px-1">Recentes</p>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 p-2 rounded-md bg-[var(--accent-light)] text-[var(--accent)]">
+                    <div className="w-6 h-6 rounded bg-[var(--accent)] text-white text-[10px] font-bold flex items-center justify-center">W</div>
+                    <span className="text-[12px] font-semibold truncate">WEBCRAFT AGENCY</span>
                   </div>
-                )}
-
-                <div className="p-3 sm:p-4 pb-safe">
-                  <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
-                    <div className="relative bg-white/5 rounded-2xl border border-white/20 focus-within:border-[#c9a227] focus-within:ring-2 focus-within:ring-[#c9a227]/20 transition-all">
-                      {/* Documents attaches */}
-                      {uploadedDocs.length > 0 && (
-                        <div className="flex flex-wrap gap-2 p-2 border-b border-white/10">
-                          {uploadedDocs.map((doc, i) => (
-                            <div key={i} className="flex items-center gap-2 bg-white/10 rounded-lg px-2 py-1 text-xs text-white/70">
-                              <span className="truncate max-w-[150px]">{doc.name}</span>
-                              <button
-                                type="button"
-                                onClick={() => setUploadedDocs(prev => prev.filter((_, j) => j !== i))}
-                                className="text-white/50 hover:text-white"
-                              >
-                                ×
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      <div className="flex items-end gap-1.5 sm:gap-2 p-1.5 sm:p-2">
-                        {/* Icone */}
-                        <div className="p-2.5 sm:p-3 text-white/50">
-                          {phase === 'siren_input' ? (
-                            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                            </svg>
-                          ) : (
-                            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                            </svg>
-                          )}
-                        </div>
-
-                        <textarea
-                          ref={textareaRef}
-                          value={input}
-                          onChange={(e) => {
-                            if (phase === 'siren_input') {
-                              setInput(formatSiren(e.target.value))
-                            } else {
-                              setInput(e.target.value)
-                            }
-                            setError('')
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault()
-                              handleSubmit(e)
-                            }
-                          }}
-                          placeholder={getPlaceholder()}
-                          className="flex-1 bg-transparent px-2 py-2.5 sm:py-2 resize-none focus:outline-none text-white placeholder:text-white/40 text-base sm:text-lg"
-                          rows={1}
-                          disabled={isLoading || isStreaming}
-                        />
-
-                        {/* Bouton upload documents (phase evaluation) */}
-                        {phase === 'evaluation' && (
-                          <DocumentUpload
-                            onUpload={(files) => setUploadedDocs(prev => [...prev, ...files])}
-                          />
-                        )}
-
-                        <button
-                          type="submit"
-                          disabled={isLoading || isStreaming || !input.trim()}
-                          className="p-3 sm:p-2.5 bg-[#c9a227] text-[#1a1a2e] rounded-xl hover:bg-[#e8c547] disabled:opacity-40 disabled:cursor-not-allowed transition-colors touch-target"
-                        >
-                          {isLoading || isStreaming ? (
-                            <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                            </svg>
-                          ) : (
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" />
-                            </svg>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-
-                    {phase === 'siren_input' && (
-                      <p className="text-xs text-white/30 mt-2 text-center hidden sm:block">
-                        Entree pour rechercher | <Link href="/evaluation" className="hover:text-white/50 underline">Remplir manuellement</Link>
-                      </p>
-                    )}
-                  </form>
+                  <div className="flex items-center gap-2 p-2 rounded-md text-[var(--text-secondary)]">
+                    <div className="w-6 h-6 rounded bg-[var(--bg-tertiary)] text-[10px] font-bold flex items-center justify-center">D</div>
+                    <span className="text-[12px] truncate">DUPONT CONSEIL</span>
+                  </div>
                 </div>
               </div>
-            )}
-          </div>
-        </main>
-      </div>
-    </div>
-  )
-}
 
-// Wrapper avec Suspense pour useSearchParams
-export default function Home() {
-  return (
-    <Suspense fallback={
-      <div className="h-screen-safe flex items-center justify-center bg-[#1a1a2e]">
-        <div className="animate-spin w-8 h-8 border-2 border-[#c9a227] border-t-transparent rounded-full" />
-      </div>
-    }>
-      <HomeContent />
-    </Suspense>
+              {/* Chat area */}
+              <div className="flex-1 flex flex-col">
+                {/* Chat header */}
+                <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--border)]">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-[14px] text-[var(--text-primary)]">WEBCRAFT AGENCY</span>
+                    <span className="text-[11px] bg-[var(--bg-tertiary)] px-2 py-0.5 rounded-full text-[var(--text-secondary)]">Agence web</span>
+                  </div>
+                  {/* Mini stepper */}
+                  <div className="flex items-center gap-1">
+                    {[1,2,3,4,5,6].map((s, i) => (
+                      <div key={i} className="flex items-center">
+                        <div className={`w-2 h-2 rounded-full ${i < 3 ? 'bg-[var(--accent)]' : 'bg-[var(--border)]'}`} />
+                        {i < 5 && <div className={`w-3 h-0.5 ${i < 2 ? 'bg-[var(--accent)]' : 'bg-[var(--border)]'}`} />}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Messages */}
+                <div className="flex-1 p-5 space-y-4 overflow-hidden">
+                  {/* AI message */}
+                  <div className="flex gap-3">
+                    <div className="w-7 h-7 rounded-full bg-[var(--accent)] text-white text-[10px] font-bold flex items-center justify-center shrink-0">E</div>
+                    <div className="text-[13px] text-[var(--text-secondary)]">
+                      J'ai trouve <strong className="text-[var(--text-primary)]">WEBCRAFT AGENCY</strong> via Pappers. Voici les donnees financieres :
+                    </div>
+                  </div>
+
+                  {/* Data card */}
+                  <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded-[var(--radius-lg)] p-4 ml-10">
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-[12px] font-bold text-[var(--text-primary)]">Donnees financieres 2024</span>
+                      <span className="text-[10px] font-semibold text-[var(--accent)] bg-[var(--accent-light)] px-2 py-0.5 rounded-full">Via Pappers</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <p className="text-[9px] uppercase text-[var(--text-muted)] font-medium">Chiffre d'affaires</p>
+                        <p className="font-mono text-[15px] font-bold text-[var(--text-primary)]">320 K&#8364;</p>
+                        <p className="text-[10px] text-[var(--success)]">&#9650; +18.5%</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] uppercase text-[var(--text-muted)] font-medium">Resultat net</p>
+                        <p className="font-mono text-[15px] font-bold text-[var(--text-primary)]">58 K&#8364;</p>
+                        <p className="text-[10px] text-[var(--success)]">&#9650; +24.3%</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] uppercase text-[var(--text-muted)] font-medium">Effectif</p>
+                        <p className="font-mono text-[15px] font-bold text-[var(--text-primary)]">5</p>
+                        <p className="text-[10px] text-[var(--success)]">&#9650; +1</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* AI question */}
+                  <div className="flex gap-3">
+                    <div className="w-7 h-7 rounded-full bg-[var(--accent)] text-white text-[10px] font-bold flex items-center justify-center shrink-0">E</div>
+                    <div className="text-[13px] text-[var(--text-secondary)]">
+                      Passons aux <span className="text-[var(--accent)] font-semibold">retraitements</span>. Quel est le <strong className="text-[var(--text-primary)]">salaire annuel brut du dirigeant</strong> ?
+                    </div>
+                  </div>
+
+                  {/* User message */}
+                  <div className="flex justify-end">
+                    <div className="bg-[var(--accent)] text-white px-4 py-2 rounded-[var(--radius-lg)] rounded-br-sm text-[13px] max-w-[70%]">
+                      Le dirigeant se verse environ 55 000&#8364; brut/an
+                    </div>
+                  </div>
+                </div>
+
+                {/* Input */}
+                <div className="border-t border-[var(--border)] p-3 flex gap-3">
+                  <input
+                    type="text"
+                    placeholder="Ecris ta reponse..."
+                    className="flex-1 bg-[var(--bg-secondary)] border border-[var(--border)] rounded-full px-4 py-2 text-[13px] outline-none"
+                    readOnly
+                  />
+                  <button className="w-9 h-9 bg-[var(--accent)] text-white rounded-full flex items-center justify-center">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Floating valuation card */}
+          <div className="absolute -right-4 top-1/3 bg-[var(--bg-primary)] border border-[var(--border)] rounded-[var(--radius-lg)] shadow-[var(--shadow-lg)] p-4 animate-bounce hidden lg:block">
+            <p className="text-[11px] text-[var(--text-muted)] mb-1">Valorisation estimée</p>
+            <p className="font-mono text-[18px] font-bold text-[var(--accent)]">380K€ - 520K€</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Data Sources Logos */}
+      <section className="py-12 border-b border-[var(--border)]">
+        <div className="max-w-[var(--content-max-width)] mx-auto px-8 text-center">
+          <p className="text-[12px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-6">
+            Sources de donnees fiables
+          </p>
+          <div className="flex items-center justify-center gap-12 flex-wrap opacity-50">
+            {['Pappers', 'INSEE', 'Infogreffe', 'Banque de France', 'BODACC'].map((name) => (
+              <span key={name} className="text-[18px] font-bold text-[var(--text-muted)]">{name}</span>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* How it Works Section */}
+      <section id="how-it-works" className="py-24 bg-[var(--bg-secondary)]">
+        <div className="max-w-[var(--content-max-width)] mx-auto px-8">
+          <div className="text-center mb-16">
+            <Badge variant="accent" className="mb-4">
+              Simple et rapide
+            </Badge>
+            <h2 className="section-title">Comment ca marche</h2>
+            <p className="section-desc mx-auto">
+              En trois etapes simples, obtenez une estimation professionnelle de la valeur de votre entreprise.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {[
+              {
+                step: '01',
+                title: 'Identifiez votre entreprise',
+                description: 'Entrez simplement votre numero SIREN. Nous recuperons automatiquement les donnees publiques disponibles.',
+                tag: 'Automatique',
+              },
+              {
+                step: '02',
+                title: 'Repondez aux questions',
+                description: "L'IA vous pose des questions ciblees pour affiner l'analyse. Un echange simple et guide.",
+                tag: '~10 questions',
+              },
+              {
+                step: '03',
+                title: 'Obtenez votre valorisation',
+                description: 'Recevez une estimation detaillee avec plusieurs methodes de calcul et un rapport telechargeable.',
+                tag: 'PDF inclus',
+              },
+            ].map((item, index) => (
+              <div
+                key={index}
+                className="bg-[var(--bg-primary)] border border-[var(--border)] rounded-[var(--radius-xl)] p-8 hover:shadow-[var(--shadow-lg)] hover:-translate-y-1 transition-all duration-300"
+              >
+                <div className="w-12 h-12 mb-5 bg-[var(--accent-light)] text-[var(--accent)] rounded-[var(--radius-md)] flex items-center justify-center font-mono font-bold text-[16px]">
+                  {item.step}
+                </div>
+                <h3 className="text-[18px] font-bold text-[var(--text-primary)] mb-3">
+                  {item.title}
+                </h3>
+                <p className="text-[14px] text-[var(--text-secondary)] leading-relaxed mb-4">
+                  {item.description}
+                </p>
+                <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[var(--success)] bg-[var(--success-light)] px-3 py-1 rounded-full">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                  {item.tag}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section id="features" className="py-24">
+        <div className="max-w-[var(--content-max-width)] mx-auto px-8">
+          <div className="text-center mb-16">
+            <Badge variant="accent" className="mb-4">
+              Fonctionnalites
+            </Badge>
+            <h2 className="section-title">Tout ce dont vous avez besoin</h2>
+            <p className="section-desc mx-auto">
+              Des outils professionnels accessibles a tous pour une valorisation precise et fiable.
+            </p>
+          </div>
+
+          {/* Bento Grid */}
+          <div className="grid md:grid-cols-12 gap-5">
+            {/* Large card - Valorisation */}
+            <div className="md:col-span-7 bg-[var(--bg-primary)] border border-[var(--border)] rounded-[var(--radius-xl)] p-8">
+              <div className="w-11 h-11 bg-[var(--accent-light)] text-[var(--accent)] rounded-[var(--radius-md)] flex items-center justify-center text-[20px] mb-5">
+                &#128202;
+              </div>
+              <h3 className="text-[18px] font-bold text-[var(--text-primary)] mb-2">
+                3 methodes de valorisation
+              </h3>
+              <p className="text-[14px] text-[var(--text-secondary)] mb-6">
+                DCF, multiples sectoriels et approche patrimoniale. Chaque methode est ponderee pour une fourchette realiste.
+              </p>
+              <div className="bg-gradient-to-br from-[#1A2E4F] to-[var(--accent)] rounded-[var(--radius-lg)] p-6 text-center text-white">
+                <p className="text-[11px] uppercase tracking-wide opacity-70">Valorisation estimee</p>
+                <p className="font-mono text-[28px] font-bold my-2">380 K&#8364; - 520 K&#8364;</p>
+                <p className="text-[12px] opacity-60">Fourchette basee sur 3 methodes</p>
+              </div>
+            </div>
+
+            {/* Narrow card - Donnees */}
+            <div className="md:col-span-5 bg-[var(--bg-primary)] border border-[var(--border)] rounded-[var(--radius-xl)] p-8">
+              <div className="w-11 h-11 bg-[var(--success-light)] text-[var(--success)] rounded-[var(--radius-md)] flex items-center justify-center text-[20px] mb-5">
+                &#9889;
+              </div>
+              <h3 className="text-[18px] font-bold text-[var(--text-primary)] mb-2">
+                Donnees en temps reel
+              </h3>
+              <p className="text-[14px] text-[var(--text-secondary)] mb-5">
+                Connexion directe aux bases officielles. Bilans et comptes de resultat importes automatiquement.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { name: 'Pappers', color: '#059669' },
+                  { name: 'INSEE', color: '#2563EB' },
+                  { name: 'Infogreffe', color: '#7C3AED' },
+                  { name: 'BODACC', color: '#D97706' },
+                ].map((source) => (
+                  <span key={source.name} className="inline-flex items-center gap-2 px-3 py-1.5 bg-[var(--bg-secondary)] border border-[var(--border)] rounded-full text-[13px] text-[var(--text-secondary)]">
+                    <span className="w-2 h-2 rounded-full" style={{ background: source.color }} />
+                    {source.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* 3 small cards */}
+            <div className="md:col-span-4 bg-[var(--bg-primary)] border border-[var(--border)] rounded-[var(--radius-xl)] p-6">
+              <div className="text-[24px] mb-3">&#128196;</div>
+              <h3 className="text-[16px] font-bold text-[var(--text-primary)] mb-1">Rapport PDF pro</h3>
+              <p className="text-[13px] text-[var(--text-secondary)]">15+ pages avec graphiques et analyses</p>
+            </div>
+
+            <div className="md:col-span-4 bg-[var(--bg-primary)] border border-[var(--border)] rounded-[var(--radius-xl)] p-6">
+              <div className="text-[24px] mb-3">&#129302;</div>
+              <h3 className="text-[16px] font-bold text-[var(--text-primary)] mb-1">IA conversationnelle</h3>
+              <p className="text-[13px] text-[var(--text-secondary)]">Dialoguez naturellement, sans formulaires</p>
+            </div>
+
+            <div className="md:col-span-4 bg-[var(--bg-primary)] border border-[var(--border)] rounded-[var(--radius-xl)] p-6">
+              <div className="text-[24px] mb-3">&#128200;</div>
+              <h3 className="text-[16px] font-bold text-[var(--text-primary)] mb-1">Comparables</h3>
+              <p className="text-[13px] text-[var(--text-secondary)]">Transactions recentes de votre secteur</p>
+            </div>
+          </div>
+
+          {/* Download example report */}
+          <div className="mt-12 text-center">
+            <p className="text-[14px] text-[var(--text-secondary)] mb-4">
+              Decouvrez un exemple de rapport sur une entreprise fictive
+            </p>
+            <Button variant="outline" size="lg" asChild>
+              <a href="/exemple-rapport-evalup.pdf" download>
+                <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Telecharger un exemple de rapport
+              </a>
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Social Proof Section */}
+      <section className="py-24 bg-[var(--bg-secondary)]">
+        <div className="max-w-[var(--content-max-width)] mx-auto px-8">
+          <div className="text-center mb-16">
+            <Badge variant="accent" className="mb-4">
+              Ils nous font confiance
+            </Badge>
+            <h2 className="section-title">Utilise par des dirigeants dans toute la France</h2>
+            <p className="section-desc mx-auto">
+              Que ce soit pour une cession, une levee de fonds ou simplement connaitre la valeur de leur entreprise.
+            </p>
+          </div>
+
+          {/* Stats */}
+          <div className="grid md:grid-cols-3 gap-6 mb-16">
+            {[
+              { value: '2 400+', label: 'Evaluations realisees' },
+              { value: '8 min', label: 'Temps moyen par evaluation' },
+              { value: '4.8/5', label: 'Note de satisfaction' },
+            ].map((stat, i) => (
+              <div key={i} className="bg-[var(--bg-primary)] border border-[var(--border)] rounded-[var(--radius-xl)] p-8 text-center">
+                <p className="font-mono text-[36px] font-bold text-[var(--accent)]">{stat.value}</p>
+                <p className="text-[14px] text-[var(--text-secondary)] mt-1">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Testimonials */}
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              {
+                text: "J'ai obtenu une valorisation coherente en moins de 10 minutes. Le rapport PDF a impressionne mon banquier.",
+                name: 'Pierre M.',
+                role: 'Dirigeant - Menuiserie, 12 salaries',
+                color: 'from-[#2563EB] to-[#6366F1]',
+              },
+              {
+                text: "Enfin un outil qui parle en francais et qui comprend les specificites des PME. Les retraitements sont pertinents.",
+                name: 'Sophie L.',
+                role: 'Expert-comptable - Cabinet independant',
+                color: 'from-[#059669] to-[#10B981]',
+              },
+              {
+                text: "Je preparais la cession de mon restaurant. EvalUp m'a donne une base solide pour negocier avec les repreneurs.",
+                name: 'Marc K.',
+                role: 'Restaurateur - 2 etablissements',
+                color: 'from-[#D97706] to-[#F59E0B]',
+              },
+            ].map((testimonial, i) => (
+              <div key={i} className="bg-[var(--bg-primary)] border border-[var(--border)] rounded-[var(--radius-xl)] p-7 hover:shadow-[var(--shadow-md)] hover:-translate-y-1 transition-all">
+                <div className="text-[14px] text-yellow-400 tracking-wider mb-4">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+                <p className="text-[14px] text-[var(--text-secondary)] leading-relaxed italic mb-5">
+                  "{testimonial.text}"
+                </p>
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${testimonial.color} text-white text-[13px] font-bold flex items-center justify-center`}>
+                    {testimonial.name.split(' ').map(n => n[0]).join('')}
+                  </div>
+                  <div>
+                    <p className="text-[14px] font-semibold text-[var(--text-primary)]">{testimonial.name}</p>
+                    <p className="text-[12px] text-[var(--text-muted)]">{testimonial.role}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-24 bg-[var(--bg-inverted)] relative overflow-hidden">
+        {/* Background glow */}
+        <div className="absolute top-[-200px] left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-[var(--accent)] opacity-10 blur-[120px] rounded-full pointer-events-none" />
+
+        <div className="max-w-[var(--content-max-width)] mx-auto px-8 text-center relative z-10">
+          <h2 className="text-[32px] md:text-[42px] font-bold text-white mb-4 leading-tight">
+            Pret a connaitre la valeur<br />
+            <span className="bg-gradient-to-r from-[#60A5FA] to-[#A78BFA] bg-clip-text text-transparent">
+              de votre entreprise ?
+            </span>
+          </h2>
+          <p className="text-[17px] text-white/60 max-w-lg mx-auto mb-10">
+            Premiere evaluation gratuite. Resultats en 10 minutes. Rapport PDF professionnel inclus.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Button variant="white" size="lg" asChild>
+              <Link href="/app">
+                Commencer gratuitement &#8594;
+              </Link>
+            </Button>
+            <Button variant="ghost-dark" size="lg" asChild>
+              <a href="/exemple-rapport-evalup.pdf" download>
+                Voir un exemple
+              </a>
+            </Button>
+          </div>
+          <p className="text-[13px] text-white/40 mt-6 flex items-center justify-center gap-2">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            Vos donnees sont securisees et ne sont jamais partagees
+          </p>
+        </div>
+      </section>
+
+      <Footer />
+    </div>
   )
 }

@@ -1,11 +1,13 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import Link from 'next/link'
 import { pdf } from '@react-pdf/renderer'
 import { EvaluationReport } from '@/lib/pdf/EvaluationReport'
 import type { ConversationContext, Message } from '@/lib/anthropic'
 import { evaluerEntreprise } from '@/lib/evaluation/calculateur'
 import type { DonneesFinancieres, FacteursAjustement } from '@/lib/evaluation/types'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface DownloadReportProps {
   context: ConversationContext
@@ -20,6 +22,7 @@ interface DownloadReportProps {
 }
 
 export function DownloadReport({ context, messages, evaluation, facteursActifs }: DownloadReportProps) {
+  const { isPremium } = useAuth()
   const [isGenerating, setIsGenerating] = useState(false)
   const [showShareOptions, setShowShareOptions] = useState(false)
 
@@ -110,6 +113,37 @@ export function DownloadReport({ context, messages, evaluation, facteursActifs }
     setShowShareOptions(false)
   }
 
+  // Affichage pour utilisateurs non-Pro
+  if (!isPremium) {
+    return (
+      <div className="relative">
+        <div className="bg-gradient-to-r from-white/5 to-white/10 border border-white/20 rounded-2xl p-6 mb-4">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
+              <svg className="w-5 h-5 text-[#c9a227]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-white font-semibold">Evaluation terminee</h3>
+              <p className="text-white/60 text-sm">Le rapport PDF est reserve aux abonnes Pro</p>
+            </div>
+          </div>
+
+          <Link
+            href="/tarifs"
+            className="flex items-center justify-center gap-2 w-full px-5 py-2.5 bg-[#c9a227] text-[#1a1a2e] rounded-xl font-medium hover:bg-[#e8c547] transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            Passer a Pro pour telecharger le PDF
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="relative">
       <div className="bg-gradient-to-r from-[#c9a227]/10 to-[#e8c547]/10 border border-[#c9a227]/30 rounded-2xl p-6 mb-4">
@@ -120,8 +154,8 @@ export function DownloadReport({ context, messages, evaluation, facteursActifs }
             </svg>
           </div>
           <div>
-            <h3 className="text-white font-semibold">Évaluation terminée</h3>
-            <p className="text-white/60 text-sm">Téléchargez votre rapport complet</p>
+            <h3 className="text-white font-semibold">Evaluation terminee</h3>
+            <p className="text-white/60 text-sm">Telechargez votre rapport complet</p>
           </div>
         </div>
 
@@ -137,14 +171,14 @@ export function DownloadReport({ context, messages, evaluation, facteursActifs }
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                Génération...
+                Generation...
               </>
             ) : (
               <>
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
-                Télécharger le PDF
+                Telecharger le PDF
               </>
             )}
           </button>

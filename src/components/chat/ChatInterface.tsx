@@ -1,16 +1,68 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
 import { MessageBubble } from './MessageBubble'
 import { TypingIndicator } from './TypingIndicator'
 import { DocumentUpload } from './DocumentUpload'
-import { InitialDocumentUpload } from './InitialDocumentUpload'
 import { DownloadReport } from './DownloadReport'
-import { PappersReport } from './PappersReport'
+import { CompanyBentoGrid } from '@/components/CompanyBentoGrid'
 import { useEvaluationDraft } from '@/hooks/useEvaluationDraft'
-import { getDraftBySiren, formatRelativeTime } from '@/lib/evaluation-draft'
+import { getDraftBySiren } from '@/lib/evaluation-draft'
 import type { ConversationContext, Message, UploadedDocument } from '@/lib/anthropic'
 import { MESSAGE_INITIAL } from '@/lib/prompts/base'
+import { INTRO_MESSAGES, DOCUMENT_RESPONSE_YES, DOCUMENT_RESPONSE_NO, PEDAGOGY_OPTIONS, type UserParcours, type PedagogyLevel } from '@/lib/prompts/parcours'
+
+// Options d'objectif de valorisation
+const OBJECTIF_OPTIONS = [
+  { id: 'vente', icon: '💰', title: 'Vente', description: 'Vendre mon entreprise' },
+  { id: 'achat', icon: '🛒', title: 'Achat', description: 'Racheter cette entreprise' },
+  { id: 'associe', icon: '🤝', title: 'Associé', description: 'Rachat ou sortie d\'associé' },
+  { id: 'divorce', icon: '💔', title: 'Divorce', description: 'Séparation de patrimoine' },
+  { id: 'transmission', icon: '👨‍👩‍👧', title: 'Transmission', description: 'Donation familiale' },
+  { id: 'conflit', icon: '⚖️', title: 'Conflit', description: 'Litige entre associés' },
+  { id: 'financement', icon: '🏦', title: 'Financement', description: 'Banque, levée de fonds' },
+  { id: 'pilotage', icon: '📊', title: 'Pilotage', description: 'Comprendre ma valeur' },
+] as const
+
+type ObjectifType = typeof OBJECTIF_OPTIONS[number]['id']
+
+interface BentoGridData {
+  financier?: {
+    chiffreAffaires: number
+    resultatNet: number
+    ebitdaComptable: number
+    tresorerie: number
+    dettes: number
+    capitauxPropres: number
+    anneeDernierBilan: number
+  }
+  valorisation?: {
+    valeurEntreprise: { basse: number; moyenne: number; haute: number }
+    prixCession: { basse: number; moyenne: number; haute: number }
+    detteNette: number
+    multipleSectoriel: { min: number; max: number }
+    methodePrincipale: string
+  }
+  ratios?: {
+    margeNette: number
+    margeEbitda: number
+    ratioEndettement: number
+    roe: number
+  }
+  diagnostic?: {
+    noteGlobale: string
+    score: number
+    pointsForts: string[]
+    pointsVigilance: string[]
+  }
+  dataQuality?: {
+    dataYear: number
+    dataAge: number
+    isDataOld: boolean
+    confidence: 'faible' | 'moyenne' | 'haute'
+  }
+}
 
 interface ChatInterfaceProps {
   entreprise: {
@@ -26,23 +78,64 @@ interface ChatInterfaceProps {
   }
   initialContext: ConversationContext
   onStepChange?: (step: number) => void
+  previousMessages?: { role: 'assistant' | 'user', content: string }[]
+  bentoGridData?: BentoGridData
+  upgradeSuccess?: boolean
 }
 
-export function ChatInterface({ entreprise, initialContext, onStepChange }: ChatInterfaceProps) {
-  const [messages, setMessages] = useState<Message[]>([])
+export function ChatInterface({ entreprise, initialContext, onStepChange, previousMessages, bentoGridData, upgradeSuccess }: ChatInterfaceProps) {
+  // Un seul tableau de messages pour tout l'historique
+  const [messages, setMessages] = useState<Message[]>(() => {
+    if (previousMessages?.length) {
+      return previousMessages.map((msg, idx) => ({
+        id: `prev-${idx}`,
+        role: msg.role,
+        content: msg.content,
+        timestamp: new Date(),
+      }))
+    }
+    return []
+  })
+
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
   const [context, setContext] = useState(initialContext)
   const [uploadedDocs, setUploadedDocs] = useState<File[]>([])
-  const [showInitialUpload, setShowInitialUpload] = useState(true)
-  const [isInitialUploading, setIsInitialUploading] = useState(false)
-  const [showDraftBanner, setShowDraftBanner] = useState(false)
-  const [draftInfo, setDraftInfo] = useState<{ step: number; lastUpdated: string } | null>(null)
-  const [showPappersReport, setShowPappersReport] = useState(true)
+
+  // Router pour mettre à jour l'URL
+  const router = useRouter()
+  const pathname = usePathname()
+
+  // Objectif state - question principale après le bento grid
+  const [showObjectifQuestion, setShowObjectifQuestion] = useState(false)
+  const [objectifMessageText, setObjectifMessageText] = useState('')
+  const [isTypingObjectif, setIsTypingObjectif] = useState(false)
+  const [selectedObjectif, setSelectedObjectif] = useState<ObjectifType | null>(
+    initialContext.objectif || null
+  )
+
+  // Niveau pédagogique (après objectif)
+  const [showPedagogyQuestion, setShowPedagogyQuestion] = useState(false)
+  const [selectedPedagogy, setSelectedPedagogy] = useState<PedagogyLevel | null>(
+    initialContext.pedagogyLevel || null
+  )
+
+  // Index pour savoir où insérer le bento grid (après les messages initiaux)
+  const bentoInsertIndex = useRef(previousMessages?.length || 0)
+
+  // Modal d'upgrade Flash -> Complete
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [upgradeData, setUpgradeData] = useState<{
+    url: string
+    price: number
+    questionsUsed?: number
+  } | null>(null)
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const typeIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   // Hook pour la sauvegarde automatique
   const { save: saveDraft, complete: completeDraft } = useEvaluationDraft({
@@ -50,43 +143,160 @@ export function ChatInterface({ entreprise, initialContext, onStepChange }: Chat
     entrepriseNom: entreprise.nom,
   })
 
-  // Vérifier s'il existe un brouillon au chargement
+  // Message d'objectif
+  const OBJECTIF_MESSAGE = "Tout est en place ! Pour adapter mon analyse, quel est l'objectif de cette valorisation ?"
+
+  // Restaurer automatiquement le brouillon au chargement
   useEffect(() => {
     const existingDraft = getDraftBySiren(entreprise.siren)
     if (existingDraft && !existingDraft.isCompleted && existingDraft.messages.length > 1) {
-      setShowDraftBanner(true)
-      setDraftInfo({
-        step: existingDraft.step,
-        lastUpdated: existingDraft.lastUpdated,
-      })
+      // Restaurer automatiquement le brouillon
+      setMessages(existingDraft.messages)
+      setContext(existingDraft.context)
+      if (existingDraft.context.objectif) {
+        setSelectedObjectif(existingDraft.context.objectif as ObjectifType)
+        setShowObjectifQuestion(true)
+      }
+      onStepChange?.(existingDraft.step)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entreprise.siren])
 
-  // Restaurer un brouillon
-  const restoreDraft = useCallback(() => {
-    const draft = getDraftBySiren(entreprise.siren)
-    if (draft) {
-      setMessages(draft.messages)
-      setContext(draft.context)
-      setShowInitialUpload(false)
-      setShowDraftBanner(false)
-      setShowPappersReport(false)
-      onStepChange?.(draft.step)
-    }
-  }, [entreprise.siren, onStepChange])
-
-  // Ignorer le brouillon et recommencer
-  const ignoreDraft = useCallback(() => {
-    setShowDraftBanner(false)
-  }, [])
-
-  // Message initial de l'IA
+  // Gérer le retour après paiement réussi
+  const [hasHandledUpgrade, setHasHandledUpgrade] = useState(false)
   useEffect(() => {
+    if (upgradeSuccess && !hasHandledUpgrade) {
+      setHasHandledUpgrade(true)
+
+      // Nettoyer l'URL pour retirer le paramètre upgrade
+      const url = new URL(window.location.href)
+      url.searchParams.delete('upgrade')
+      window.history.replaceState({}, '', url.toString())
+
+      // Restaurer le brouillon existant (même si marqué comme complété)
+      const existingDraft = getDraftBySiren(entreprise.siren)
+      let restoredMessages: Message[] = []
+      let restoredContext = context
+
+      if (existingDraft && existingDraft.messages.length > 0) {
+        restoredMessages = existingDraft.messages
+        restoredContext = existingDraft.context
+
+        // Restaurer l'objectif si présent
+        if (existingDraft.context.objectif) {
+          setSelectedObjectif(existingDraft.context.objectif as ObjectifType)
+          setShowObjectifQuestion(true)
+        }
+      }
+
+      // Ajouter un message de confirmation après les messages restaurés
+      const successMessage: Message = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: `🎉 **Paiement confirmé !** Merci pour ta confiance.
+
+Tu as maintenant accès à l'**Évaluation Complète** pour ${entreprise.nom}.
+
+J'ai conservé toutes les informations de ton évaluation Flash. Je vais maintenant pouvoir approfondir l'analyse avec :
+- ✅ Analyse de tes documents comptables en détail
+- ✅ Retraitements du résultat (rémunération dirigeant, charges exceptionnelles...)
+- ✅ Évaluation des risques et décotes applicables
+- ✅ Comparaison avec les transactions récentes du secteur
+- ✅ Génération de ton **rapport PDF professionnel**
+
+**Continuons !** As-tu des documents comptables à me partager pour affiner l'analyse ? (bilans, comptes de résultat, liasses fiscales...)
+
+[SUGGESTIONS]Oui, je vais uploader mes documents|Non, continuons avec les données déjà collectées[/SUGGESTIONS]`,
+        timestamp: new Date(),
+      }
+
+      // Mettre à jour les messages (brouillon + message de succès)
+      setMessages([...restoredMessages, successMessage])
+
+      // Mettre à jour le contexte pour indiquer que c'est une évaluation complète
+      setContext({
+        ...restoredContext,
+        evaluationType: 'complete' as const,
+        isPaid: true,
+      })
+    }
+  }, [upgradeSuccess, hasHandledUpgrade, entreprise.nom, entreprise.siren, context])
+
+
+  // Si l'objectif est déjà sélectionné au chargement, ajouter le message d'intro
+  useEffect(() => {
+    if (!initialContext.objectif || !bentoGridData) return
+    if (messages.length > 0) return // Déjà des messages, ne pas ajouter
+
+    const option = OBJECTIF_OPTIONS.find(o => o.id === initialContext.objectif)
+    if (!option) return
+
+    const userMessage: Message = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: `${option.icon} ${option.title} - ${option.description}`,
+      timestamp: new Date(),
+    }
+
+    const assistantMessage: Message = {
+      id: crypto.randomUUID(),
+      role: 'assistant',
+      content: INTRO_MESSAGES.cedant, // Message par défaut
+      timestamp: new Date(),
+    }
+
+    setMessages([userMessage, assistantMessage])
+    setShowObjectifQuestion(true) // Afficher que l'objectif a été choisi
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialContext.objectif, bentoGridData])
+
+  // Effet typewriter pour le message d'objectif
+  useEffect(() => {
+    if (!bentoGridData || selectedObjectif) {
+      if (typeIntervalRef.current) {
+        clearInterval(typeIntervalRef.current)
+        typeIntervalRef.current = null
+      }
+      return
+    }
+
+    const startDelay = setTimeout(() => {
+      setShowObjectifQuestion(true)
+      setIsTypingObjectif(true)
+
+      let currentIndex = 0
+      typeIntervalRef.current = setInterval(() => {
+        if (currentIndex < OBJECTIF_MESSAGE.length) {
+          setObjectifMessageText(OBJECTIF_MESSAGE.slice(0, currentIndex + 1))
+          currentIndex++
+        } else {
+          if (typeIntervalRef.current) {
+            clearInterval(typeIntervalRef.current)
+            typeIntervalRef.current = null
+          }
+          setIsTypingObjectif(false)
+        }
+      }, 20)
+    }, 500)
+
+    return () => {
+      clearTimeout(startDelay)
+      if (typeIntervalRef.current) {
+        clearInterval(typeIntervalRef.current)
+        typeIntervalRef.current = null
+      }
+    }
+  }, [selectedObjectif, OBJECTIF_MESSAGE])
+
+  // Message initial (seulement si pas de bento grid et pas de messages precedents)
+  useEffect(() => {
+    if (previousMessages?.length) return
+    if (bentoGridData) return // Pas de message initial avec le bento grid
+
     const caFormate = entreprise.chiffreAffaires
-      ? `${entreprise.chiffreAffaires.toLocaleString('fr-FR')} €`
+      ? `${entreprise.chiffreAffaires.toLocaleString('fr-FR')} EUR`
       : undefined
 
-    // Extraire l'année des données du dernier bilan
     const dataYear = initialContext.financials?.bilans?.[0]?.annee || null
 
     const initialMessage: Message = {
@@ -104,27 +314,27 @@ export function ChatInterface({ entreprise, initialContext, onStepChange }: Chat
       timestamp: new Date(),
     }
     setMessages([initialMessage])
-  }, [entreprise, initialContext.financials?.bilans])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entreprise.siren, bentoGridData])
 
-  // Sauvegarde automatique après chaque message (debounced)
+  // Sauvegarde automatique
   useEffect(() => {
     if (messages.length > 1 && !isStreaming) {
       const timeoutId = setTimeout(() => {
         saveDraft(context, messages, context.evaluationProgress.step)
-      }, 2000) // Attendre 2 secondes après le dernier changement
-
+      }, 2000)
       return () => clearTimeout(timeoutId)
     }
   }, [messages, context, isStreaming, saveDraft])
 
-  // Marquer comme terminé quand l'évaluation est finie
+  // Marquer comme termine
   useEffect(() => {
     if (context.evaluationProgress.step >= 6) {
       completeDraft()
     }
   }, [context.evaluationProgress.step, completeDraft])
 
-  // Scroll auto vers le bas
+  // Scroll auto
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isLoading, streamingContent])
@@ -137,7 +347,7 @@ export function ChatInterface({ entreprise, initialContext, onStepChange }: Chat
     }
   }, [input])
 
-  // Auto-focus textarea après la réponse de l'IA
+  // Auto-focus textarea
   useEffect(() => {
     if (!isStreaming && !isLoading && textareaRef.current) {
       textareaRef.current.focus()
@@ -190,11 +400,177 @@ export function ChatInterface({ entreprise, initialContext, onStepChange }: Chat
     }
   }, [])
 
+  // Detecter l'etape dans la reponse
+  const detectStep = useCallback((text: string) => {
+    const stepMatch = text.match(/📍\s*(?:\*\*)?Étape\s*(\d+)\/6/i)
+    if (stepMatch) {
+      const newStep = parseInt(stepMatch[1])
+      setContext(prev => ({
+        ...prev,
+        evaluationProgress: {
+          ...prev.evaluationProgress,
+          step: newStep,
+        },
+      }))
+      onStepChange?.(newStep)
+    }
+  }, [onStepChange])
+
+  // Handler pour sélection de l'objectif (première question après bento grid)
+  const handleObjectifSelect = (objectif: ObjectifType) => {
+    setSelectedObjectif(objectif)
+
+    // Mettre à jour l'URL pour persister le choix
+    router.replace(`${pathname}?objectif=${objectif}`, { scroll: false })
+
+    const option = OBJECTIF_OPTIONS.find(o => o.id === objectif)
+    if (!option) return
+
+    const userMessage: Message = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: `${option.icon} ${option.title} - ${option.description}`,
+      timestamp: new Date(),
+    }
+
+    // Message demandant le niveau pédagogique
+    const assistantMessage: Message = {
+      id: crypto.randomUUID(),
+      role: 'assistant',
+      content: `Compris, objectif : **${option.title}**.\n\n**Quel est ton niveau de familiarité avec la valorisation d'entreprise ?**\n\n_Cela me permet d'adapter mes explications._`,
+      timestamp: new Date(),
+    }
+
+    setMessages(prev => [...prev, userMessage, assistantMessage])
+    setShowPedagogyQuestion(true)
+
+    const updatedContext = { ...context, objectif }
+    setContext(updatedContext)
+  }
+
+  // Handler pour sélection du niveau pédagogique
+  const handlePedagogySelect = (level: PedagogyLevel) => {
+    setSelectedPedagogy(level)
+    setShowPedagogyQuestion(false)
+
+    const option = PEDAGOGY_OPTIONS.find(o => o.id === level)
+    if (!option) return
+
+    const userMessage: Message = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: `${option.icon} ${option.title}`,
+      timestamp: new Date(),
+    }
+
+    // Message d'intro avec demande de documents
+    const assistantMessage: Message = {
+      id: crypto.randomUUID(),
+      role: 'assistant',
+      content: INTRO_MESSAGES.cedant,
+      timestamp: new Date(),
+    }
+
+    setMessages(prev => [...prev, userMessage, assistantMessage])
+
+    const updatedContext = { ...context, pedagogyLevel: level }
+    setContext(updatedContext)
+  }
+
+  // Handler pour clic sur une suggestion
+  const handleSuggestionClick = (suggestion: string) => {
+    sendMessage(suggestion)
+  }
+
   // Envoyer un message
   const sendMessage = async (content: string, documents?: File[]) => {
     if (!content.trim() && !documents?.length) return
 
-    // Ajouter le message utilisateur
+    // Gérer le clic sur "Oui, je veux affiner mon évaluation"
+    if (content.toLowerCase().includes('affiner mon évaluation') || content.toLowerCase().includes('oui, je veux affiner')) {
+      // Redirection directe vers checkout
+      router.push(`/checkout?siren=${entreprise.siren}&plan=eval_complete`)
+      return
+    }
+
+    // Gérer les réponses prédéfinies pour les documents
+    const lowerContent = content.toLowerCase()
+    const isDocumentYes = lowerContent.includes('oui') && lowerContent.includes('documents')
+    const isDocumentNo = lowerContent.includes('non') && lowerContent.includes('continuons')
+
+    // Gérer "Non, continuons avec les données déjà collectées" après upgrade
+    if (lowerContent.includes('continuons avec les données') && context.isPaid) {
+      const userMessage: Message = {
+        id: crypto.randomUUID(),
+        role: 'user',
+        content,
+        timestamp: new Date(),
+      }
+
+      // Message de transition vers l'évaluation complète sans nouveaux documents
+      const assistantMessage: Message = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: `Parfait, je vais utiliser les données que tu m'as déjà communiquées pendant l'évaluation Flash pour approfondir mon analyse.
+
+📊 **Récapitulatif des éléments collectés :**
+${context.responses && Object.keys(context.responses).length > 0
+  ? Object.entries(context.responses).map(([key, value]) => `- **${key}**: ${value}`).join('\n')
+  : '- Données Pappers (CA, résultat, effectif...)'}
+
+Je vais maintenant procéder aux **retraitements** et à l'**analyse des risques** pour affiner la valorisation.
+
+**Commençons par les retraitements :**
+
+Quel est le **salaire annuel brut du dirigeant** (charges patronales incluses) ? C'est important car on va le comparer au salaire de marché pour un poste équivalent.
+
+[SUGGESTIONS]Je n'ai pas cette info|Le dirigeant se verse environ...[/SUGGESTIONS]`,
+        timestamp: new Date(),
+      }
+
+      setMessages(prev => [...prev, userMessage, assistantMessage])
+      setInput('')
+      return
+    }
+
+    // Détecter si l'utilisateur change d'avis (dit qu'il n'a finalement pas de documents)
+    const isNoDocumentsAfterAll = (
+      (lowerContent.includes('finalement') && (lowerContent.includes('non') || lowerContent.includes('pas'))) ||
+      (lowerContent.includes('pas de document') || lowerContent.includes("pas de doc") || lowerContent.includes("j'ai pas")) ||
+      (lowerContent.includes('aucun document') || lowerContent.includes('aucun doc')) ||
+      (lowerContent.includes('non') && lowerContent.includes('rien')) ||
+      (lowerContent.includes('je n\'ai') && lowerContent.includes('pas'))
+    )
+
+    if (isDocumentYes || isDocumentNo || isNoDocumentsAfterAll) {
+      const userMessage: Message = {
+        id: crypto.randomUUID(),
+        role: 'user',
+        content,
+        timestamp: new Date(),
+      }
+
+      let responseContent: string
+      if (isDocumentYes && !isNoDocumentsAfterAll) {
+        responseContent = DOCUMENT_RESPONSE_YES
+      } else {
+        // Utiliser la réponse adaptée au parcours (que ce soit "non" initial ou changement d'avis)
+        const currentParcours: UserParcours = 'cedant'
+        responseContent = DOCUMENT_RESPONSE_NO[currentParcours]
+      }
+
+      const assistantMessage: Message = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: responseContent,
+        timestamp: new Date(),
+      }
+
+      setMessages(prev => [...prev, userMessage, assistantMessage])
+      setInput('')
+      return
+    }
+
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: 'user',
@@ -213,7 +589,7 @@ export function ChatInterface({ entreprise, initialContext, onStepChange }: Chat
     setIsLoading(true)
 
     try {
-      // Si documents uploadés, les analyser d'abord
+      // Analyser les documents si presents
       const documentsAnalysis: UploadedDocument[] = []
       if (documents?.length) {
         for (const doc of documents) {
@@ -237,95 +613,118 @@ export function ChatInterface({ entreprise, initialContext, onStepChange }: Chat
         }
       }
 
-      // Mettre à jour le contexte avec les documents
       const updatedContext: ConversationContext = {
         ...context,
         documents: [...context.documents, ...documentsAnalysis],
       }
       setContext(updatedContext)
 
-      // Construire le contenu avec les analyses de documents
       let messageContent = content
       if (documentsAnalysis.length > 0) {
         messageContent += '\n\n--- Analyse des documents joints ---\n'
         for (const doc of documentsAnalysis) {
           if (doc.analysis && !doc.analysis.error) {
             messageContent += `\nDocument: ${doc.name}\n`
-            messageContent += `Type: ${doc.analysis.typeDocument || 'Non identifié'}\n`
+            messageContent += `Type: ${doc.analysis.typeDocument || 'Non identifie'}\n`
             if (doc.analysis.chiffresExtraits) {
               messageContent += `Chiffres extraits: ${JSON.stringify(doc.analysis.chiffresExtraits)}\n`
             }
             if (doc.analysis.pointsCles?.length) {
-              messageContent += `Points clés: ${doc.analysis.pointsCles.join(', ')}\n`
+              messageContent += `Points cles: ${doc.analysis.pointsCles.join(', ')}\n`
             }
           }
         }
       }
 
-      // Démarrer le streaming
       setIsLoading(false)
       setIsStreaming(true)
       setStreamingContent('')
 
-      // Envoyer au chat avec streaming
+      const allMessages = [...messages, { ...userMessage, content: messageContent }]
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: [...messages, { ...userMessage, content: messageContent }].map(m => ({
-            role: m.role,
-            content: m.content,
-          })),
+          messages: allMessages.map(m => ({ role: m.role, content: m.content })),
           context: updatedContext,
         }),
       })
 
       if (!response.ok) {
         const errorData = await response.json()
+
+        // Gestion spécifique de la limite Flash (8 questions)
+        if (errorData.code === 'FLASH_LIMIT_REACHED') {
+          setUpgradeData({
+            url: errorData.upgrade?.url || `/checkout?siren=${entreprise.siren}`,
+            price: errorData.upgrade?.price || 79,
+            questionsUsed: 8,
+          })
+          setShowUpgradeModal(true)
+          setIsLoading(false)
+          return // Ne pas continuer, on affiche le modal
+        }
+
         throw new Error(errorData.error || 'Erreur de communication')
       }
 
-      // Lire le stream et afficher progressivement
       await readStream(
         response,
         (text) => setStreamingContent(text),
         (fullText) => {
-          // Ajouter le message complet
           const assistantMessage: Message = {
             id: crypto.randomUUID(),
             role: 'assistant',
             content: fullText,
             timestamp: new Date(),
           }
-          setMessages(prev => [...prev, assistantMessage])
+
+          // Détecter si c'est une valorisation Flash complète
+          const isFlashComplete = fullText.includes('[FLASH_VALUATION_COMPLETE]')
+
+          if (isFlashComplete) {
+            // Ajouter le message de la valorisation puis un message de suivi
+            const followUpMessage: Message = {
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              content: `Voilà ta **fourchette de valorisation indicative** basée sur les éléments que tu m'as donnés.
+
+Cette estimation est réalisée à partir de données déclaratives, sans analyse documentaire ni vérification approfondie.
+
+**Tu souhaites affiner cette valorisation ?**
+
+Avec l'**Évaluation Complète** à 79€, tu bénéficies de :
+- 📄 Analyse de tes documents comptables (bilans, comptes de résultat)
+- 🔧 Retraitements du résultat (rémunération dirigeant, charges exceptionnelles)
+- ⚠️ Analyse des risques et décotes applicables
+- 📈 Comparaison avec les transactions récentes du secteur
+- 📑 **Rapport PDF professionnel de 30 pages**
+
+[SUGGESTIONS]Oui, je veux affiner mon évaluation|Non merci, ça me suffit pour l'instant[/SUGGESTIONS]`,
+              timestamp: new Date(),
+            }
+
+            setMessages(prev => [...prev, assistantMessage, followUpMessage])
+          } else {
+            setMessages(prev => [...prev, assistantMessage])
+          }
+
           setStreamingContent('')
           setIsStreaming(false)
-
-          // Détecter l'étape actuelle
-          const stepMatch = fullText.match(/📍\s*(?:\*\*)?Étape\s*(\d+)\/6/i)
-          if (stepMatch) {
-            const newStep = parseInt(stepMatch[1])
-            setContext(prev => ({
-              ...prev,
-              evaluationProgress: {
-                ...prev.evaluationProgress,
-                step: newStep,
-              },
-            }))
-            onStepChange?.(newStep)
-          }
+          detectStep(fullText)
         }
       )
-
     } catch (error) {
       console.error('Erreur envoi message:', error)
       setIsStreaming(false)
       setStreamingContent('')
-      const errorDetails = error instanceof Error ? error.message : 'Erreur inconnue'
+
+      const errorText = error instanceof Error ? error.message : 'Erreur inconnue'
+
       const errorMessage: Message = {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: `Désolé, j'ai rencontré une erreur: ${errorDetails}\n\nPeux-tu réessayer ?`,
+        content: `Désolé, j'ai rencontré une erreur: ${errorText}\n\nPeux-tu réessayer ?`,
         timestamp: new Date(),
       }
       setMessages(prev => [...prev, errorMessage])
@@ -347,196 +746,116 @@ export function ChatInterface({ entreprise, initialContext, onStepChange }: Chat
     setUploadedDocs(prev => prev.filter((_, i) => i !== index))
   }
 
-  // Gestion de l'upload initial de documents
-  const handleInitialUpload = async (files: File[]) => {
-    setIsInitialUploading(true)
-
-    try {
-      // Analyser tous les documents
-      const documentsAnalysis: UploadedDocument[] = []
-      for (const doc of files) {
-        const formData = new FormData()
-        formData.append('file', doc)
-        formData.append('context', JSON.stringify(context))
-
-        const analysisRes = await fetch('/api/documents/analyze', {
-          method: 'POST',
-          body: formData,
-        })
-        const analysis = await analysisRes.json()
-        documentsAnalysis.push({
-          id: analysis.documentId,
-          name: doc.name,
-          type: doc.type,
-          size: doc.size,
-          extractedText: analysis.extractedText,
-          analysis: analysis.analysis,
-        })
-      }
-
-      // Mettre à jour le contexte avec les documents
-      const updatedContext: ConversationContext = {
-        ...context,
-        documents: [...context.documents, ...documentsAnalysis],
-      }
-      setContext(updatedContext)
-
-      // Ajouter un message système indiquant les documents uploadés
-      const docsSummary = documentsAnalysis.map(d => {
-        const type = d.analysis?.typeDocument || 'Document'
-        return `- ${d.name} (${type})`
-      }).join('\n')
-
-      const userMessage: Message = {
-        id: crypto.randomUUID(),
-        role: 'user',
-        content: `J'ai uploadé ${files.length} document${files.length > 1 ? 's' : ''} pour l'évaluation :\n${docsSummary}`,
-        timestamp: new Date(),
-        documents: documentsAnalysis.map(d => ({
-          id: d.id,
-          name: d.name,
-          type: d.type,
-          size: d.size,
-        })),
-      }
-      setMessages(prev => [...prev, userMessage])
-
-      // Construire le contenu avec les analyses
-      let messageContent = `L'utilisateur a uploadé ${files.length} document(s) pour faciliter l'évaluation. Voici l'analyse de chaque document :\n\n`
-      for (const doc of documentsAnalysis) {
-        if (doc.analysis && !doc.analysis.error) {
-          messageContent += `=== Document: ${doc.name} ===\n`
-          messageContent += `Type: ${doc.analysis.typeDocument || 'Non identifié'}\n`
-          if (doc.analysis.annee) {
-            messageContent += `Année: ${doc.analysis.annee}\n`
-          }
-          if (doc.analysis.chiffresExtraits) {
-            messageContent += `Chiffres extraits: ${JSON.stringify(doc.analysis.chiffresExtraits, null, 2)}\n`
-          }
-          if (doc.analysis.pointsCles?.length) {
-            messageContent += `Points clés: ${doc.analysis.pointsCles.join(', ')}\n`
-          }
-          if (doc.analysis.anomalies?.length) {
-            messageContent += `Anomalies détectées: ${JSON.stringify(doc.analysis.anomalies)}\n`
-          }
-          messageContent += '\n'
-        }
-      }
-
-      // Masquer l'upload initial et démarrer le streaming de la réponse
-      setShowInitialUpload(false)
-      setIsStreaming(true)
-      setStreamingContent('')
-
-      // Envoyer au chat pour que l'IA commente les documents
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [...messages, { role: 'user', content: messageContent }],
-          context: updatedContext,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Erreur de communication')
-      }
-
-      await readStream(
-        response,
-        (text) => setStreamingContent(text),
-        (fullText) => {
-          const assistantMessage: Message = {
-            id: crypto.randomUUID(),
-            role: 'assistant',
-            content: fullText,
-            timestamp: new Date(),
-          }
-          setMessages(prev => [...prev, assistantMessage])
-          setStreamingContent('')
-          setIsStreaming(false)
-        }
-      )
-
-    } catch (error) {
-      console.error('Erreur upload initial:', error)
-      setShowInitialUpload(false)
-    } finally {
-      setIsInitialUploading(false)
-    }
-  }
-
-  const handleSkipInitialUpload = () => {
-    setShowInitialUpload(false)
-  }
+  // Separer les messages en deux parties : avant et apres le bento grid
+  const messagesBefore = messages.slice(0, bentoInsertIndex.current)
+  const messagesAfter = messages.slice(bentoInsertIndex.current)
 
   return (
     <div className="flex flex-col h-full relative">
-      {/* Banner pour reprendre une évaluation en cours - mobile optimized */}
-      {showDraftBanner && draftInfo && (
-        <div className="bg-gradient-to-r from-[#c9a227]/20 to-[#e8c547]/20 border-b border-[#c9a227]/30 px-3 sm:px-4 py-2.5 sm:py-3">
-          <div className="max-w-3xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#c9a227]/20 flex items-center justify-center flex-shrink-0">
-                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#c9a227]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="min-w-0">
-                <p className="text-white text-sm font-medium">Évaluation en cours</p>
-                <p className="text-white/60 text-xs truncate">
-                  Étape {draftInfo.step}/6 • {formatRelativeTime(draftInfo.lastUpdated)}
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-2 ml-9 sm:ml-0">
-              <button
-                onClick={restoreDraft}
-                className="flex-1 sm:flex-none px-3 py-2 sm:py-1.5 bg-[#c9a227] text-[#1a1a2e] text-sm font-medium rounded-lg hover:bg-[#e8c547] transition-colors touch-target"
-              >
-                Reprendre
-              </button>
-              <button
-                onClick={ignoreDraft}
-                className="flex-1 sm:flex-none px-3 py-2 sm:py-1.5 bg-white/10 text-white/70 text-sm rounded-lg hover:bg-white/20 transition-colors touch-target"
-              >
-                Recommencer
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Zone de messages - scrollable with smooth mobile scrolling */}
-      <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 pb-0 scroll-smooth-mobile hide-scrollbar-mobile">
+      {/* Zone de messages */}
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 pb-0">
         <div className="max-w-3xl mx-auto space-y-3 sm:space-y-4 pb-4">
-          {/* Rapport Pappers au démarrage */}
-          {showPappersReport && messages.length <= 1 && (
-            <div className="mb-4">
-              <PappersReport
-                context={context}
-                onContinue={() => setShowPappersReport(false)}
-              />
-            </div>
-          )}
-
-          {/* Messages de la conversation */}
-          {!showPappersReport && messages.map((message) => (
-            <MessageBubble key={message.id} message={message} />
+          {/* Messages AVANT le bento grid (historique initial) */}
+          {messagesBefore.map((message) => (
+            <MessageBubble
+              key={message.id}
+              message={message}
+              onSuggestionClick={handleSuggestionClick}
+              entrepriseNom={entreprise.nom}
+              entrepriseActivite={entreprise.secteur}
+              siren={entreprise.siren}
+            />
           ))}
 
-          {/* Zone d'upload initial - après le premier message */}
-          {showInitialUpload && messages.length === 1 && (
-            <div className="mt-4">
-              <InitialDocumentUpload
-                onUpload={handleInitialUpload}
-                onSkip={handleSkipInitialUpload}
-                isUploading={isInitialUploading}
-              />
+          {/* Bento Grid */}
+          {bentoGridData && (
+            <div className="flex gap-3">
+              <div className="w-8 h-8 rounded-full bg-[#c9a227] flex items-center justify-center flex-shrink-0">
+                <span className="text-[#1a1a2e] text-sm font-bold">E</span>
+              </div>
+              <div className="flex-1">
+                <CompanyBentoGrid
+                  entreprise={entreprise}
+                  financier={bentoGridData.financier}
+                  valorisation={bentoGridData.valorisation}
+                  ratios={bentoGridData.ratios}
+                  diagnostic={bentoGridData.diagnostic}
+                  dataQuality={bentoGridData.dataQuality}
+                />
+              </div>
             </div>
           )}
 
-          {/* Message en cours de streaming */}
+          {/* Question d'objectif avec typewriter */}
+          {showObjectifQuestion && (
+            <div className="flex gap-3">
+              <div className="w-8 h-8 rounded-full bg-[#c9a227] flex items-center justify-center flex-shrink-0">
+                <span className="text-[#1a1a2e] text-sm font-bold">E</span>
+              </div>
+              <div className="bg-white/5 rounded-2xl rounded-tl-sm px-4 py-3 text-white/90 max-w-[80%]">
+                {selectedObjectif ? OBJECTIF_MESSAGE : objectifMessageText}
+                {isTypingObjectif && !selectedObjectif && (
+                  <span className="inline-block w-0.5 h-4 bg-[#c9a227] ml-0.5 animate-pulse" />
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Boutons d'objectif (8 choix) */}
+          {showObjectifQuestion && !isTypingObjectif && !selectedObjectif && (
+            <div className="grid grid-cols-2 gap-2 sm:gap-3 ml-11">
+              {OBJECTIF_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  onClick={() => handleObjectifSelect(option.id)}
+                  className="flex items-start gap-2 p-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-[#c9a227]/50 transition-all text-left group"
+                >
+                  <span className="text-xl">{option.icon}</span>
+                  <div>
+                    <p className="text-white font-medium text-sm group-hover:text-[#c9a227] transition-colors">
+                      {option.title}
+                    </p>
+                    <p className="text-white/60 text-xs">{option.description}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Messages APRES le bento grid (conversation post-objectif) */}
+          {messagesAfter.map((message) => (
+            <MessageBubble
+              key={message.id}
+              message={message}
+              onSuggestionClick={handleSuggestionClick}
+              entrepriseNom={entreprise.nom}
+              entrepriseActivite={entreprise.secteur}
+              siren={entreprise.siren}
+            />
+          ))}
+
+          {/* Boutons Niveau pédagogique (APRÈS les messages, quand la question est posée) */}
+          {showPedagogyQuestion && !selectedPedagogy && (
+            <div className="grid grid-cols-3 gap-2 sm:gap-3 ml-11">
+              {PEDAGOGY_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  onClick={() => handlePedagogySelect(option.id)}
+                  className="flex flex-col items-center gap-2 p-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-[#c9a227]/50 transition-all text-center group"
+                >
+                  <span className="text-2xl">{option.icon}</span>
+                  <div>
+                    <p className="text-white font-medium text-sm group-hover:text-[#c9a227] transition-colors">
+                      {option.title}
+                    </p>
+                    <p className="text-white/60 text-xs">{option.description}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Message en streaming */}
           {isStreaming && streamingContent && (
             <MessageBubble
               message={{
@@ -546,11 +865,15 @@ export function ChatInterface({ entreprise, initialContext, onStepChange }: Chat
                 timestamp: new Date(),
               }}
               isStreaming={true}
+              onSuggestionClick={handleSuggestionClick}
+              entrepriseNom={entreprise.nom}
+              entrepriseActivite={entreprise.secteur}
+              siren={entreprise.siren}
             />
           )}
           {isLoading && <TypingIndicator />}
 
-          {/* Bouton de téléchargement du rapport - étape 6 */}
+          {/* Bouton de telechargement du rapport */}
           {context.evaluationProgress.step >= 6 && !isLoading && !isStreaming && (
             <DownloadReport
               context={context}
@@ -568,9 +891,8 @@ export function ChatInterface({ entreprise, initialContext, onStepChange }: Chat
         </div>
       </div>
 
-      {/* Zone de saisie - sticky en bas with safe area padding for iOS */}
-      <div className="sticky bottom-0 bg-[#1a1a2e] shadow-[0_-8px_20px_rgba(0,0,0,0.3)] sticky-input-mobile">
-        {/* Documents uploadés en attente */}
+      {/* Zone de saisie */}
+      <div className="sticky bottom-0 bg-[#1a1a2e] shadow-[0_-8px_20px_rgba(0,0,0,0.3)]">
         {uploadedDocs.length > 0 && (
           <div className="px-3 sm:px-4 pt-2 sm:pt-3 pb-0">
             <div className="max-w-3xl mx-auto flex flex-wrap gap-1.5 sm:gap-2">
@@ -580,7 +902,7 @@ export function ChatInterface({ entreprise, initialContext, onStepChange }: Chat
                   <span className="truncate max-w-[100px] sm:max-w-[150px] text-white/80">{doc.name}</span>
                   <button
                     onClick={() => removeDocument(i)}
-                    className="text-white/40 hover:text-red-400 transition-colors p-0.5 touch-target"
+                    className="text-white/40 hover:text-red-400 transition-colors p-0.5"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -607,7 +929,7 @@ export function ChatInterface({ entreprise, initialContext, onStepChange }: Chat
                       handleSubmit(e)
                     }
                   }}
-                  placeholder="Écris ta réponse..."
+                  placeholder="Ecris ta reponse..."
                   className="flex-1 bg-transparent px-2 py-2.5 sm:py-2 resize-none focus:outline-none text-white placeholder:text-white/40 text-base"
                   rows={1}
                   disabled={isLoading || isStreaming}
@@ -616,7 +938,7 @@ export function ChatInterface({ entreprise, initialContext, onStepChange }: Chat
                 <button
                   type="submit"
                   disabled={isLoading || isStreaming || (!input.trim() && !uploadedDocs.length)}
-                  className="p-3 sm:p-2.5 bg-[#c9a227] text-[#1a1a2e] rounded-xl hover:bg-[#e8c547] disabled:opacity-40 disabled:cursor-not-allowed transition-colors touch-target"
+                  className="p-3 sm:p-2.5 bg-[#c9a227] text-[#1a1a2e] rounded-xl hover:bg-[#e8c547] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   {isLoading || isStreaming ? (
                     <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -633,11 +955,84 @@ export function ChatInterface({ entreprise, initialContext, onStepChange }: Chat
             </div>
 
             <p className="text-xs text-white/30 mt-2 text-center hidden sm:block">
-              Entrée pour envoyer • Maj+Entrée pour un retour à la ligne
+              Entree pour envoyer - Maj+Entree pour un retour a la ligne
             </p>
           </form>
         </div>
       </div>
+
+      {/* Modal d'upgrade Flash -> Complete */}
+      {showUpgradeModal && upgradeData && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#1a1a2e] border border-[#c9a227]/30 rounded-2xl max-w-lg w-full p-6 shadow-2xl">
+            {/* Header */}
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-[#c9a227]/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-3xl">🎯</span>
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-2">
+                Évaluation Flash terminée !
+              </h2>
+              <p className="text-white/60">
+                Tu as utilisé tes {upgradeData.questionsUsed || 8} questions gratuites pour {entreprise.nom}
+              </p>
+            </div>
+
+            {/* Ce qui manque */}
+            <div className="bg-white/5 rounded-xl p-4 mb-6">
+              <p className="text-white/80 font-medium mb-3">Pour affiner ta valorisation, il te manque :</p>
+              <ul className="space-y-2">
+                <li className="flex items-start gap-2 text-white/70">
+                  <span className="text-red-400 mt-0.5">✗</span>
+                  <span>Les <strong className="text-white">retraitements</strong> (rémunération dirigeant, charges exceptionnelles...)</span>
+                </li>
+                <li className="flex items-start gap-2 text-white/70">
+                  <span className="text-red-400 mt-0.5">✗</span>
+                  <span>L&apos;analyse des <strong className="text-white">risques</strong> (clients, fournisseurs, homme-clé...)</span>
+                </li>
+                <li className="flex items-start gap-2 text-white/70">
+                  <span className="text-red-400 mt-0.5">✗</span>
+                  <span>L&apos;upload de <strong className="text-white">documents</strong> (bilans, comptes de résultat)</span>
+                </li>
+                <li className="flex items-start gap-2 text-white/70">
+                  <span className="text-red-400 mt-0.5">✗</span>
+                  <span>Le <strong className="text-white">rapport PDF</strong> détaillé</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* CTA */}
+            <div className="space-y-3">
+              <a
+                href={upgradeData.url}
+                className="block w-full py-4 px-6 bg-[#c9a227] hover:bg-[#e8c547] text-[#1a1a2e] font-bold text-lg rounded-xl transition-colors text-center"
+              >
+                Affiner mon évaluation → {upgradeData.price}€
+              </a>
+              <button
+                onClick={() => setShowUpgradeModal(false)}
+                className="block w-full py-3 px-6 text-white/50 hover:text-white/80 text-sm transition-colors text-center"
+              >
+                Non merci, rester sur l&apos;évaluation Flash
+              </button>
+            </div>
+
+            {/* Réassurance */}
+            <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-center gap-4 text-xs text-white/40">
+              <span className="flex items-center gap-1">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                Paiement sécurisé
+              </span>
+              <span>•</span>
+              <span>Sans engagement</span>
+              <span>•</span>
+              <span>Accès immédiat</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
