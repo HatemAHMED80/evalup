@@ -2,8 +2,17 @@
 // Version 2.0: Avec analyse sémantique et sessions serveur
 import { NextRequest } from 'next/server'
 import { anthropic, isAnthropicConfigured } from '@/lib/anthropic'
+import { getModelFallbacks } from '@/lib/ai/models'
 import type { ConversationContext, Message } from '@/lib/anthropic'
 import { getSystemPrompt } from '@/lib/prompts'
+import { createClient } from '@/lib/supabase/server'
+import { chatBodySchema } from '@/lib/security/schemas'
+import {
+  recordTokenUsage,
+  checkEvaluationAccess,
+  incrementQuestionCount,
+  FLASH_QUESTIONS_LIMIT,
+} from '@/lib/usage'
 import {
   // Router intelligent (v2 avec analyse sémantique)
   routeToModel,
@@ -51,12 +60,27 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const body = await request.json()
+    // ============================================
+    // 0. AUTHENTIFICATION
+    // ============================================
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    const userId = user?.id
+
+    const rawBody = await request.json()
+    const parseResult = chatBodySchema.safeParse(rawBody)
+    if (!parseResult.success) {
+      return new Response(
+        JSON.stringify({ error: 'Données invalides', fields: parseResult.error.flatten().fieldErrors }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
     const {
       messages,
       context,
       options = {},
-    }: {
+    } = rawBody as {
       messages: Message[]
       context: ConversationContext
       options?: {
@@ -64,7 +88,50 @@ export async function POST(request: NextRequest) {
         skipCache?: boolean
         includeLocalAnalysis?: boolean
       }
-    } = body
+    }
+
+    // ============================================
+    // 0.5 VERIFICATION LIMITE FLASH (nouveau modele)
+    // ============================================
+    const evalSiren = context.entreprise?.siren
+    let evaluationType: 'flash' | 'complete' = 'flash'
+    let currentQuestionCount = 1
+
+    if (userId && evalSiren) {
+      const evalAccess = await checkEvaluationAccess(userId, evalSiren)
+
+      // Déterminer le type d'évaluation
+      evaluationType = evalAccess.evaluation?.type || 'flash'
+      currentQuestionCount = (evalAccess.evaluation?.questions_count || 0) + 1
+
+      // Si Flash terminee et pas paye -> bloquer
+      if (evalAccess.needsPayment && !evalAccess.canContinue) {
+        return new Response(
+          JSON.stringify({
+            error: `Evaluation Flash terminee ! Tu as obtenu une valorisation indicative. Pour affiner avec les retraitements, risques et rapport PDF, passe a l'evaluation complete.`,
+            code: 'FLASH_LIMIT_REACHED',
+            evaluation: {
+              id: evalAccess.evaluation?.id,
+              questionsCount: evalAccess.evaluation?.questions_count,
+              questionsLimit: FLASH_QUESTIONS_LIMIT,
+              valuationLow: evalAccess.evaluation?.valuation_low,
+              valuationHigh: evalAccess.evaluation?.valuation_high,
+            },
+            upgrade: {
+              url: `/checkout?siren=${evalSiren}&eval=${evalAccess.evaluation?.id}`,
+              price: 79,
+              message: 'Affiner mon evaluation pour 79€',
+            },
+          }),
+          { status: 402, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // Incrementer le compteur de questions
+      if (evalAccess.evaluation?.id) {
+        await incrementQuestionCount(evalAccess.evaluation.id)
+      }
+    }
 
     // Extraire les données financières du contexte
     const lastBilan = context.financials?.bilans?.[0] // Le bilan le plus récent
@@ -133,6 +200,9 @@ export async function POST(request: NextRequest) {
     // 3. ROUTAGE DU MODÈLE (v2 avec analyse sémantique)
     // ============================================
     const lastUserMessage = messages.filter(m => m.role === 'user').pop()?.content || ''
+    // Récupérer le dernier message assistant (la question à laquelle l'utilisateur répond)
+    // Utilisé pour différencier les réponses courtes dans le cache (ex: "20" pour % parts vs "20" pour places)
+    const lastAssistantMessage = messages.filter(m => m.role === 'assistant').pop()?.content || ''
 
     // Analyser la sémantique du message pour le routage et le logging
     const semantics = analyzePromptSemantics(lastUserMessage)
@@ -160,6 +230,7 @@ export async function POST(request: NextRequest) {
         siren,  // SIREN maintenant inclus dans la clé de cache
         step: context.evaluationProgress?.step,
         totalSteps: 6,
+        lastAssistantMessage,  // Pour différencier les réponses courtes
       })
 
       if (cacheResult.cached) {
@@ -180,6 +251,11 @@ export async function POST(request: NextRequest) {
           siren: context.entreprise?.siren,
           step: context.evaluationProgress?.step,
         })
+
+        // Enregistrer l'usage des tokens (meme cache, on compte quand meme)
+        if (userId) {
+          await recordTokenUsage(userId, cacheResult.entry.inputTokens + cacheResult.entry.outputTokens)
+        }
 
         // Retourner la réponse cachée en stream simulé
         const encoder = new TextEncoder()
@@ -215,7 +291,22 @@ export async function POST(request: NextRequest) {
     // ============================================
     // 5. OPTIMISATION DU CONTEXTE
     // ============================================
-    let systemPrompt = getSystemPrompt(context.entreprise?.codeNaf, context)
+    // Injecter le numéro de question actuel dans le contexte pour le prompt Flash
+    const contextWithProgress = {
+      ...context,
+      evaluationProgress: {
+        ...context.evaluationProgress,
+        step: currentQuestionCount,
+      },
+    }
+
+    let systemPrompt = getSystemPrompt(
+      context.entreprise?.codeNaf,
+      contextWithProgress,
+      context.parcours,
+      context.pedagogyLevel,
+      evaluationType
+    )
 
     // Ajouter l'analyse locale au prompt si disponible
     if (localAnalysis) {
@@ -251,35 +342,107 @@ export async function POST(request: NextRequest) {
       reason: routingDecision.reason,
     })
 
-    const stream = await anthropic.messages.stream({
-      model: routingDecision.modelId,
-      max_tokens: 2048,
-      system: systemPrompt,
-      messages: claudeMessages,
-    })
+    // Utiliser le prompt caching pour économiser sur le system prompt répété
+    // Le system prompt est envoyé comme un bloc avec cache_control
+    // Avec fallback automatique si le modèle n'est pas disponible
+    const fallbacks = getModelFallbacks(routingDecision.model as 'haiku' | 'sonnet')
+    const modelsToTry = [routingDecision.modelId, ...fallbacks.filter(f => f !== routingDecision.modelId)]
+
+    // Fonction helper pour créer un stream avec les params
+    const createStreamWithModel = (modelId: string) => {
+      return anthropic.messages.stream({
+        model: modelId,
+        max_tokens: 2048,
+        system: [
+          {
+            type: 'text',
+            text: systemPrompt,
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
+        messages: claudeMessages,
+      })
+    }
+
+    let usedModelId = routingDecision.modelId
 
     // ============================================
-    // 7. STREAMING DE LA RÉPONSE
+    // 7. STREAMING DE LA RÉPONSE (avec fallback transparent)
     // ============================================
     const encoder = new TextEncoder()
     let fullResponse = ''
-    let outputTokens = 0
 
     const readableStream = new ReadableStream({
       async start(controller) {
-        try {
-          for await (const event of stream) {
-            if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-              const text = event.delta.text
-              fullResponse += text
-              outputTokens += estimerTokens(text)
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`))
+        let stream: ReturnType<typeof anthropic.messages.stream> | null = null
+        let lastError: Error | null = null
+
+        // Essayer chaque modèle jusqu'à ce qu'un fonctionne
+        for (const modelId of modelsToTry) {
+          try {
+            console.log(`[API] Tentative stream avec modèle: ${modelId}`)
+            stream = createStreamWithModel(modelId)
+            usedModelId = modelId
+
+            // Essayer de consommer le stream - l'erreur 404 arrive ici
+            for await (const event of stream) {
+              if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+                const text = event.delta.text
+                fullResponse += text
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`))
+              }
             }
+
+            // Si on arrive ici, le stream a réussi - sortir de la boucle
+            break
+          } catch (error: unknown) {
+            lastError = error as Error
+            const errorMessage = (error as Error).message || ''
+            const status = (error as { status?: number }).status
+
+            // Si c'est une erreur 404 (modèle non trouvé), essayer le suivant
+            if (status === 404 || errorMessage.includes('not_found')) {
+              console.warn(`[API] Modèle ${modelId} non disponible, essai du suivant...`)
+              fullResponse = '' // Reset la réponse pour le prochain essai
+              stream = null
+              continue
+            }
+
+            // Pour les autres erreurs, propager
+            throw error
           }
+        }
+
+        // Si aucun modèle n'a fonctionné
+        if (!stream) {
+          throw lastError || new Error('Aucun modèle Claude disponible')
+        }
+
+        if (usedModelId !== routingDecision.modelId) {
+          console.log(`[API] Fallback utilisé: ${routingDecision.modelId} -> ${usedModelId}`)
+        }
+
+        try {
+          // Récupérer les stats réelles de tokens depuis la réponse Anthropic
+          const finalMessage = await stream.finalMessage()
+          const usage = finalMessage.usage
+
+          // Tokens réels depuis l'API
+          const inputTokens = usage.input_tokens
+          const outputTokens = usage.output_tokens
+
+          // Tokens de cache (si disponibles)
+          const cacheCreationTokens = (usage as { cache_creation_input_tokens?: number }).cache_creation_input_tokens || 0
+          const cacheReadTokens = (usage as { cache_read_input_tokens?: number }).cache_read_input_tokens || 0
+
+          // Calculer les tokens facturables pour le quota utilisateur
+          // Cache read = 10% du coût, donc on compte 10% des tokens cachés
+          // Cache creation = 125% mais c'est rare (première fois)
+          const billableInputTokens = inputTokens - cacheReadTokens + Math.ceil(cacheReadTokens * 0.1)
+          const billableTokens = billableInputTokens + outputTokens
 
           // Fin du stream - sauvegarder dans le cache et tracker
-          const { ttl } = getCacheType(lastUserMessage, context.evaluationProgress?.step || 1, 6)
-          const cost = calculateCost(routingDecision.model, inputTokensEstimate, outputTokens)
+          const cost = calculateCostWithCache(routingDecision.model, inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens)
 
           // Sauvegarder dans le cache (v2 avec SIREN)
           saveToCache(lastUserMessage, fullResponse, {
@@ -287,9 +450,10 @@ export async function POST(request: NextRequest) {
             siren,  // SIREN obligatoire pour contenu spécifique
             step: context.evaluationProgress?.step,
             totalSteps: 6,
+            lastAssistantMessage,  // Pour différencier les réponses courtes
           }, {
             model: routingDecision.model,
-            inputTokens: inputTokensEstimate,
+            inputTokens: billableInputTokens,
             outputTokens,
             cost,
           })
@@ -307,12 +471,17 @@ export async function POST(request: NextRequest) {
               role: 'assistant',
               content: fullResponse,
               model: routingDecision.model,
-              tokens: { input: inputTokensEstimate, output: outputTokens },
+              tokens: { input: billableInputTokens, output: outputTokens },
               metadata: {
                 step: context.evaluationProgress?.step,
                 semantics: {
                   isFinancial: semantics.isFinancialQuestion,
                   complexity: semantics.complexityScore,
+                },
+                cache: {
+                  cacheCreationTokens,
+                  cacheReadTokens,
+                  savings: cacheReadTokens > 0 ? Math.round((1 - 0.1) * cacheReadTokens) : 0,
                 },
               },
             })
@@ -324,26 +493,45 @@ export async function POST(request: NextRequest) {
             }
           }
 
+          // Détecter si l'IA a donné la valorisation Flash
+          // Le marqueur [FLASH_VALUATION_COMPLETE] indique que l'évaluation Flash est terminée
+          if (evaluationType === 'flash' && fullResponse.includes('[FLASH_VALUATION_COMPLETE]')) {
+            console.log('[API] Valorisation Flash détectée - marquage comme terminée')
+            const { markFlashCompleteByUserAndSiren } = await import('@/lib/usage/evaluations')
+            if (userId && evalSiren) {
+              await markFlashCompleteByUserAndSiren(userId, evalSiren)
+            }
+          }
+
           // Tracker l'utilisation
           trackUsage({
             timestamp: Date.now(),
             model: routingDecision.model,
             modelId: routingDecision.modelId,
-            inputTokens: inputTokensEstimate,
+            inputTokens: billableInputTokens,
             outputTokens,
             cost,
             duration: Date.now() - startTime,
             cached: false,
-            cacheHit: false,
+            cacheHit: cacheReadTokens > 0,
             taskType: routingContext.messageType,
             siren: context.entreprise?.siren,
             step: context.evaluationProgress?.step,
           })
 
+          // Enregistrer l'usage des tokens pour l'utilisateur (tokens facturables)
+          if (userId) {
+            await recordTokenUsage(userId, billableTokens)
+          }
+
           console.log('[API] Réponse complète:', {
             model: routingDecision.model,
-            inputTokens: inputTokensEstimate,
+            inputTokens,
             outputTokens,
+            cacheCreationTokens,
+            cacheReadTokens,
+            billableTokens,
+            savings: cacheReadTokens > 0 ? `${Math.round((cacheReadTokens / inputTokens) * 90)}%` : '0%',
             cost: `$${cost.toFixed(6)}`,
             duration: `${Date.now() - startTime}ms`,
           })
@@ -369,12 +557,10 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue'
-    const errorStack = error instanceof Error ? error.stack : ''
-    console.error('Erreur API Chat:', errorMessage, errorStack)
+    console.error('Erreur API Chat:', errorMessage, error instanceof Error ? error.stack : '')
     return new Response(
       JSON.stringify({
-        error: `Erreur API: ${errorMessage}`,
-        details: process.env.NODE_ENV === 'development' ? errorStack : undefined
+        error: 'Une erreur est survenue lors du traitement de votre demande',
       }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
@@ -402,14 +588,34 @@ function detectSectorFromNaf(codeNaf?: string): string {
 }
 
 /**
- * Calcule le coût d'un appel API
+ * Calcule le coût d'un appel API avec prompt caching
+ * - Cache write (creation): 1.25x le prix input
+ * - Cache read: 0.1x le prix input (90% de réduction)
+ * - Input normal: 1x le prix input
+ * - Output: prix output normal
  */
-function calculateCost(model: ModelType, inputTokens: number, outputTokens: number): number {
+function calculateCostWithCache(
+  model: ModelType,
+  inputTokens: number,
+  outputTokens: number,
+  cacheCreationTokens: number,
+  cacheReadTokens: number
+): number {
   const pricing = {
     haiku: { input: 0.25, output: 1.25 },
     sonnet: { input: 3, output: 15 },
   }
 
   const p = pricing[model]
-  return (inputTokens / 1_000_000) * p.input + (outputTokens / 1_000_000) * p.output
+
+  // Tokens non-cachés = input total - cache creation - cache read
+  const regularInputTokens = inputTokens - cacheCreationTokens - cacheReadTokens
+
+  // Calcul du coût
+  const regularInputCost = (regularInputTokens / 1_000_000) * p.input
+  const cacheCreationCost = (cacheCreationTokens / 1_000_000) * p.input * 1.25
+  const cacheReadCost = (cacheReadTokens / 1_000_000) * p.input * 0.1
+  const outputCost = (outputTokens / 1_000_000) * p.output
+
+  return regularInputCost + cacheCreationCost + cacheReadCost + outputCost
 }

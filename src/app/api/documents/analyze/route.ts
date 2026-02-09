@@ -1,16 +1,26 @@
 // API Route pour l'analyse de documents avec Claude
-// Version 2.0: Avec invalidation du cache et sessions serveur
+// Version 3.1: Sécurisé avec auth, rate limiting, validation fichiers
 
 import { NextRequest, NextResponse } from 'next/server'
 import { anthropic, isAnthropicConfigured } from '@/lib/anthropic'
 import { extractPdfText } from '@/lib/documents/pdf-parser'
 import { parseExcel } from '@/lib/documents/excel-parser'
+import { isScannedPdf, pdfToImages, estimateImageTokens, type PdfPageImage } from '@/lib/documents/pdf-vision'
 import {
   invalidateOnDocumentUpload,
   findSessionBySiren,
   addDocumentToSession,
   updateDocumentAnalysis,
 } from '@/lib/ai'
+import {
+  optionalAuth,
+  checkRateLimit,
+  getClientIp,
+  getRateLimitHeaders,
+  validateUploadedFile,
+  ALLOWED_MIME_TYPES,
+  MAX_FILE_SIZE,
+} from '@/lib/security'
 
 const EXCEL_MIME_TYPES = [
   'application/vnd.ms-excel',
@@ -28,10 +38,26 @@ function isExcelFile(file: File): boolean {
 
 export async function POST(request: NextRequest) {
   try {
+    // 1. Rate limiting (par IP ou user ID)
+    const user = await optionalAuth()
+    const identifier = user?.id || getClientIp(request)
+    const rateLimitResult = await checkRateLimit(identifier, 'documentUpload')
+
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: 'Trop de requêtes. Réessayez plus tard.' },
+        {
+          status: 429,
+          headers: getRateLimitHeaders(rateLimitResult),
+        }
+      )
+    }
+
+    // 2. Vérifier API configurée
     if (!isAnthropicConfigured()) {
       return NextResponse.json(
-        { error: 'API Anthropic non configurée' },
-        { status: 500 }
+        { error: 'Service temporairement indisponible' },
+        { status: 503 }
       )
     }
 
@@ -43,6 +69,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Aucun fichier fourni' }, { status: 400 })
     }
 
+    // 3. Validation de base du fichier (taille préliminaire via File.size)
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { error: `Fichier trop volumineux. Maximum: ${Math.round(MAX_FILE_SIZE / 1024 / 1024)} MB` },
+        { status: 413 }
+      )
+    }
+
+    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+      return NextResponse.json(
+        { error: `Type de fichier non autorisé: ${file.type}. Formats acceptés: PDF, Excel, CSV` },
+        { status: 415 }
+      )
+    }
+
     let context
     try {
       context = contextJson ? JSON.parse(contextJson) : {}
@@ -50,13 +91,45 @@ export async function POST(request: NextRequest) {
       context = {}
     }
 
-    // Extraire le texte selon le type de fichier
-    let extractedText = ''
+    // 4. Lire et valider le contenu du fichier (magic bytes)
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
 
+    const fileValidation = validateUploadedFile(file, buffer)
+    if (!fileValidation.valid) {
+      return NextResponse.json(
+        { error: fileValidation.error },
+        { status: 400 }
+      )
+    }
+
+    // 5. Extraire le texte selon le type de fichier
+    let extractedText = ''
+
+    let isScanned = false
+    let pdfImages: PdfPageImage[] = []
+
     if (file.type === 'application/pdf') {
-      extractedText = await extractPdfText(buffer)
+      // Vérifier si le PDF est scanné
+      const scanCheck = await isScannedPdf(buffer)
+      isScanned = scanCheck.isScanned
+
+      if (isScanned) {
+        console.log('[Documents] PDF scanné détecté:', {
+          fileName: file.name,
+          pageCount: scanCheck.pageCount,
+          avgCharsPerPage: scanCheck.avgCharsPerPage,
+        })
+        // Convertir les pages en images pour Claude Vision
+        pdfImages = await pdfToImages(buffer, 15, 1.5)
+        const estimatedTokens = estimateImageTokens(pdfImages)
+        console.log('[Documents] Images générées:', {
+          pageCount: pdfImages.length,
+          estimatedTokens,
+        })
+      } else {
+        extractedText = await extractPdfText(buffer)
+      }
     } else if (isExcelFile(file)) {
       // Parser Excel/CSV
       const excelData = parseExcel(buffer)
@@ -66,8 +139,8 @@ export async function POST(request: NextRequest) {
       extractedText = await file.text()
     }
 
-    // Si le texte est trop court, c'est peut-être un PDF image
-    if (extractedText.length < 100) {
+    // Si le texte est trop court et pas de traitement Vision prévu
+    if (extractedText.length < 100 && !isScanned) {
       return NextResponse.json({
         documentId: crypto.randomUUID(),
         fileName: file.name,
@@ -86,11 +159,8 @@ export async function POST(request: NextRequest) {
       ? 'Ce document est un fichier Excel/CSV. Il peut contenir des données de suivi (commandes, clients, stocks, etc.) ou des données financières.'
       : 'Ce document est un PDF. Il peut s\'agir d\'un bilan, compte de résultat, liasse fiscale, plaquette commerciale, etc.'
 
-    // Analyser avec Claude
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 4096,
-      system: `
+    // Construire le système prompt
+    const systemPrompt = `
 Tu es un expert-comptable et analyste financier analysant des documents d'entreprise.
 
 Contexte de l'entreprise :
@@ -129,14 +199,61 @@ Réponds UNIQUEMENT en JSON valide avec cette structure exacte :
   ],
   "questionsASuggerer": ["string"]
 }
-`,
-      messages: [
-        {
-          role: 'user',
-          content: `Analyse ce document :\n\n${extractedText.substring(0, 50000)}` // Limite pour éviter de dépasser le contexte
-        }
-      ],
-    })
+`
+
+    // Analyser avec Claude (Vision ou texte selon le type de PDF)
+    let response
+
+    if (isScanned && pdfImages.length > 0) {
+      // Utiliser Claude Vision pour les PDFs scannés
+      console.log('[Documents] Analyse via Claude Vision...')
+
+      // Construire le contenu avec les images
+      const imageContent: Array<{ type: 'image'; source: { type: 'base64'; media_type: 'image/jpeg'; data: string } } | { type: 'text'; text: string }> = []
+
+      // Ajouter chaque page comme image
+      for (const img of pdfImages) {
+        imageContent.push({
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: 'image/jpeg',
+            data: img.base64,
+          },
+        })
+      }
+
+      // Ajouter le texte de demande d'analyse
+      imageContent.push({
+        type: 'text',
+        text: `Analyse ce document financier scanné (${pdfImages.length} page${pdfImages.length > 1 ? 's' : ''}). Extrais toutes les données chiffrées visibles.`,
+      })
+
+      response = await anthropic.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4096,
+        system: systemPrompt,
+        messages: [
+          {
+            role: 'user',
+            content: imageContent,
+          }
+        ],
+      })
+    } else {
+      // Analyse classique par texte
+      response = await anthropic.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4096,
+        system: systemPrompt,
+        messages: [
+          {
+            role: 'user',
+            content: `Analyse ce document :\n\n${extractedText.substring(0, 50000)}`
+          }
+        ],
+      })
+    }
 
     const analysisText = response.content[0].type === 'text' ? response.content[0].text : ''
 
@@ -206,8 +323,10 @@ Réponds UNIQUEMENT en JSON valide avec cette structure exacte :
       documentId,
       fileName: file.name,
       fileSize: file.size,
-      extractedText: extractedText.substring(0, 5000), // Aperçu
+      extractedText: isScanned ? '[Document scanné - analysé via Vision]' : extractedText.substring(0, 5000),
       analysis,
+      processingMethod: isScanned ? 'vision' : 'text',
+      pagesAnalyzed: isScanned ? pdfImages.length : undefined,
     })
 
   } catch (error) {

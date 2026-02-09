@@ -1,34 +1,59 @@
 // API Route pour une valorisation rapide instantanée (wow effect)
+// Sécurisé: rate limiting, validation SIREN améliorée
 
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { rechercherEntreprise, isPappersConfigured, PappersError } from '@/lib/pappers'
 import { detecterSecteur, getNomSecteur } from '@/lib/prompts'
 import { evaluerEntrepriseV2 } from '@/lib/evaluation/calculateur-v2'
 import { genererDiagnostic } from '@/lib/analyse/diagnostic'
 import { convertirBilansNormalises } from '@/lib/analyse/anomalies'
 import type { DonneesEvaluationV2, BilanAnnuel as BilanV2 } from '@/lib/evaluation/types'
+import {
+  optionalAuth,
+  checkRateLimit,
+  getClientIp,
+  getRateLimitHeaders,
+  validateAndCleanSiren,
+} from '@/lib/security'
 
 interface RouteParams {
   params: Promise<{ siren: string }>
 }
 
-export async function GET(request: Request, { params }: RouteParams) {
+export async function GET(request: NextRequest, { params }: RouteParams) {
+  // Rate limiting (par IP ou user ID)
+  const user = await optionalAuth()
+  const identifier = user?.id || getClientIp(request)
+  const rateLimitResult = await checkRateLimit(identifier, 'entrepriseApi')
+
+  if (!rateLimitResult.success) {
+    return NextResponse.json(
+      { error: 'Trop de requêtes. Réessayez plus tard.', code: 'RATE_LIMITED' },
+      {
+        status: 429,
+        headers: getRateLimitHeaders(rateLimitResult),
+      }
+    )
+  }
+
   const { siren } = await params
 
   if (!isPappersConfigured()) {
     return NextResponse.json(
-      { error: 'API Pappers non configurée', code: 'PAPPERS_NOT_CONFIGURED' },
-      { status: 500 }
+      { error: 'Service temporairement indisponible', code: 'SERVICE_UNAVAILABLE' },
+      { status: 503 }
     )
   }
 
-  const cleanSiren = siren.replace(/\s/g, '')
-  if (!/^\d{9}$/.test(cleanSiren)) {
+  // Valider le SIREN avec algorithme de Luhn
+  const sirenValidation = validateAndCleanSiren(siren)
+  if (!sirenValidation.valid) {
     return NextResponse.json(
-      { error: 'Le SIREN doit contenir 9 chiffres', code: 'INVALID_SIREN' },
+      { error: sirenValidation.error, code: 'INVALID_SIREN' },
       { status: 400 }
     )
   }
+  const cleanSiren = sirenValidation.cleaned!
 
   // Récupérer les données Pappers
   let entreprise

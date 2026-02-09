@@ -1,9 +1,34 @@
 // API Route pour générer les rapports PDF d'évaluation
 import { NextRequest, NextResponse } from 'next/server'
 import { generateProfessionalPDFBuffer, type ProfessionalReportData } from '@/lib/pdf'
+import { createClient } from '@/lib/supabase/server'
+import { canDownloadPDF } from '@/lib/usage'
 
 export async function POST(request: NextRequest) {
   try {
+    // Vérifier l'authentification
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Authentification requise', code: 'AUTH_REQUIRED' },
+        { status: 401 }
+      )
+    }
+
+    // Vérifier si l'utilisateur est Pro
+    const canDownload = await canDownloadPDF(user.id)
+    if (!canDownload) {
+      return NextResponse.json(
+        {
+          error: 'Cette fonctionnalite est reservee aux abonnes Pro',
+          code: 'PRO_REQUIRED',
+        },
+        { status: 403 }
+      )
+    }
+
     const data: ProfessionalReportData = await request.json()
 
     // Validation basique des données
@@ -18,6 +43,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Données de valorisation manquantes' },
         { status: 400 }
+      )
+    }
+
+    // Vérifier que l'utilisateur possède une évaluation pour ce SIREN
+    const { data: evaluation, error: evalError } = await supabase
+      .from('evaluations')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('siren', data.entreprise.siren)
+      .limit(1)
+      .single()
+
+    if (evalError || !evaluation) {
+      return NextResponse.json(
+        { error: 'Aucune évaluation trouvée pour cette entreprise', code: 'NOT_FOUND' },
+        { status: 403 }
       )
     }
 
