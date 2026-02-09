@@ -127,26 +127,46 @@ export async function checkEvaluationAccess(
   // Recuperer l'evaluation
   const evaluation = await getOrCreateEvaluation(userId, siren)
 
-  // Recuperer le plan actif
+  // Recuperer le plan actif (inclure past_due pour période de grâce)
   const { data: subscription } = await supabase
     .from('subscriptions')
     .select('plan_id, status')
     .eq('user_id', userId)
-    .eq('status', 'active')
+    .in('status', ['active', 'past_due', 'trialing'])
+    .order('created_at', { ascending: false })
+    .limit(1)
     .single()
 
   const planId = subscription?.plan_id || null
 
-  // Cas 1: Evaluation Flash en cours
-  // On ne bloque PAS sur le nombre de questions - l'IA pose toutes les questions nécessaires
-  // Le blocage intervient uniquement quand le status passe à 'flash_completed'
+  // Cas 0: Abonnement actif -> accès complet (priorité sur le statut Flash)
+  const hasProAccess = canDoCompleteEval(planId)
+
+  if (hasProAccess && (evaluation.status === 'in_progress' || evaluation.status === 'flash_completed')) {
+    const evalsUsed = await getMonthlyEvalCount(userId)
+    const limit = getEvalsPerMonthLimit(planId)
+
+    if (limit === null || evalsUsed < limit) {
+      return {
+        canContinue: true,
+        canUploadDocuments: true,
+        canDownloadPDF: true,
+        questionsRemaining: null,
+        needsPayment: false,
+        evaluation,
+      }
+    }
+  }
+
+  // Cas 1: Evaluation Flash en cours (utilisateur gratuit)
+  // Limite stricte côté serveur à FLASH_QUESTIONS_LIMIT questions
   if (evaluation.status === 'in_progress' && evaluation.type === 'flash') {
     return {
-      canContinue: true,  // Toujours autoriser tant que Flash en cours
+      canContinue: evaluation.questions_count < FLASH_QUESTIONS_LIMIT,
       canUploadDocuments: false,
       canDownloadPDF: false,
-      questionsRemaining: null,  // Pas de limite stricte
-      needsPayment: false,
+      questionsRemaining: Math.max(0, FLASH_QUESTIONS_LIMIT - evaluation.questions_count),
+      needsPayment: evaluation.questions_count >= FLASH_QUESTIONS_LIMIT,
       evaluation,
     }
   }
@@ -163,32 +183,27 @@ export async function checkEvaluationAccess(
     }
   }
 
-  // Cas 3: Paye ou abonne -> acces complet
+  // Cas 3: Paye ou en cours de complete -> acces complet
   if (evaluation.status === 'paid' || evaluation.status === 'complete_in_progress') {
     return {
       canContinue: true,
       canUploadDocuments: true,
       canDownloadPDF: true,
-      questionsRemaining: null, // Illimite
+      questionsRemaining: null,
       needsPayment: false,
       evaluation,
     }
   }
 
-  // Cas 4: Abonnement actif -> verifier limite mensuelle
-  if (canDoCompleteEval(planId)) {
-    const evalsUsed = await getMonthlyEvalCount(userId)
-    const limit = getEvalsPerMonthLimit(planId)
-
-    if (limit === null || evalsUsed < limit) {
-      return {
-        canContinue: true,
-        canUploadDocuments: true,
-        canDownloadPDF: true,
-        questionsRemaining: null,
-        needsPayment: false,
-        evaluation,
-      }
+  // Cas 4: Evaluation terminee -> lecture seule (PDF autorisé)
+  if (evaluation.status === 'completed') {
+    return {
+      canContinue: false,
+      canUploadDocuments: false,
+      canDownloadPDF: true,
+      questionsRemaining: 0,
+      needsPayment: false,
+      evaluation,
     }
   }
 
@@ -292,6 +307,7 @@ export async function markFlashCompleteByUserAndSiren(
 
 /**
  * Marque l'evaluation comme payee (apres paiement Stripe)
+ * Garde: uniquement depuis flash_completed, payment_pending ou in_progress
  */
 export async function markEvaluationAsPaid(
   evaluationId: string,
@@ -299,6 +315,19 @@ export async function markEvaluationAsPaid(
   amountPaid: number
 ): Promise<void> {
   const supabase = getSupabaseAdmin()
+
+  // Vérifier que la transition est valide
+  const { data: evaluation } = await supabase
+    .from('evaluations')
+    .select('status')
+    .eq('id', evaluationId)
+    .single()
+
+  const validFromStatuses = ['flash_completed', 'payment_pending', 'in_progress']
+  if (evaluation && !validFromStatuses.includes(evaluation.status)) {
+    console.warn(`[Evaluations] Transition invalide: ${evaluation.status} -> paid pour ${evaluationId}`)
+    return
+  }
 
   await supabase
     .from('evaluations')

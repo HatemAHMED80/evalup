@@ -78,14 +78,30 @@ export async function POST(request: NextRequest) {
         await handleInvoicePaymentFailed(invoice)
         break
       }
+
+      case 'charge.refunded': {
+        const charge = event.data.object as Stripe.Charge
+        console.log('Charge refunded:', charge.id, 'amount:', charge.amount_refunded)
+        // TODO: Révoquer l'accès à l'évaluation si remboursement total
+        break
+      }
+
+      case 'checkout.session.expired': {
+        const session = event.data.object as Stripe.Checkout.Session
+        console.log('Checkout session expired:', session.id)
+        break
+      }
     }
 
     return NextResponse.json({ received: true })
   } catch (error) {
     console.error('Erreur traitement webhook:', error)
-    // Toujours retourner 200 pour éviter que Stripe ne retry indéfiniment
-    // Les erreurs sont loguées et doivent être traitées via monitoring
-    return NextResponse.json({ received: true, error: true })
+    // Retourner 500 pour que Stripe retry (max 3 jours)
+    // Les erreurs critiques (DB) méritent un retry
+    return NextResponse.json(
+      { error: 'Erreur traitement webhook' },
+      { status: 500 }
+    )
   }
 }
 

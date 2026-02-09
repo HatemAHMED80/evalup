@@ -54,7 +54,7 @@ export const INDUSTRIE: ConfigSecteur = {
   methodes: [
     { code: 'MULT_EBITDA', nom: 'Multiple EBITDA', poids: 40 },
     { code: 'DCF', nom: 'DCF simplifié', poids: 25 },
-    { code: 'VALEUR_ACTIFS', nom: 'Valeur des actifs industriels', poids: 25 },
+    { code: 'ACTIF_NET_CORRIGE', nom: 'Actif Net Corrigé (valeur patrimoniale)', poids: 25 },
     { code: 'MULT_CA', nom: 'Multiple CA', poids: 10 },
   ],
 

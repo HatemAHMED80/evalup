@@ -5,6 +5,15 @@ import type {
   ResultatEvaluation,
 } from './types'
 import { detecterSecteurEvaluation, DEFAULT } from './secteurs'
+import {
+  calculerRetraitementRemuneration,
+  calculerRetraitementLoyer,
+  calculerRetraitementCreditBail,
+  calculerRetraitementChargesExceptionnelles,
+  calculerRetraitementProduitsExceptionnels,
+  calculerRetraitementSalairesFamilleExcessifs,
+  calculerRetraitementSalairesFamilleInsuffisants,
+} from './ebitda-normalise'
 
 // ============================================================
 // CONSTANTES DE VALORISATION
@@ -36,6 +45,30 @@ const FONDS_COMMERCE_MINIMUM = 5000
 
 /** Pourcentage du CA utilisé comme valorisation plancher */
 const POURCENTAGE_CA_PLANCHER = 0.15
+
+// ============================================================
+// CLASSIFICATION EV vs EQUITY DES MÉTHODES
+// ============================================================
+// Les méthodes EV (Enterprise Value) produisent une valeur AVANT déduction de la dette nette.
+// Les méthodes Equity produisent directement la valeur des fonds propres (APRÈS dette).
+// On ne peut PAS moyenner les deux sans bridge.
+
+/** Méthodes produisant une Valeur d'Entreprise (avant dette nette) */
+const METHODES_EV = new Set([
+  'multiple_ca', 'multiple_ebitda', 'multiple_arr',
+  'dcf', 'fonds_commerce', 'baremes_sante',
+  'valeur_flotte', 'valeur_materiel',
+])
+
+/** Méthodes produisant une Valeur Equity (après dette nette) */
+const METHODES_EQUITY = new Set([
+  'actif_net_corrige', 'anc', 'goodwill', 'praticiens',
+])
+
+/** Normalise un code méthode pour la classification EV/Equity */
+function normaliserCodeMethode(code: string): string {
+  return code.toLowerCase().replace(/^mult_/, 'multiple_')
+}
 
 /**
  * Calcule la valeur par la méthode des multiples de CA
@@ -82,7 +115,7 @@ function calculerMultipleARR(
   donnees: DonneesFinancieres,
   multiples: { min: number; max: number }
 ): { basse: number; moyenne: number; haute: number; explication: string } {
-  const arr = donnees.arr || donnees.mrr ? (donnees.mrr || 0) * 12 : donnees.ca
+  const arr = donnees.arr ? donnees.arr : donnees.mrr ? donnees.mrr * 12 : donnees.ca
   const basse = arr * multiples.min
   const haute = arr * multiples.max
   const moyenne = (basse + haute) / 2
@@ -101,9 +134,9 @@ function calculerMultipleARR(
 function calculerActifNetCorrige(
   donnees: DonneesFinancieres
 ): { basse: number; moyenne: number; haute: number; explication: string } {
-  // Actif net corrigé = capitaux propres ajustés
-  const anc = donnees.capitauxPropres + donnees.tresorerie - donnees.dettes
-  // Fourchette de +/- 10%
+  // ANC = capitaux propres (la trésorerie et les dettes sont déjà reflétées dans les CP)
+  const anc = donnees.capitauxPropres
+  // Fourchette de +/- 10% pour approximer les plus/moins values latentes
   const basse = anc * 0.9
   const haute = anc * 1.1
   const moyenne = anc
@@ -112,7 +145,7 @@ function calculerActifNetCorrige(
     basse: Math.max(0, basse),
     moyenne: Math.max(0, moyenne),
     haute: Math.max(0, haute),
-    explication: `Capitaux propres (${formatEuro(donnees.capitauxPropres)}) + trésorerie (${formatEuro(donnees.tresorerie)}) - dettes (${formatEuro(donnees.dettes)})`,
+    explication: `Actif Net Corrigé basé sur capitaux propres (${formatEuro(donnees.capitauxPropres)}) ±10%`,
   }
 }
 
@@ -142,26 +175,46 @@ function calculerGoodwill(
 }
 
 /**
- * Calcule une estimation DCF simplifiée
+ * Calcule une estimation DCF avec fade period (Fix 4)
+ * Phase 1 (5 ans) : croissance court-terme (plafonnée à 50%)
+ * Phase 2 (3 ans) : fade linéaire vers le taux long-terme (2%)
+ * Valeur terminale : Gordon Growth sur le flux de l'année 8
  */
 function calculerDCF(
   donnees: DonneesFinancieres,
   tauxActualisation: number = TAUX_ACTUALISATION_DCF,
-  anneesProjection: number = ANNEES_PROJECTION_DCF
 ): { basse: number; moyenne: number; haute: number; explication: string } {
-  const croissance = donnees.croissance || TAUX_CROISSANCE_LONG_TERME
+  const ANNEES_PHASE1 = 5
+  const ANNEES_FADE = 3
+  const TOTAL_ANNEES = ANNEES_PHASE1 + ANNEES_FADE
+
+  // Plafonner la croissance court-terme à 50% pour éviter les explosions
+  const croissanceCourtTerme = Math.min(donnees.croissance || TAUX_CROISSANCE_LONG_TERME, 0.50)
   const fluxBase = donnees.ebitda * RATIO_FCF_EBITDA
 
   let sommeFlux = 0
-  for (let i = 1; i <= anneesProjection; i++) {
-    const flux = fluxBase * Math.pow(1 + croissance, i)
-    sommeFlux += flux / Math.pow(1 + tauxActualisation, i)
+  let fluxCourant = fluxBase
+
+  for (let i = 1; i <= TOTAL_ANNEES; i++) {
+    let tauxCroissance: number
+    if (i <= ANNEES_PHASE1) {
+      tauxCroissance = croissanceCourtTerme
+    } else {
+      // Fade linéaire : interpolation de court-terme vers long-terme
+      const fadeProgress = (i - ANNEES_PHASE1) / ANNEES_FADE
+      tauxCroissance = croissanceCourtTerme + (TAUX_CROISSANCE_LONG_TERME - croissanceCourtTerme) * fadeProgress
+    }
+    fluxCourant = fluxCourant * (1 + tauxCroissance)
+    sommeFlux += fluxCourant / Math.pow(1 + tauxActualisation, i)
   }
 
-  // Valeur terminale
-  const fluxTerminal = fluxBase * Math.pow(1 + croissance, anneesProjection + 1)
-  const valeurTerminale =
-    fluxTerminal / (tauxActualisation - TAUX_CROISSANCE_LONG_TERME) / Math.pow(1 + tauxActualisation, anneesProjection)
+  // Valeur terminale (Gordon Growth Model) sur le flux de l'année 8
+  const fluxTerminal = fluxCourant * (1 + TAUX_CROISSANCE_LONG_TERME)
+  const denominateur = tauxActualisation - TAUX_CROISSANCE_LONG_TERME
+  if (denominateur <= 0.01) {
+    return { basse: 0, moyenne: 0, haute: 0, explication: 'DCF non calculable (taux d\'actualisation trop bas)' }
+  }
+  const valeurTerminale = fluxTerminal / denominateur / Math.pow(1 + tauxActualisation, TOTAL_ANNEES)
 
   const moyenne = sommeFlux + valeurTerminale
   const basse = moyenne * 0.8
@@ -171,7 +224,7 @@ function calculerDCF(
     basse: Math.max(0, basse),
     moyenne: Math.max(0, moyenne),
     haute: Math.max(0, haute),
-    explication: `DCF sur ${anneesProjection} ans, taux d'actualisation ${(tauxActualisation * 100).toFixed(0)}%, croissance ${(croissance * 100).toFixed(0)}%`,
+    explication: `DCF sur ${TOTAL_ANNEES} ans (${ANNEES_PHASE1}+${ANNEES_FADE} fade), WACC ${(tauxActualisation * 100).toFixed(0)}%, croissance ${(croissanceCourtTerme * 100).toFixed(0)}%→${(TAUX_CROISSANCE_LONG_TERME * 100).toFixed(0)}%`,
   }
 }
 
@@ -200,8 +253,8 @@ function calculerFondsCommerce(
 function calculerPraticiens(
   donnees: DonneesFinancieres
 ): { basse: number; moyenne: number; haute: number; explication: string } {
-  // Valeur patrimoniale
-  const valeurPatrimoniale = Math.max(0, donnees.capitauxPropres + donnees.tresorerie - donnees.dettes)
+  // Valeur patrimoniale = capitaux propres (sans double-comptage)
+  const valeurPatrimoniale = Math.max(0, donnees.capitauxPropres)
 
   // Valeur de rentabilité (capitalisation du résultat)
   const tauxCapitalisation = TAUX_CAPITALISATION_PRATICIENS
@@ -222,42 +275,61 @@ function calculerPraticiens(
 
 /**
  * Calcule la valeur de la flotte (Transport)
+ * Utilise les immobilisations corporelles du bilan si disponibles (Fix 9)
  */
 function calculerValeurFlotte(
   donnees: DonneesFinancieres
 ): { basse: number; moyenne: number; haute: number; explication: string } {
-  // Approximation basée sur les immobilisations (si disponibles) ou % du CA
-  // Pour le transport, la flotte représente généralement 30-50% du CA en valeur
+  // Préférer les immobilisations corporelles du bilan si disponibles
+  if (donnees.immobilisationsCorporelles && donnees.immobilisationsCorporelles > 0) {
+    const valeur = donnees.immobilisationsCorporelles
+    const basse = valeur * 0.7
+    const haute = valeur * 1.0
+    const moyenne = (basse + haute) / 2
+    return {
+      basse, moyenne, haute,
+      explication: `Valeur flotte basée sur immobilisations corporelles (${formatEuro(valeur)}) ×0.7-1.0`,
+    }
+  }
+
+  // Fallback : approximation basée sur % du CA
   const valeurEstimee = donnees.ca * 0.35
   const basse = valeurEstimee * 0.7
   const haute = valeurEstimee * 1.0
   const moyenne = (basse + haute) / 2
-
   return {
-    basse,
-    moyenne,
-    haute,
-    explication: `Valeur flotte estimée à ~35% du CA (${formatEuro(donnees.ca)})`,
+    basse, moyenne, haute,
+    explication: `Valeur flotte estimée à ~35% du CA (${formatEuro(donnees.ca)}) — à affiner avec les données réelles`,
   }
 }
 
 /**
  * Calcule la valeur du matériel (BTP)
+ * Utilise les immobilisations corporelles du bilan si disponibles (Fix 9)
  */
 function calculerValeurMateriel(
   donnees: DonneesFinancieres
 ): { basse: number; moyenne: number; haute: number; explication: string } {
-  // Approximation basée sur le CA - dans le BTP, le matériel représente ~15-25% du CA
+  // Préférer les immobilisations corporelles du bilan si disponibles
+  if (donnees.immobilisationsCorporelles && donnees.immobilisationsCorporelles > 0) {
+    const valeur = donnees.immobilisationsCorporelles
+    const basse = valeur * 0.6
+    const haute = valeur * 1.0
+    const moyenne = (basse + haute) / 2
+    return {
+      basse, moyenne, haute,
+      explication: `Valeur matériel basée sur immobilisations corporelles (${formatEuro(valeur)}) ×0.6-1.0`,
+    }
+  }
+
+  // Fallback : approximation basée sur % du CA
   const valeurEstimee = donnees.ca * 0.20
   const basse = valeurEstimee * 0.6
   const haute = valeurEstimee * 1.0
   const moyenne = (basse + haute) / 2
-
   return {
-    basse,
-    moyenne,
-    haute,
-    explication: `Valeur matériel estimée à ~20% du CA (${formatEuro(donnees.ca)})`,
+    basse, moyenne, haute,
+    explication: `Valeur matériel estimée à ~20% du CA (${formatEuro(donnees.ca)}) — à affiner avec les données réelles`,
   }
 }
 
@@ -350,7 +422,8 @@ function calculerMethode(
  */
 function calculerAjustements(
   secteur: ConfigSecteur,
-  facteurs: FacteursAjustement
+  facteurs: FacteursAjustement,
+  valorisationBase: number = 0
 ): { facteur: string; impact: number; raison: string }[] {
   const ajustements: { facteur: string; impact: number; raison: string }[] = []
 
@@ -358,7 +431,8 @@ function calculerAjustements(
   for (const primeId of facteurs.primes) {
     const facteur = secteur.facteursPrime.find((f) => f.id === primeId)
     if (facteur) {
-      const impact = parseImpact(facteur.impact)
+      const parsed = parseImpact(facteur.impact)
+      const impact = impactToDecimal(parsed, valorisationBase)
       ajustements.push({
         facteur: facteur.description,
         impact,
@@ -371,7 +445,8 @@ function calculerAjustements(
   for (const decoteId of facteurs.decotes) {
     const facteur = secteur.facteursDecote.find((f) => f.id === decoteId)
     if (facteur) {
-      const impact = parseImpact(facteur.impact)
+      const parsed = parseImpact(facteur.impact)
+      const impact = impactToDecimal(parsed, valorisationBase)
       ajustements.push({
         facteur: facteur.description,
         impact,
@@ -384,16 +459,81 @@ function calculerAjustements(
 }
 
 /**
- * Parse un impact du format "+10%" ou "-15%" vers un nombre (0.10 ou -0.15)
+ * Résultat structuré du parsing d'un impact (Fix 5)
  */
-function parseImpact(impact: string): number {
-  const match = impact.match(/([+-]?)(\d+)%/)
-  if (match) {
-    const sign = match[1] === '-' ? -1 : 1
-    const value = parseInt(match[2], 10) / 100
-    return sign * value
+interface ImpactParse {
+  type: 'percentage' | 'absolute' | 'percentage_on_target' | 'special'
+  value: number
+  target?: string
+}
+
+/**
+ * Parse un impact sous différents formats vers un objet structuré.
+ * Supporte:
+ * - "+10%", "-15%", "+10 à +20%", "-15 à -25%" → percentage
+ * - "+10 000 à +30 000€" → absolute (EUR)
+ * - "+50 à +100% sur le multiple" → percentage_on_target
+ * - "+valeur de marché" → special (ignoré)
+ */
+function parseImpact(impact: string): ImpactParse {
+  // 1. Valeur absolue EUR (range) : "+10 000 à +30 000€" ou "+10000 à +30000EUR"
+  const absoluteRangeMatch = impact.match(/([+-]?[\d\s]+)\s*(?:à|a)\s*([+-]?[\d\s]+)\s*[€E]/)
+  if (absoluteRangeMatch) {
+    const val1 = parseInt(absoluteRangeMatch[1].replace(/\s/g, ''), 10)
+    const val2 = parseInt(absoluteRangeMatch[2].replace(/\s/g, ''), 10)
+    return { type: 'absolute', value: (val1 + val2) / 2 }
   }
-  return 0
+
+  // 2. Pourcentage sur cible spécifique : "+50 à +100% sur le multiple"
+  const targetRangeMatch = impact.match(/([+-]?\d+)\s*(?:à|a)\s*([+-]?\d+)\s*%\s+sur\s+(?:le\s+)?(.+)/)
+  if (targetRangeMatch) {
+    const val1 = parseInt(targetRangeMatch[1], 10)
+    const val2 = parseInt(targetRangeMatch[2], 10)
+    return { type: 'percentage_on_target', value: ((val1 + val2) / 2) / 100, target: targetRangeMatch[3].trim() }
+  }
+
+  // 3. Range pourcentage standard : "+10 à +20%"
+  const rangeMatch = impact.match(/([+-]?\d+)\s*(?:à|a)\s*([+-]?\d+)\s*%/)
+  if (rangeMatch) {
+    const val1 = parseInt(rangeMatch[1], 10)
+    const val2 = parseInt(rangeMatch[2], 10)
+    return { type: 'percentage', value: ((val1 + val2) / 2) / 100 }
+  }
+
+  // 4. Pourcentage simple : "+10%" ou "-15%"
+  const simpleMatch = impact.match(/([+-]?\d+)\s*%/)
+  if (simpleMatch) {
+    return { type: 'percentage', value: parseInt(simpleMatch[1], 10) / 100 }
+  }
+
+  // 5. Valeur absolue simple : "+50 000€"
+  const absoluteSingleMatch = impact.match(/([+-]?[\d\s]+)\s*[€E]/)
+  if (absoluteSingleMatch) {
+    return { type: 'absolute', value: parseInt(absoluteSingleMatch[1].replace(/\s/g, ''), 10) }
+  }
+
+  // 6. Texte spécial non parsable ("+valeur de marché" etc.)
+  return { type: 'special', value: 0 }
+}
+
+/**
+ * Convertit un ImpactParse en pourcentage décimal pour application à la valorisation.
+ * Les impacts absolus sont convertis en % de la valorisation de base.
+ * Les impacts ciblés sont modérés (appliqués à ~50% car ils visent un sous-composant).
+ */
+function impactToDecimal(parsed: ImpactParse, valorisationBase: number): number {
+  switch (parsed.type) {
+    case 'percentage':
+      return parsed.value
+    case 'absolute':
+      return valorisationBase > 0 ? parsed.value / valorisationBase : 0
+    case 'percentage_on_target':
+      // "sur le multiple" ou "sur le stock" = impact partiel, on modère à 50%
+      return parsed.value * 0.5
+    case 'special':
+    default:
+      return 0
+  }
 }
 
 /**
@@ -415,44 +555,36 @@ function calculerValorisationPlancher(
   donnees: DonneesFinancieres,
   _secteur: ConfigSecteur
 ): { valeur: number; explication: string } {
+  // Approche corrigée : les CP incluent déjà la trésorerie et les dettes,
+  // donc on ne les additionne pas séparément (évite le double-comptage)
   const elements: string[] = []
-  let valeurPlancher = 0
 
-  // 1. Trésorerie disponible (actif liquide)
-  if (donnees.tresorerie > 0) {
-    valeurPlancher += donnees.tresorerie
-    elements.push(`Trésorerie: ${formatEuro(donnees.tresorerie)}`)
-  }
+  // Option A : Capitaux propres (reflètent déjà actifs nets y compris trésorerie)
+  const cpValue = Math.max(0, donnees.capitauxPropres)
 
-  // 2. Capitaux propres positifs
-  if (donnees.capitauxPropres > 0) {
-    const cpNets = Math.max(0, donnees.capitauxPropres - donnees.dettes)
-    if (cpNets > 0) {
-      valeurPlancher += cpNets * 0.5 // 50% des capitaux propres nets
-      elements.push(`Capitaux propres nets (50%): ${formatEuro(cpNets * 0.5)}`)
-    }
-  }
-
-  // 3. Fonds de commerce minimum (même sans CA, le nom et la structure ont une valeur)
+  // Option B : Fonds de commerce minimum
   const fondsCommerceMinimum = FONDS_COMMERCE_MINIMUM
-  if (valeurPlancher < fondsCommerceMinimum) {
-    valeurPlancher = fondsCommerceMinimum
-    elements.push(`Fonds de commerce minimum: ${formatEuro(fondsCommerceMinimum)}`)
-  }
 
-  // 4. Si CA disponible mais EBITDA négatif, on valorise quand même à un % du CA
-  if (donnees.ca > 0 && donnees.ebitda <= 0) {
-    const valeurCA = donnees.ca * POURCENTAGE_CA_PLANCHER
-    if (valeurCA > valeurPlancher) {
-      valeurPlancher = valeurCA
-      elements.push(`Valorisation minimale (15% CA): ${formatEuro(valeurCA)}`)
-    }
+  // Option C : % du CA si l'activité existe mais est déficitaire
+  const caFloor = donnees.ca > 0 && donnees.ebitda <= 0
+    ? donnees.ca * POURCENTAGE_CA_PLANCHER
+    : 0
+
+  // Prendre le maximum des approches
+  let valeurPlancher = Math.max(cpValue, fondsCommerceMinimum, caFloor)
+
+  if (valeurPlancher === cpValue && cpValue > fondsCommerceMinimum && cpValue > caFloor) {
+    elements.push(`Capitaux propres: ${formatEuro(cpValue)}`)
+  } else if (valeurPlancher === caFloor && caFloor > 0) {
+    elements.push(`Valorisation minimale (${(POURCENTAGE_CA_PLANCHER * 100).toFixed(0)}% CA): ${formatEuro(caFloor)}`)
+  } else {
+    elements.push(`Fonds de commerce minimum: ${formatEuro(fondsCommerceMinimum)}`)
   }
 
   return {
     valeur: Math.round(valeurPlancher),
     explication: elements.length > 0
-      ? `Valorisation plancher basée sur: ${elements.join(' + ')}`
+      ? `Valorisation plancher basée sur: ${elements.join(', ')}`
       : `Valorisation symbolique du fonds de commerce`,
   }
 }
@@ -468,6 +600,46 @@ export function evaluerEntreprise(
   // Détecter le secteur
   const secteur = detecterSecteurEvaluation(codeNaf)
 
+  // ============================================================
+  // ÉTAPE 0 : Préparer les données effectives
+  // ============================================================
+
+  // 0a. Moyenne pondérée multi-annuelle si historique disponible (Fix 10)
+  let donneesEffectives = { ...donnees }
+  if (donnees.historique && donnees.historique.length > 0) {
+    const sorted = [...donnees.historique].sort((a, b) => b.annee - a.annee)
+    const poids = [3, 2, 1] // N, N-1, N-2
+    let sommeCA = 0, sommeEBITDA = 0, sommeRN = 0, totalPoids = 0
+    for (let i = 0; i < Math.min(sorted.length, 3); i++) {
+      sommeCA += sorted[i].ca * poids[i]
+      sommeEBITDA += sorted[i].ebitda * poids[i]
+      sommeRN += sorted[i].resultatNet * poids[i]
+      totalPoids += poids[i]
+    }
+    donneesEffectives.ca = sommeCA / totalPoids
+    donneesEffectives.ebitda = sommeEBITDA / totalPoids
+    donneesEffectives.resultatNet = sommeRN / totalPoids
+  }
+
+  // 0b. Normalisation EBITDA si retraitements fournis (Fix 2)
+  let ebitdaNormaliseValue: number | undefined
+  if (donneesEffectives.retraitements) {
+    const r = donneesEffectives.retraitements
+    let totalAjustement = 0
+    const ajouterSiPresent = (ret: { montant: number } | null) => {
+      if (ret) totalAjustement += ret.montant
+    }
+    ajouterSiPresent(calculerRetraitementRemuneration(donneesEffectives.ca, r))
+    ajouterSiPresent(calculerRetraitementLoyer(r))
+    ajouterSiPresent(calculerRetraitementCreditBail(r))
+    ajouterSiPresent(calculerRetraitementChargesExceptionnelles(r))
+    ajouterSiPresent(calculerRetraitementProduitsExceptionnels(r))
+    ajouterSiPresent(calculerRetraitementSalairesFamilleExcessifs(r))
+    ajouterSiPresent(calculerRetraitementSalairesFamilleInsuffisants(r))
+    ebitdaNormaliseValue = donneesEffectives.ebitda + totalAjustement
+    donneesEffectives = { ...donneesEffectives, ebitda: ebitdaNormaliseValue }
+  }
+
   // Calculer chaque méthode
   const resultatsMethodes: {
     nom: string
@@ -476,74 +648,138 @@ export function evaluerEntreprise(
     explication: string
   }[] = []
 
+  // Calculer chaque méthode une seule fois et stocker les résultats complets
+  const resultatsComplets: { methode: typeof secteur.methodes[0]; resultat: NonNullable<ReturnType<typeof calculerMethode>> }[] = []
+
   for (const methode of secteur.methodes) {
-    const resultat = calculerMethode(methode.code, donnees, secteur)
+    const resultat = calculerMethode(methode.code, donneesEffectives, secteur)
     if (resultat && resultat.moyenne > 0) {
-      resultatsMethodes.push({
-        nom: methode.nom,
-        valeur: resultat.moyenne,
-        poids: methode.poids,
-        explication: resultat.explication,
-      })
+      resultatsComplets.push({ methode, resultat })
     }
   }
 
-  // Calculer la moyenne pondérée
-  let sommeValeursBassesPonderees = 0
-  let sommeValeursMoyennesPonderees = 0
-  let sommeValeursHautesPonderees = 0
-  let sommePoids = 0
+  // Renormaliser les poids quand des méthodes sont exclues (EBITDA null, etc.)
+  const poidsActifs = resultatsComplets.reduce((s, rc) => s + rc.methode.poids, 0)
+  const facteurRenorm = poidsActifs > 0 ? 100 / poidsActifs : 1
 
-  for (const methode of secteur.methodes) {
-    const resultat = calculerMethode(methode.code, donnees, secteur)
-    if (resultat && resultat.moyenne > 0) {
-      sommeValeursBassesPonderees += resultat.basse * methode.poids
-      sommeValeursMoyennesPonderees += resultat.moyenne * methode.poids
-      sommeValeursHautesPonderees += resultat.haute * methode.poids
-      sommePoids += methode.poids
+  for (const { methode, resultat } of resultatsComplets) {
+    const poidsNorm = Math.round(methode.poids * facteurRenorm)
+    resultatsMethodes.push({
+      nom: methode.nom,
+      valeur: resultat.moyenne,
+      poids: poidsNorm,
+      explication: resultat.explication,
+    })
+  }
+
+  // ============================================================
+  // ÉTAPE 2 : Bridge VE → Equity (Fix 1)
+  // Séparer méthodes EV et Equity, appliquer la dette nette
+  // ============================================================
+
+  const detteNette = donneesEffectives.dettes - donneesEffectives.tresorerie
+
+  // Grouper par type (EV vs Equity)
+  let evBasse = 0, evMoyenne = 0, evHaute = 0, evPoids = 0
+  let eqBasse = 0, eqMoyenne = 0, eqHaute = 0, eqPoids = 0
+
+  for (const { methode, resultat } of resultatsComplets) {
+    const codeNorm = normaliserCodeMethode(methode.code)
+    if (METHODES_EQUITY.has(codeNorm)) {
+      eqBasse += resultat.basse * methode.poids
+      eqMoyenne += resultat.moyenne * methode.poids
+      eqHaute += resultat.haute * methode.poids
+      eqPoids += methode.poids
+    } else {
+      // Par défaut EV (inclut METHODES_EV + tout code non classifié)
+      evBasse += resultat.basse * methode.poids
+      evMoyenne += resultat.moyenne * methode.poids
+      evHaute += resultat.haute * methode.poids
+      evPoids += methode.poids
     }
   }
 
-  // Normaliser si les poids ne font pas 100
-  const facteurNormalisation = sommePoids > 0 ? 100 / sommePoids : 1
-  let valorisationBasse = sommePoids > 0 ? (sommeValeursBassesPonderees * facteurNormalisation) / 100 : 0
-  let valorisationMoyenne = sommePoids > 0 ? (sommeValeursMoyennesPonderees * facteurNormalisation) / 100 : 0
-  let valorisationHaute = sommePoids > 0 ? (sommeValeursHautesPonderees * facteurNormalisation) / 100 : 0
-
-  // Appliquer les ajustements
-  const ajustements = calculerAjustements(secteur, facteurs)
-  let totalAjustement = 0
-  for (const ajustement of ajustements) {
-    totalAjustement += ajustement.impact
+  // Calculer les moyennes pondérées de chaque groupe
+  let equityFromEV_B = 0, equityFromEV_M = 0, equityFromEV_H = 0
+  let veB = 0, veM = 0, veH = 0
+  if (evPoids > 0) {
+    const f = 100 / evPoids
+    veB = (evBasse * f) / 100
+    veM = (evMoyenne * f) / 100
+    veH = (evHaute * f) / 100
+    // Bridge : Equity = VE - Dette Nette
+    equityFromEV_B = veB - detteNette
+    equityFromEV_M = veM - detteNette
+    equityFromEV_H = veH - detteNette
   }
+
+  let directEq_B = 0, directEq_M = 0, directEq_H = 0
+  if (eqPoids > 0) {
+    const f = 100 / eqPoids
+    directEq_B = (eqBasse * f) / 100
+    directEq_M = (eqMoyenne * f) / 100
+    directEq_H = (eqHaute * f) / 100
+  }
+
+  // Blender EV-derived equity et direct equity selon leurs poids respectifs
+  const totalPoids = evPoids + eqPoids
+  let valorisationBasse = 0, valorisationMoyenne = 0, valorisationHaute = 0
+
+  if (totalPoids > 0) {
+    valorisationBasse = (equityFromEV_B * evPoids + directEq_B * eqPoids) / totalPoids
+    valorisationMoyenne = (equityFromEV_M * evPoids + directEq_M * eqPoids) / totalPoids
+    valorisationHaute = (equityFromEV_H * evPoids + directEq_H * eqPoids) / totalPoids
+  }
+
+  // Appliquer les ajustements (avec plafond, Fix 6)
+  const ajustements = calculerAjustements(secteur, facteurs, valorisationMoyenne)
+
+  // Plafond conforme au prompt base.ts : primes max +50%, décotes max -45%
+  const CAP_PRIMES = 0.50
+  const CAP_DECOTES = -0.45
+  const totalPrimes = Math.min(
+    ajustements.filter(a => a.impact > 0).reduce((s, a) => s + a.impact, 0),
+    CAP_PRIMES
+  )
+  const totalDecotes = Math.max(
+    ajustements.filter(a => a.impact < 0).reduce((s, a) => s + a.impact, 0),
+    CAP_DECOTES
+  )
+  const totalAjustement = totalPrimes + totalDecotes
 
   valorisationBasse *= 1 + totalAjustement
   valorisationMoyenne *= 1 + totalAjustement
   valorisationHaute *= 1 + totalAjustement
 
   // RÈGLE CRITIQUE : Garantir une valorisation minimale JAMAIS à 0€
-  const plancher = calculerValorisationPlancher(donnees, secteur)
+  const plancher = calculerValorisationPlancher(donneesEffectives, secteur)
   let utilisePlancher = false
 
   if (valorisationMoyenne <= 0 || isNaN(valorisationMoyenne)) {
+    // Cas extrême : moyenne négative/nulle → remplacer entièrement par le plancher
     valorisationBasse = plancher.valeur * 0.8
     valorisationMoyenne = plancher.valeur
     valorisationHaute = plancher.valeur * 1.2
     utilisePlancher = true
 
-    // Ajouter l'explication du plancher aux méthodes
+    // Remplacer les méthodes par le plancher seul (les méthodes classiques n'ont pas donné de résultat exploitable)
+    resultatsMethodes.length = 0
     resultatsMethodes.push({
       nom: 'Valorisation plancher',
       valeur: plancher.valeur,
       poids: 100,
       explication: plancher.explication,
     })
+  } else if (valorisationBasse <= 0) {
+    // Cas bridge : basse négative mais moyenne positive → clamp basse au plancher
+    valorisationBasse = Math.min(plancher.valeur, valorisationMoyenne * 0.5)
+    utilisePlancher = true
   }
 
-  // S'assurer que les valeurs sont positives
+  // S'assurer que les valeurs sont positives et arrondies
   valorisationBasse = Math.max(1, Math.round(valorisationBasse))
-  valorisationMoyenne = Math.max(1, Math.round(valorisationMoyenne))
-  valorisationHaute = Math.max(1, Math.round(valorisationHaute))
+  valorisationMoyenne = Math.max(valorisationBasse, Math.round(valorisationMoyenne))
+  valorisationHaute = Math.max(valorisationMoyenne, Math.round(valorisationHaute))
 
   // Générer l'explication
   let explicationComplete = genererExplication(secteur, resultatsMethodes, ajustements, {
@@ -567,6 +803,9 @@ export function evaluerEntreprise(
     methodes: resultatsMethodes,
     ajustements,
     explicationComplete,
+    valeurEntreprise: evPoids > 0 ? { basse: veB, moyenne: veM, haute: veH } : undefined,
+    detteNette: evPoids > 0 ? detteNette : undefined,
+    ebitdaNormalise: ebitdaNormaliseValue,
   }
 }
 

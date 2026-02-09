@@ -21,6 +21,7 @@ import {
   ALLOWED_MIME_TYPES,
   MAX_FILE_SIZE,
 } from '@/lib/security'
+import { checkEvaluationAccess } from '@/lib/usage'
 
 const EXCEL_MIME_TYPES = [
   'application/vnd.ms-excel',
@@ -38,9 +39,17 @@ function isExcelFile(file: File): boolean {
 
 export async function POST(request: NextRequest) {
   try {
-    // 1. Rate limiting (par IP ou user ID)
+    // 1. Authentification obligatoire
     const user = await optionalAuth()
-    const identifier = user?.id || getClientIp(request)
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Authentification requise' },
+        { status: 401 }
+      )
+    }
+
+    // 2. Rate limiting
+    const identifier = user.id
     const rateLimitResult = await checkRateLimit(identifier, 'documentUpload')
 
     if (!rateLimitResult.success) {
@@ -89,6 +98,21 @@ export async function POST(request: NextRequest) {
       context = contextJson ? JSON.parse(contextJson) : {}
     } catch {
       context = {}
+    }
+
+    // 3b. Vérifier que l'utilisateur a le droit d'uploader des documents
+    const siren = context.entreprise?.siren
+    if (siren && user.id) {
+      const evalAccess = await checkEvaluationAccess(user.id, siren)
+      if (!evalAccess.canUploadDocuments) {
+        return NextResponse.json(
+          {
+            error: 'L\'upload de documents nécessite une évaluation complète (79€) ou un abonnement Pro.',
+            code: 'UPLOAD_NOT_ALLOWED',
+          },
+          { status: 403 }
+        )
+      }
     }
 
     // 4. Lire et valider le contenu du fichier (magic bytes)
@@ -268,7 +292,6 @@ Réponds UNIQUEMENT en JSON valide avec cette structure exacte :
     }
 
     const documentId = crypto.randomUUID()
-    const siren = context.entreprise?.siren
 
     // ============================================
     // INVALIDATION DU CACHE (v2)

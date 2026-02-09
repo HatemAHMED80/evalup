@@ -1,4 +1,4 @@
-export { recordTokenUsage, canDownloadPDF } from './tokens'
+export { recordTokenUsage, checkTokenUsage, canDownloadPDF } from './tokens'
 
 // Nouveau systeme d'evaluations
 export {

@@ -98,9 +98,11 @@ export async function recordTokenUsage(
 }
 
 /**
- * Verifie si l'utilisateur peut telecharger des PDFs (Pro seulement)
+ * Verifie si l'utilisateur peut telecharger des PDFs
+ * (abonnement Pro OU achat unique eval_complete)
  */
 export async function canDownloadPDF(userId: string): Promise<boolean> {
+  // Vérifier abonnement Pro
   const { data: subscription } = await getSupabaseAdmin()
     .from('subscriptions')
     .select('plan_id, status')
@@ -108,5 +110,16 @@ export async function canDownloadPDF(userId: string): Promise<boolean> {
     .eq('status', 'active')
     .single()
 
-  return isPro(subscription?.plan_id)
+  if (isPro(subscription?.plan_id)) return true
+
+  // Vérifier achat unique (évaluation payée ou complétée)
+  const { data: paidEval } = await getSupabaseAdmin()
+    .from('evaluations')
+    .select('id')
+    .eq('user_id', userId)
+    .in('status', ['paid', 'complete_in_progress', 'completed'])
+    .limit(1)
+    .single()
+
+  return !!paidEval
 }

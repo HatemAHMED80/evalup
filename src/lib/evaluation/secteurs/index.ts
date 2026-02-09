@@ -7,10 +7,12 @@ import { ECOMMERCE } from './ecommerce'
 import { BTP } from './btp'
 import { INDUSTRIE } from './industrie'
 import { SERVICES } from './services'
-import { SANTE } from './sante'
+import { PHARMACIE, LABO, MEDECIN, DENTAIRE, PARAMEDICAL, SANTE } from './sante'
 import { DEFAULT } from './default'
 
 // Tous les secteurs
+// Les sous-secteurs santé sont AVANT le SANTE générique pour que la détection
+// par code NAF exact tombe sur le sous-secteur précis d'abord.
 export const SECTEURS: ConfigSecteur[] = [
   TRANSPORT,
   SAAS,
@@ -20,7 +22,12 @@ export const SECTEURS: ConfigSecteur[] = [
   BTP,
   INDUSTRIE,
   SERVICES,
-  SANTE,
+  PHARMACIE,
+  LABO,
+  MEDECIN,
+  DENTAIRE,
+  PARAMEDICAL,
+  SANTE, // Fallback santé si aucun sous-secteur ne matche
   DEFAULT,
 ]
 
@@ -40,8 +47,20 @@ export function detecterSecteurEvaluation(codeNaf: string): ConfigSecteur {
         return secteur
       }
 
-      // Correspondance partielle (ex: '10.' pour industrie alimentaire)
-      if (cleanNafCode.endsWith('.') && cleanCode.startsWith(cleanNafCode.slice(0, -1))) {
+      // Correspondance par préfixe (2 premiers chiffres = division NAF)
+      if (cleanCode.length >= 2 && cleanNafCode.startsWith(cleanCode.slice(0, 2)) && cleanCode.startsWith(cleanNafCode.slice(0, 2))) {
+        // Si même division NAF (2 premiers chiffres), c'est un match partiel
+        // Mais on ne retourne que si on ne trouve pas de match exact après
+      }
+    }
+  }
+
+  // Fallback: correspondance par division NAF (2 premiers chiffres)
+  const division = cleanCode.slice(0, 2)
+  for (const secteur of SECTEURS) {
+    for (const nafCode of secteur.codesNaf) {
+      const cleanNafCode = nafCode.replace(/[\s.]/g, '').toUpperCase()
+      if (cleanNafCode.slice(0, 2) === division) {
         return secteur
       }
     }
@@ -66,3 +85,4 @@ export function getTousLesSecteurs(): ConfigSecteur[] {
 
 // Re-export des secteurs individuels
 export { TRANSPORT, SAAS, RESTAURANT, COMMERCE, ECOMMERCE, BTP, INDUSTRIE, SERVICES, SANTE, DEFAULT }
+export { PHARMACIE, LABO, MEDECIN, DENTAIRE, PARAMEDICAL }

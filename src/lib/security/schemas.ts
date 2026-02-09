@@ -35,8 +35,7 @@ export const chatBodySchema = z.object({
     pedagogyLevel: z.string().max(50).optional(),
   }),
   options: z.object({
-    forceModel: z.enum(['haiku', 'sonnet']).optional(),
-    skipCache: z.boolean().optional(),
+    // forceModel et skipCache retirés: le serveur contrôle le modèle et le cache
     includeLocalAnalysis: z.boolean().optional(),
   }).optional().default({}),
 })

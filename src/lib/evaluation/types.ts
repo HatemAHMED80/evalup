@@ -316,6 +316,10 @@ export interface ResultatEvaluation {
     raison: string
   }[]
   explicationComplete: string
+  // Optionnel : bridge VE → Equity (ajouté pour transparence)
+  valeurEntreprise?: { basse: number; moyenne: number; haute: number }
+  detteNette?: number
+  ebitdaNormalise?: number
 }
 
 export interface DonneesFinancieres {
@@ -330,6 +334,9 @@ export interface DonneesFinancieres {
   mrr?: number // Pour SaaS
   croissance?: number // % annuel
   churn?: number // % mensuel pour SaaS
+  retraitements?: DonneesRetraitements // Pour normalisation EBITDA
+  immobilisationsCorporelles?: number // Pour flotte/matériel (bilan)
+  historique?: { ca: number; ebitda: number; resultatNet: number; annee: number }[] // Multi-annuel
 }
 
 export interface FacteursAjustement {

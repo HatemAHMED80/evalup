@@ -15,7 +15,8 @@
     "test:all": "tsx tests/run-tests.ts",
     "test:visible": "TEST_HEADLESS=false tsx tests/run-tests.ts",
     "test:slow": "TEST_HEADLESS=false TEST_SLOW_MO=100 tsx tests/run-tests.ts",
-    "test:report": "tsx tests/utils/pdf-report.tsx"
+    "test:report": "tsx tests/utils/pdf-report.tsx",
+    "test:backtest": "tsx tests/backtest-calculateur.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",

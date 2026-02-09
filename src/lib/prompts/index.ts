@@ -286,11 +286,24 @@ Si le CA n'est pas disponible, estime-le : CA = Ticket moyen × Clients/jour × 
   return result
 }
 
+function sanitizeForPrompt(text: string): string {
+  // Supprimer les tentatives d'injection de prompt
+  return text
+    .replace(/#{1,6}\s/g, '')
+    .replace(/\[SYSTEM\]/gi, '[filtered]')
+    .replace(/\[INSTRUCTION\]/gi, '[filtered]')
+    .replace(/ignore\s+(all\s+)?(previous|above|prior)\s+(instructions?|prompts?)/gi, '[filtered]')
+    .slice(0, 2000)
+}
+
 function formatResponses(responses: Record<string, string>): string {
   const entries = Object.entries(responses)
   if (entries.length === 0) return 'Aucune réponse enregistrée'
 
-  return entries.map(([key, value]) => `- ${key}: ${value}`).join('\n')
+  return entries
+    .slice(0, 50)
+    .map(([key, value]) => `- ${sanitizeForPrompt(String(key))}: ${sanitizeForPrompt(String(value))}`)
+    .join('\n')
 }
 
 function formatDocuments(documents: ConversationContext['documents']): string {

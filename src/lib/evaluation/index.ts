@@ -42,6 +42,11 @@ export {
   INDUSTRIE,
   SERVICES,
   SANTE,
+  PHARMACIE,
+  LABO,
+  MEDECIN,
+  DENTAIRE,
+  PARAMEDICAL,
   DEFAULT,
 } from './secteurs'
 

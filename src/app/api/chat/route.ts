@@ -11,6 +11,7 @@ import {
   recordTokenUsage,
   checkEvaluationAccess,
   incrementQuestionCount,
+  checkTokenUsage,
   FLASH_QUESTIONS_LIMIT,
 } from '@/lib/usage'
 import {
@@ -47,6 +48,7 @@ import {
   // Tracking
   trackUsage,
 } from '@/lib/ai'
+import { evaluerRapide } from '@/lib/evaluation'
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
@@ -61,11 +63,19 @@ export async function POST(request: NextRequest) {
     }
 
     // ============================================
-    // 0. AUTHENTIFICATION
+    // 0. AUTHENTIFICATION (obligatoire)
     // ============================================
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    const userId = user?.id
+
+    if (!user) {
+      return new Response(
+        JSON.stringify({ error: 'Authentification requise' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const userId = user.id
 
     const rawBody = await request.json()
     const parseResult = chatBodySchema.safeParse(rawBody)
@@ -84,53 +94,72 @@ export async function POST(request: NextRequest) {
       messages: Message[]
       context: ConversationContext
       options?: {
-        forceModel?: ModelType
-        skipCache?: boolean
         includeLocalAnalysis?: boolean
       }
     }
 
     // ============================================
-    // 0.5 VERIFICATION LIMITE FLASH (nouveau modele)
+    // 0.5 VERIFICATION TOKENS + LIMITE FLASH
     // ============================================
+
+    // Vérifier les limites de tokens (toujours, même sans siren)
+    const tokenUsage = await checkTokenUsage(userId)
+    if (!tokenUsage.allowed) {
+      return new Response(
+        JSON.stringify({
+          error: 'Limite de tokens quotidienne atteinte. Réessayez demain ou passez au plan Pro.',
+          code: 'TOKEN_LIMIT_REACHED',
+          tokensUsed: tokenUsage.tokensUsed,
+          tokenLimit: tokenUsage.tokenLimit,
+        }),
+        { status: 429, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
     const evalSiren = context.entreprise?.siren
     let evaluationType: 'flash' | 'complete' = 'flash'
     let currentQuestionCount = 1
 
-    if (userId && evalSiren) {
-      const evalAccess = await checkEvaluationAccess(userId, evalSiren)
+    // Exiger un SIREN pour toute utilisation du chat
+    if (!evalSiren) {
+      return new Response(
+        JSON.stringify({ error: 'SIREN requis pour démarrer une évaluation' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
 
-      // Déterminer le type d'évaluation
-      evaluationType = evalAccess.evaluation?.type || 'flash'
-      currentQuestionCount = (evalAccess.evaluation?.questions_count || 0) + 1
+    const evalAccess = await checkEvaluationAccess(userId, evalSiren)
 
-      // Si Flash terminee et pas paye -> bloquer
-      if (evalAccess.needsPayment && !evalAccess.canContinue) {
-        return new Response(
-          JSON.stringify({
-            error: `Evaluation Flash terminee ! Tu as obtenu une valorisation indicative. Pour affiner avec les retraitements, risques et rapport PDF, passe a l'evaluation complete.`,
-            code: 'FLASH_LIMIT_REACHED',
-            evaluation: {
-              id: evalAccess.evaluation?.id,
-              questionsCount: evalAccess.evaluation?.questions_count,
-              questionsLimit: FLASH_QUESTIONS_LIMIT,
-              valuationLow: evalAccess.evaluation?.valuation_low,
-              valuationHigh: evalAccess.evaluation?.valuation_high,
-            },
-            upgrade: {
-              url: `/checkout?siren=${evalSiren}&eval=${evalAccess.evaluation?.id}`,
-              price: 79,
-              message: 'Affiner mon evaluation pour 79€',
-            },
-          }),
-          { status: 402, headers: { 'Content-Type': 'application/json' } }
-        )
-      }
+    // Déterminer le type d'évaluation
+    evaluationType = evalAccess.evaluation?.type || 'flash'
+    currentQuestionCount = (evalAccess.evaluation?.questions_count || 0) + 1
 
-      // Incrementer le compteur de questions
-      if (evalAccess.evaluation?.id) {
-        await incrementQuestionCount(evalAccess.evaluation.id)
-      }
+    // Si Flash terminee et pas paye -> bloquer
+    if (evalAccess.needsPayment && !evalAccess.canContinue) {
+      return new Response(
+        JSON.stringify({
+          error: `Evaluation Flash terminee ! Tu as obtenu une valorisation indicative. Pour affiner avec les retraitements, risques et rapport PDF, passe a l'evaluation complete.`,
+          code: 'FLASH_LIMIT_REACHED',
+          evaluation: {
+            id: evalAccess.evaluation?.id,
+            questionsCount: evalAccess.evaluation?.questions_count,
+            questionsLimit: FLASH_QUESTIONS_LIMIT,
+            valuationLow: evalAccess.evaluation?.valuation_low,
+            valuationHigh: evalAccess.evaluation?.valuation_high,
+          },
+          upgrade: {
+            url: `/checkout?siren=${evalSiren}&eval=${evalAccess.evaluation?.id}`,
+            price: 79,
+            message: 'Affiner mon evaluation pour 79€',
+          },
+        }),
+        { status: 402, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Incrementer le compteur de questions
+    if (evalAccess.evaluation?.id) {
+      await incrementQuestionCount(evalAccess.evaluation.id)
     }
 
     // Extraire les données financières du contexte
@@ -214,7 +243,6 @@ export async function POST(request: NextRequest) {
       financialData,
       secteur,
       conversationLength: messages.length,
-      forceModel: options.forceModel,
     })
 
     // IMPORTANT: Passer le prompt à routeToModel pour l'analyse sémantique
@@ -224,7 +252,7 @@ export async function POST(request: NextRequest) {
     // ============================================
     // 4. VÉRIFICATION DU CACHE (v2 avec SIREN obligatoire)
     // ============================================
-    if (!options.skipCache) {
+    {
       const cacheResult = checkCache(lastUserMessage, {
         secteur,
         siren,  // SIREN maintenant inclus dans la clé de cache
@@ -311,6 +339,22 @@ export async function POST(request: NextRequest) {
     // Ajouter l'analyse locale au prompt si disponible
     if (localAnalysis) {
       systemPrompt += `\n\n## Analyse préliminaire (calculée automatiquement)\n${localAnalysis}`
+    }
+
+    // Cross-validation algorithmique : injecter l'estimation du calculateur
+    if (financialData && financialData.ca > 0) {
+      try {
+        const codeNaf = context.entreprise?.codeNaf || ''
+        const algoEstimation = evaluerRapide(
+          codeNaf,
+          financialData.ca,
+          financialData.ebitda,
+          financialData.resultatNet,
+        )
+        systemPrompt += `\n\n## Cross-validation algorithmique\nEstimation calculée algorithmiquement : ${Math.round(algoEstimation.basse).toLocaleString('fr-FR')}€ — ${Math.round(algoEstimation.haute).toLocaleString('fr-FR')}€ (secteur détecté : ${algoEstimation.secteur}).\nSi ton estimation diverge de plus de 20% de cette fourchette, explique les raisons de l'écart (retraitements qualitatifs, facteurs non captés par l'algorithme, etc.).`
+      } catch {
+        // Silencieux : pas de cross-validation si le calculateur échoue
+      }
     }
 
     let claudeMessages = messages.map(m => ({

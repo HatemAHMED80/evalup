@@ -17,9 +17,9 @@ export const ECOMMERCE: ConfigSecteur = {
   },
 
   methodes: [
-    { code: 'MULT_MARGE_BRUTE', nom: 'Multiple de marge brute', poids: 40 },
-    { code: 'MULT_EBITDA', nom: 'Multiple EBITDA', poids: 35 },
-    { code: 'MULT_CA', nom: 'Multiple CA', poids: 25 },
+    { code: 'MULT_EBITDA', nom: 'Multiple EBITDA', poids: 45 },
+    { code: 'MULT_CA', nom: 'Multiple CA', poids: 35 },
+    { code: 'PRATICIENS', nom: 'Méthode des praticiens', poids: 20 },
   ],
 
   questions: [
