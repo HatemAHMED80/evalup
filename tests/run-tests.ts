@@ -18,15 +18,20 @@ import { getLogger } from './utils/logger'
 import { runChatTests } from './e2e/chat.test'
 import { runPaymentTests } from './e2e/payment.test'
 import { runFullFlowTests } from './e2e/full-flow.test'
+import { runNavigationTests } from './e2e/navigation.test'
+import { runAccessControlTests } from './e2e/access-control.test'
+import { runMobileTests } from './e2e/mobile.test'
+import { runAIQualityTests } from './e2e/ai-quality.test'
 
 // Définition des modules disponibles
 const AVAILABLE_MODULES: Record<string, (reporter: TestReporter) => Promise<void>> = {
+  navigation: runNavigationTests,
+  'access-control': runAccessControlTests,
+  mobile: runMobileTests,
   chat: runChatTests,
   payment: runPaymentTests,
+  'ai-quality': runAIQualityTests,
   'full-flow': runFullFlowTests,
-  // Ajouter d'autres modules ici
-  // auth: runAuthTests,
-  // documents: runDocumentTests,
 }
 
 async function main() {

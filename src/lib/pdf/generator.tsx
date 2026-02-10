@@ -53,6 +53,17 @@ export interface EvaluationData {
     margeEbitda: number
     dso: number
     ratioEndettement: number
+    dotationsAmortissements?: number
+    resultatExploitation?: number
+    margeBrute?: number
+    roe?: number
+    stocks?: number
+    creancesClients?: number
+    dettesFournisseurs?: number
+    bfr?: number
+    bfrSurCa?: number
+    autonomieFinanciere?: number
+    detteNetteEbitda?: number
   }
   historique: {
     annee: number
@@ -96,10 +107,29 @@ export interface EvaluationData {
     valeur: number
     poids: number
     explication: string
+    multiple?: number
   }[]
+  niveauConfiance?: 'elevee' | 'moyenne' | 'faible'
+  facteursIncertitude?: string[]
   pointsForts: string[]
   pointsVigilance: string[]
   recommandations: string[]
+  swot?: {
+    forces: string[]
+    faiblesses: string[]
+    opportunites: string[]
+    menaces: string[]
+  }
+  risques?: {
+    titre: string
+    description: string
+    niveau: 'faible' | 'moyen' | 'eleve'
+  }[]
+  marche?: {
+    tendances: string[]
+    clientele: string
+    fournisseurs: string
+  }
   // V2 - Diagnostic financier (optionnel)
   diagnostic?: {
     noteGlobale: 'A' | 'B' | 'C' | 'D' | 'E'

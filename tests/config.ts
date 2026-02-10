@@ -27,6 +27,13 @@ export const TEST_CONFIG = {
   },
 }
 
+// Viewports mobile pour tests responsive
+export const MOBILE_VIEWPORTS = {
+  iphoneSE: { width: 375, height: 667 },
+  iphone14: { width: 390, height: 844 },
+  ipad: { width: 768, height: 1024 },
+} as const
+
 // SIRENs de test valides (entreprises réelles pour tests)
 export const TEST_SIRENS = {
   // PME classiques

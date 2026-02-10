@@ -2,7 +2,7 @@
 import puppeteer, { Browser, Page } from 'puppeteer'
 import * as fs from 'fs'
 import * as path from 'path'
-import { TEST_CONFIG } from '../config'
+import { TEST_CONFIG, MOBILE_VIEWPORTS } from '../config'
 import { TestLogger, getLogger } from './logger'
 
 export interface TestContext {
@@ -203,4 +203,36 @@ export async function waitForBotResponse(page: Page, timeout = 60000): Promise<s
   })
 
   return lastMessage
+}
+
+// Configurer un viewport mobile
+export async function setMobileViewport(
+  page: Page,
+  device: keyof typeof MOBILE_VIEWPORTS
+) {
+  const viewport = MOBILE_VIEWPORTS[device]
+  await page.setViewport({
+    width: viewport.width,
+    height: viewport.height,
+    isMobile: true,
+    hasTouch: true,
+    deviceScaleFactor: 2,
+  })
+}
+
+// Vérifier qu'il n'y a pas de débordement horizontal
+export async function checkNoHorizontalOverflow(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    return document.body.scrollWidth <= window.innerWidth
+  })
+}
+
+// Vérifier qu'un élément est visible dans le viewport
+export async function isElementVisible(page: Page, selector: string): Promise<boolean> {
+  return page.evaluate((sel) => {
+    const el = document.querySelector(sel)
+    if (!el) return false
+    const rect = el.getBoundingClientRect()
+    return rect.width > 0 && rect.height > 0
+  }, selector)
 }
