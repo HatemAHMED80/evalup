@@ -40,6 +40,11 @@ export const metadata: Metadata = {
     description: 'Estimez la valeur de votre entreprise en quelques minutes grace a l\'IA.',
     images: ['/og-image.png'],
   },
+  icons: {
+    icon: '/favicon.svg',
+    shortcut: '/favicon.svg',
+    apple: '/favicon.svg',
+  },
   robots: {
     index: true,
     follow: true,
