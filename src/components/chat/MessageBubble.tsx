@@ -109,7 +109,7 @@ export function MessageBubble({
   // Extraire les différentes sections du contenu
   const { mainContent, context, question, suggestions } = isUser
     ? { mainContent: message.content, context: null, question: null, suggestions: [] }
-    : parseContent(message.content.replace('[FLASH_VALUATION_COMPLETE]', ''))
+    : parseContent(message.content.replace('[FLASH_VALUATION_COMPLETE]', '').replace('[EVALUATION_COMPLETE]', ''))
 
   // Toggle une suggestion
   const toggleSuggestion = (suggestion: string) => {

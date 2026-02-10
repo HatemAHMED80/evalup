@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { trackConversion } from '@/lib/analytics'
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -14,13 +15,33 @@ export default function ContactPage() {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    setSubmitted(true)
-    setIsSubmitting(false)
+    setError(null)
+
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Erreur lors de l\'envoi du message')
+      }
+
+      setSubmitted(true)
+      trackConversion('contact_submit', { subject: formData.subject })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur inattendue. Reessayez ou contactez contact@evalup.fr')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   if (submitted) {
@@ -107,6 +128,12 @@ export default function ContactPage() {
               placeholder="Decrivez votre demande..."
             />
           </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-[var(--radius-md)] text-sm">
+              {error}
+            </div>
+          )}
 
           <Button type="submit" variant="primary" className="w-full" isLoading={isSubmitting}>
             Envoyer le message

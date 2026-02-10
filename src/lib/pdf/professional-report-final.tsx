@@ -15,7 +15,7 @@ import {
   ExecutiveSummary,
   type ProfessionalReportData
 } from './professional-report'
-import { CompanyPresentation, MarketAnalysis, FinancialAnalysis } from './professional-report-pages'
+import { CompanyPresentation, MarketAnalysis, FinancialAnalysis, RatioDashboard } from './professional-report-pages'
 
 // ============================================
 // PAGES 16-18: DIAGNOSTIC FINANCIER
@@ -78,7 +78,7 @@ const FinancialDiagnostic = ({ data }: { data: ProfessionalReportData }) => {
           </View>
         ))}
 
-        <Footer company={data.entreprise.nom} pageNum={16} totalPages={30} />
+        <Footer company={data.entreprise.nom} pageNum={17} totalPages={32} />
       </Page>
 
       {/* Page 17-18: Comparaison sectorielle */}
@@ -147,7 +147,7 @@ const FinancialDiagnostic = ({ data }: { data: ProfessionalReportData }) => {
           </View>
         </View>
 
-        <Footer company={data.entreprise.nom} pageNum={17} totalPages={30} />
+        <Footer company={data.entreprise.nom} pageNum={18} totalPages={32} />
       </Page>
 
       <Page size="A4" style={styles.page}>
@@ -179,7 +179,7 @@ const FinancialDiagnostic = ({ data }: { data: ProfessionalReportData }) => {
           </View>
         </View>
 
-        <Footer company={data.entreprise.nom} pageNum={18} totalPages={30} />
+        <Footer company={data.entreprise.nom} pageNum={19} totalPages={32} />
       </Page>
     </>
   )
@@ -239,7 +239,7 @@ const EBITDARestatements = ({ data }: { data: ProfessionalReportData }) => (
         </View>
       </View>
 
-      <Footer company={data.entreprise.nom} pageNum={19} totalPages={30} />
+      <Footer company={data.entreprise.nom} pageNum={20} totalPages={32} />
     </Page>
 
     <Page size="A4" style={styles.page}>
@@ -270,7 +270,7 @@ const EBITDARestatements = ({ data }: { data: ProfessionalReportData }) => (
         </Text>
       </View>
 
-      <Footer company={data.entreprise.nom} pageNum={20} totalPages={30} />
+      <Footer company={data.entreprise.nom} pageNum={21} totalPages={32} />
     </Page>
 
     <Page size="A4" style={styles.page}>
@@ -299,10 +299,35 @@ const EBITDARestatements = ({ data }: { data: ProfessionalReportData }) => (
         pour l'application des multiples sectoriels dans le cadre de la valorisation.
       </Text>
 
-      <Footer company={data.entreprise.nom} pageNum={21} totalPages={30} />
+      <Footer company={data.entreprise.nom} pageNum={22} totalPages={32} />
     </Page>
   </>
 )
+
+// ============================================
+// HELPERS
+// ============================================
+
+function genererJustificationDefaut(nomMethode: string, poids: number): string {
+  const nom = nomMethode.toLowerCase()
+  if (nom.includes('ebitda') && poids >= 40)
+    return 'Methode de reference pour les PME avec un EBITDA positif. Poids eleve car c\'est la methode la plus utilisee dans les transactions M&A de ce type.'
+  if (nom.includes('ebitda'))
+    return 'Methode basee sur la rentabilite operationnelle. Poids ajuste pour refleter la fiabilite de l\'EBITDA comme indicateur de performance.'
+  if (nom.includes('ca') || nom.includes('chiffre'))
+    return 'Methode complementaire utile pour valider la coherence. Poids modere car ne tient pas compte de la rentabilite.'
+  if (nom.includes('patrimoine') || nom.includes('actif') || nom.includes('anc'))
+    return 'Methode patrimoniale servant de plancher de valorisation. Poids ajuste selon l\'intensite capitalistique du secteur.'
+  if (nom.includes('dcf') || nom.includes('flux'))
+    return 'Methode intrinsèque basee sur les flux futurs actualises. Poids ajuste selon la qualite des projections disponibles.'
+  if (nom.includes('praticien'))
+    return 'Methode mixte combinant approche patrimoniale et rendement. Offre un equilibre entre valeur d\'actif et rentabilite.'
+  if (nom.includes('goodwill'))
+    return 'Methode evaluant le surprofit genere au-dela de la rentabilite normale des actifs.'
+  if (nom.includes('flotte') || nom.includes('materiel'))
+    return 'Methode sectorielle basee sur la valeur des actifs d\'exploitation specifiques au secteur.'
+  return `Poids de ${poids}% attribue en fonction de la pertinence de cette methode pour le profil de l'entreprise et son secteur d'activite.`
+}
 
 // ============================================
 // PAGES 22-25: VALORISATION
@@ -337,11 +362,19 @@ const ValuationSection = ({ data }: { data: ProfessionalReportData }) => {
                 </View>
               )}
             </View>
+            <View style={{ backgroundColor: COLORS.bgLight, borderRadius: 4, padding: 8, marginBottom: 6 }}>
+              <Text style={{ fontSize: 8, fontWeight: 'bold', color: COLORS.primary, marginBottom: 2 }}>
+                Justification du poids ({m.poids}%)
+              </Text>
+              <Text style={{ fontSize: 8, color: COLORS.gray700, lineHeight: 1.4 }}>
+                {m.justificationPoids || genererJustificationDefaut(m.nom, m.poids)}
+              </Text>
+            </View>
             <Text style={{ fontSize: 9, color: COLORS.gray700, lineHeight: 1.4 }}>{cleanText(m.explication)}</Text>
           </View>
         ))}
 
-        <Footer company={data.entreprise.nom} pageNum={22} totalPages={30} />
+        <Footer company={data.entreprise.nom} pageNum={23} totalPages={32} />
       </Page>
 
       <Page size="A4" style={styles.page}>
@@ -393,7 +426,7 @@ const ValuationSection = ({ data }: { data: ProfessionalReportData }) => {
           </View>
         </View>
 
-        <Footer company={data.entreprise.nom} pageNum={23} totalPages={30} />
+        <Footer company={data.entreprise.nom} pageNum={24} totalPages={32} />
       </Page>
 
       <Page size="A4" style={styles.page}>
@@ -442,7 +475,7 @@ const ValuationSection = ({ data }: { data: ProfessionalReportData }) => {
           </View>
         </View>
 
-        <Footer company={data.entreprise.nom} pageNum={24} totalPages={30} />
+        <Footer company={data.entreprise.nom} pageNum={25} totalPages={32} />
       </Page>
 
       <Page size="A4" style={styles.page}>
@@ -467,14 +500,173 @@ const ValuationSection = ({ data }: { data: ProfessionalReportData }) => {
           ))}
         </View>
 
-        <Footer company={data.entreprise.nom} pageNum={25} totalPages={30} />
+        {data.niveauConfiance && (
+          <>
+            <Text style={styles.sectionSubtitle}>Niveau de confiance de l'evaluation</Text>
+            <View style={[styles.card, {
+              borderLeftWidth: 4,
+              borderLeftColor: data.niveauConfiance === 'elevee' ? COLORS.success :
+                               data.niveauConfiance === 'moyenne' ? COLORS.warning : COLORS.danger,
+            }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={styles.cardTitle}>
+                  Confiance: {data.niveauConfiance === 'elevee' ? 'Elevee' :
+                              data.niveauConfiance === 'moyenne' ? 'Moyenne' : 'Faible'}
+                </Text>
+                <Text style={{
+                  fontSize: 8, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4,
+                  backgroundColor: (data.niveauConfiance === 'elevee' ? COLORS.success :
+                                    data.niveauConfiance === 'moyenne' ? COLORS.warning : COLORS.danger) + '20',
+                  color: data.niveauConfiance === 'elevee' ? COLORS.success :
+                         data.niveauConfiance === 'moyenne' ? COLORS.warning : COLORS.danger,
+                }}>
+                  {data.niveauConfiance === 'elevee' ? 'Fiabilite haute' :
+                   data.niveauConfiance === 'moyenne' ? 'Fiabilite moderee' : 'Fiabilite limitee'}
+                </Text>
+              </View>
+              <Text style={{ fontSize: 9, color: COLORS.gray700, marginBottom: 6 }}>
+                {data.niveauConfiance === 'elevee'
+                  ? 'Les donnees disponibles sont suffisantes et coherentes pour une evaluation fiable.'
+                  : data.niveauConfiance === 'moyenne'
+                  ? 'L\'evaluation repose sur des donnees partielles. Les resultats sont indicatifs.'
+                  : 'Donnees limitees ou peu coherentes. Les resultats doivent etre interpretes avec prudence.'}
+              </Text>
+              {data.facteursIncertitude && data.facteursIncertitude.length > 0 && (
+                <>
+                  <Text style={{ fontSize: 9, fontWeight: 'bold', color: COLORS.gray700, marginBottom: 4 }}>
+                    Facteurs d'incertitude:
+                  </Text>
+                  {data.facteursIncertitude.map((f, i) => (
+                    <View key={i} style={styles.bulletPoint}>
+                      <Text style={[styles.bullet, { color: COLORS.warning }]}>!</Text>
+                      <Text style={styles.bulletText}>{cleanText(f)}</Text>
+                    </View>
+                  ))}
+                </>
+              )}
+            </View>
+          </>
+        )}
+
+        <Footer company={data.entreprise.nom} pageNum={26} totalPages={32} />
       </Page>
     </>
   )
 }
 
 // ============================================
-// PAGES 26-27: SWOT
+// PAGE 27: ANALYSE DE SENSIBILITÉ
+// ============================================
+
+const SensitivityAnalysis = ({ data }: { data: ProfessionalReportData }) => {
+  const baseEbitda = data.ebitdaNormalise.ebitdaNormalise
+  const baseMultiple = data.methodes.find(m => m.multiple)?.multiple
+    || (baseEbitda > 0 ? data.valeurEntreprise.moyenne / baseEbitda : 5)
+
+  const ebitdaVariations = [-0.20, -0.10, 0, 0.10, 0.20]
+  const multipleVariations = [-1.0, -0.5, 0, 0.5, 1.0]
+
+  const ebitdaLabels = ['-20%', '-10%', 'Base', '+10%', '+20%']
+  const multipleLabels = multipleVariations.map(mv => {
+    const m = baseMultiple + mv
+    return `${m.toFixed(1)}x`
+  })
+
+  return (
+    <Page size="A4" style={styles.page}>
+      <Header title="Analyse de sensibilite" />
+      <Text style={styles.sectionSubtitle}>7.3 Analyse de sensibilite</Text>
+
+      <View style={[styles.card, styles.cardPrimary, { marginBottom: 12 }]}>
+        <Text style={styles.cardTitle}>Matrice de sensibilite</Text>
+        <Text style={styles.paragraph}>
+          Cette matrice illustre l'impact de variations de l'EBITDA normalise et du multiple
+          de valorisation sur la Valeur d'Entreprise. La cellule centrale represente le scenario de base.
+        </Text>
+      </View>
+
+      <View style={styles.row}>
+        <View style={styles.col2}>
+          <KPICard label="EBITDA normalise (base)" value={formatCurrency(baseEbitda)} />
+        </View>
+        <View style={styles.col2}>
+          <KPICard label="Multiple de base" value={`${baseMultiple.toFixed(1)}x`} />
+        </View>
+      </View>
+
+      <Text style={{ fontSize: 9, fontWeight: 'bold', color: COLORS.gray700, marginBottom: 6, marginTop: 10 }}>
+        Valeur d'Entreprise selon EBITDA (lignes) x Multiple (colonnes)
+      </Text>
+
+      {/* Matrice 5x5 */}
+      <View style={{ borderWidth: 1, borderColor: COLORS.gray200, borderRadius: 4 }}>
+        {/* Header row */}
+        <View style={{ flexDirection: 'row', backgroundColor: COLORS.primary }}>
+          <View style={{ width: 65, padding: 4, justifyContent: 'center' }}>
+            <Text style={{ fontSize: 7, fontWeight: 'bold', color: COLORS.white, textAlign: 'center' }}>
+              EBITDA \ Mult.
+            </Text>
+          </View>
+          {multipleLabels.map((label, j) => (
+            <View key={j} style={{ flex: 1, padding: 4, justifyContent: 'center' }}>
+              <Text style={{ fontSize: 7, fontWeight: 'bold', color: COLORS.white, textAlign: 'center' }}>
+                {label}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Data rows */}
+        {ebitdaVariations.map((ev, i) => (
+          <View key={i} style={{
+            flexDirection: 'row',
+            backgroundColor: i % 2 === 1 ? COLORS.gray50 : COLORS.white,
+          }}>
+            <View style={{ width: 65, padding: 4, justifyContent: 'center', backgroundColor: COLORS.gray100 }}>
+              <Text style={{ fontSize: 7, fontWeight: 'bold', color: COLORS.gray900, textAlign: 'center' }}>
+                {ebitdaLabels[i]}
+              </Text>
+              <Text style={{ fontSize: 6, color: COLORS.gray500, textAlign: 'center' }}>
+                {formatCurrency(baseEbitda * (1 + ev))}
+              </Text>
+            </View>
+            {multipleVariations.map((mv, j) => {
+              const ve = baseEbitda * (1 + ev) * Math.max(baseMultiple + mv, 0)
+              const isBase = i === 2 && j === 2
+              return (
+                <View key={j} style={{
+                  flex: 1, padding: 4, justifyContent: 'center',
+                  backgroundColor: isBase ? COLORS.primary : undefined,
+                }}>
+                  <Text style={{
+                    fontSize: 7, fontWeight: isBase ? 'bold' : 'normal', textAlign: 'center',
+                    color: isBase ? COLORS.white : COLORS.gray700,
+                  }}>
+                    {formatCurrency(ve)}
+                  </Text>
+                </View>
+              )
+            })}
+          </View>
+        ))}
+      </View>
+
+      <View style={[styles.disclaimer, { marginTop: 10 }]}>
+        <Text style={styles.disclaimerTitle}>Lecture</Text>
+        <Text style={styles.disclaimerText}>
+          La cellule centrale ({formatCurrency(data.valeurEntreprise.moyenne)}) correspond au scenario de base.
+          Une variation de +10% de l'EBITDA avec le meme multiple donnerait {formatCurrency(baseEbitda * 1.1 * baseMultiple)}.
+          A l'inverse, une baisse du multiple de 0.5x sur l'EBITDA de base donnerait {formatCurrency(baseEbitda * (baseMultiple - 0.5))}.
+        </Text>
+      </View>
+
+      <Footer company={data.entreprise.nom} pageNum={27} totalPages={32} />
+    </Page>
+  )
+}
+
+// ============================================
+// PAGES 28-29: SWOT
 // ============================================
 
 const SWOTSection = ({ data }: { data: ProfessionalReportData }) => (
@@ -518,7 +710,7 @@ const SWOTSection = ({ data }: { data: ProfessionalReportData }) => (
         </View>
       </View>
 
-      <Footer company={data.entreprise.nom} pageNum={26} totalPages={30} />
+      <Footer company={data.entreprise.nom} pageNum={28} totalPages={32} />
     </Page>
 
     <Page size="A4" style={styles.page}>
@@ -544,7 +736,7 @@ const SWOTSection = ({ data }: { data: ProfessionalReportData }) => (
         </View>
       )}
 
-      <Footer company={data.entreprise.nom} pageNum={27} totalPages={30} />
+      <Footer company={data.entreprise.nom} pageNum={29} totalPages={32} />
     </Page>
   </>
 )
@@ -585,7 +777,7 @@ const RecommendationsSection = ({ data }: { data: ProfessionalReportData }) => (
         ))}
       </View>
 
-      <Footer company={data.entreprise.nom} pageNum={28} totalPages={30} />
+      <Footer company={data.entreprise.nom} pageNum={30} totalPages={32} />
     </Page>
 
     <Page size="A4" style={styles.page}>
@@ -621,7 +813,7 @@ const RecommendationsSection = ({ data }: { data: ProfessionalReportData }) => (
         </Text>
       </View>
 
-      <Footer company={data.entreprise.nom} pageNum={29} totalPages={30} />
+      <Footer company={data.entreprise.nom} pageNum={31} totalPages={32} />
     </Page>
   </>
 )
@@ -674,7 +866,21 @@ const Appendices = ({ data }: { data: ProfessionalReportData }) => (
         </View>
       ))}
 
-      <Footer company={data.entreprise.nom} pageNum={30} totalPages={30} />
+      <View style={[styles.disclaimer, { marginTop: 20, borderColor: '#DC2626' }]}>
+        <Text style={[styles.disclaimerTitle, { color: '#DC2626' }]}>Avertissement legal</Text>
+        <Text style={styles.disclaimerText}>
+          Ce rapport est fourni a titre indicatif et ne constitue en aucun cas une expertise
+          certifiee, un audit financier, un conseil en investissement ou une evaluation opposable.
+          Les valorisations sont des estimations generees par intelligence artificielle a partir
+          de donnees publiques et declaratives. EvalUp ne se substitue pas a l'intervention d'un
+          expert-comptable, d'un commissaire aux comptes ou d'un evaluateur professionnel agree.
+          Pour toute decision financiere importante (cession, acquisition, levee de fonds), nous
+          recommandons de faire appel a un professionnel qualifie. POSSE decline toute
+          responsabilite quant aux decisions prises sur la base de ce document.
+        </Text>
+      </View>
+
+      <Footer company={data.entreprise.nom} pageNum={32} totalPages={32} />
     </Page>
   </>
 )
@@ -691,9 +897,11 @@ const ProfessionalReport = ({ data }: { data: ProfessionalReportData }) => (
     <CompanyPresentation data={data} />
     <MarketAnalysis data={data} />
     <FinancialAnalysis data={data} />
+    <RatioDashboard data={data} />
     <FinancialDiagnostic data={data} />
     <EBITDARestatements data={data} />
     <ValuationSection data={data} />
+    <SensitivityAnalysis data={data} />
     <SWOTSection data={data} />
     <RecommendationsSection data={data} />
     <Appendices data={data} />

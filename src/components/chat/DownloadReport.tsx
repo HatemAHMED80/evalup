@@ -1,13 +1,11 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useCallback } from 'react'
 import Link from 'next/link'
-import { pdf } from '@react-pdf/renderer'
-import { EvaluationReport } from '@/lib/pdf/EvaluationReport'
 import type { ConversationContext, Message } from '@/lib/anthropic'
-import { evaluerEntreprise } from '@/lib/evaluation/calculateur'
-import type { DonneesFinancieres, FacteursAjustement } from '@/lib/evaluation/types'
+import type { FacteursAjustement } from '@/lib/evaluation/types'
 import { useAuth } from '@/contexts/AuthContext'
+import { trackConversion } from '@/lib/analytics'
 
 interface DownloadReportProps {
   context: ConversationContext
@@ -21,96 +19,91 @@ interface DownloadReportProps {
   facteursActifs?: FacteursAjustement
 }
 
-export function DownloadReport({ context, messages, evaluation, facteursActifs }: DownloadReportProps) {
+export function DownloadReport({ context }: DownloadReportProps) {
   const { isPremium } = useAuth()
   const [isGenerating, setIsGenerating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [showShareOptions, setShowShareOptions] = useState(false)
 
-  // Calculer l'évaluation détaillée basée sur le secteur
-  const evaluationDetaille = useMemo(() => {
-    const { entreprise, financials } = context
-    const dernierBilan = financials.bilans[0]
+  const generatePdf = useCallback(async (): Promise<Blob> => {
+    // Dynamic import pour ne charger les modules lourds qu'au clic
+    const { assembleReportData } = await import('@/lib/pdf/assemble-report-data')
+    const reportData = assembleReportData(context)
 
-    if (!dernierBilan) return undefined
+    // Appeler l'API serveur pour générer le PDF professionnel (32 pages)
+    const response = await fetch('/api/evaluation/pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(reportData),
+    })
 
-    const donnees: DonneesFinancieres = {
-      ca: dernierBilan.chiffre_affaires,
-      ebitda: financials.ratios.ebitda,
-      resultatNet: dernierBilan.resultat_net,
-      capitauxPropres: dernierBilan.capitaux_propres,
-      actifNet: dernierBilan.capitaux_propres,
-      tresorerie: dernierBilan.tresorerie,
-      dettes: dernierBilan.dettes_financieres,
-      croissance: financials.bilans.length > 1
-        ? (dernierBilan.chiffre_affaires - financials.bilans[1].chiffre_affaires) / financials.bilans[1].chiffre_affaires
-        : undefined,
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({ error: 'Erreur lors de la generation' }))
+      throw new Error(errData.error || `Erreur ${response.status}`)
     }
 
-    return evaluerEntreprise(
-      entreprise.codeNaf,
-      donnees,
-      facteursActifs || { primes: [], decotes: [] }
-    )
-  }, [context, facteursActifs])
+    return response.blob()
+  }, [context])
 
-  const generatePdf = async () => {
+  const handleDownload = async () => {
     setIsGenerating(true)
+    setError(null)
     try {
-      const blob = await pdf(
-        <EvaluationReport
-          context={context}
-          messages={messages}
-          evaluation={evaluation}
-          evaluationDetaille={evaluationDetaille}
-        />
-      ).toBlob()
-      return blob
+      const blob = await generatePdf()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `evaluation-${context.entreprise.nom.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      trackConversion('pdf_download', { siren: context.entreprise.siren })
+    } catch (err) {
+      console.error('Erreur generation PDF:', err)
+      setError(err instanceof Error ? err.message : 'Erreur lors de la generation du rapport')
     } finally {
       setIsGenerating(false)
     }
   }
 
-  const handleDownload = async () => {
-    const blob = await generatePdf()
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `evaluation-${context.entreprise.nom.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.pdf`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-  }
-
   const handleShare = async () => {
-    const blob = await generatePdf()
-    const file = new File([blob], `evaluation-${context.entreprise.nom}.pdf`, {
-      type: 'application/pdf',
-    })
+    setIsGenerating(true)
+    setError(null)
+    try {
+      const blob = await generatePdf()
+      const file = new File([blob], `evaluation-${context.entreprise.nom}.pdf`, {
+        type: 'application/pdf',
+      })
 
-    if (navigator.share && navigator.canShare({ files: [file] })) {
-      try {
+      if (navigator.share && navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
-          title: `Évaluation de ${context.entreprise.nom}`,
-          text: `Rapport d'évaluation généré par EvalUp`,
+          title: `Evaluation de ${context.entreprise.nom}`,
+          text: `Rapport d'evaluation genere par EvalUp`,
         })
-      } catch (err) {
-        // L'utilisateur a annulé ou erreur
-        console.log('Partage annulé', err)
+      } else {
+        setShowShareOptions(true)
       }
-    } else {
-      // Fallback: copier le lien
-      setShowShareOptions(true)
+    } catch (err) {
+      if (err instanceof Error && err.name !== 'AbortError') {
+        console.error('Erreur partage:', err)
+        setError('Erreur lors du partage')
+      }
+    } finally {
+      setIsGenerating(false)
     }
   }
 
   const handleCopyLink = async () => {
-    const blob = await generatePdf()
-    // Créer un lien temporaire (dans une vraie app, on l'uploaderait sur un serveur)
-    const url = URL.createObjectURL(blob)
-    await navigator.clipboard.writeText(url)
-    setShowShareOptions(false)
+    try {
+      const blob = await generatePdf()
+      const url = URL.createObjectURL(blob)
+      await navigator.clipboard.writeText(url)
+      setShowShareOptions(false)
+    } catch (err) {
+      console.error('Erreur copie:', err)
+    }
   }
 
   // Affichage pour utilisateurs non-Pro
@@ -155,9 +148,15 @@ export function DownloadReport({ context, messages, evaluation, facteursActifs }
           </div>
           <div>
             <h3 className="text-white font-semibold">Evaluation terminee</h3>
-            <p className="text-white/60 text-sm">Telechargez votre rapport complet</p>
+            <p className="text-white/60 text-sm">Telechargez votre rapport professionnel (32 pages)</p>
           </div>
         </div>
+
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 mb-3">
+            <p className="text-red-400 text-sm">{error}</p>
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-3">
           <button
@@ -171,7 +170,7 @@ export function DownloadReport({ context, messages, evaluation, facteursActifs }
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
-                Generation...
+                Generation du rapport...
               </>
             ) : (
               <>

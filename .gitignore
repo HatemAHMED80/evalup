@@ -56,3 +56,4 @@ tests/reports/
 
 # claude code settings (local)
 .claude/settings.local.json
+.env*.local

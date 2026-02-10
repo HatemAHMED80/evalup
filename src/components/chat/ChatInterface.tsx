@@ -12,6 +12,7 @@ import { getDraftBySiren } from '@/lib/evaluation-draft'
 import type { ConversationContext, Message, UploadedDocument } from '@/lib/anthropic'
 import { MESSAGE_INITIAL } from '@/lib/prompts/base'
 import { INTRO_MESSAGES, DOCUMENT_RESPONSE_YES, DOCUMENT_RESPONSE_NO, PEDAGOGY_OPTIONS, type UserParcours, type PedagogyLevel } from '@/lib/prompts/parcours'
+import { trackConversion, trackPurchase } from '@/lib/analytics'
 
 // Options d'objectif de valorisation
 const OBJECTIF_OPTIONS = [
@@ -167,6 +168,9 @@ export function ChatInterface({ entreprise, initialContext, onStepChange, previo
   useEffect(() => {
     if (upgradeSuccess && !hasHandledUpgrade) {
       setHasHandledUpgrade(true)
+
+      // Track la conversion d'achat
+      trackPurchase({ siren: entreprise.siren, plan: 'eval_complete', value: 79 })
 
       // Nettoyer l'URL pour retirer le paramètre upgrade
       const url = new URL(window.location.href)
@@ -488,7 +492,7 @@ J'ai conservé toutes les informations de ton évaluation Flash. Je vais mainten
 
     // Gérer le clic sur "Oui, je veux affiner mon évaluation"
     if (content.toLowerCase().includes('affiner mon évaluation') || content.toLowerCase().includes('oui, je veux affiner')) {
-      // Redirection directe vers checkout
+      trackConversion('click_upgrade', { siren: entreprise.siren, plan: 'eval_complete' })
       router.push(`/checkout?siren=${entreprise.siren}&plan=eval_complete`)
       return
     }
@@ -651,7 +655,7 @@ Quel est le **salaire annuel brut du dirigeant** (charges patronales incluses) ?
       })
 
       if (!response.ok) {
-        const errorData = await response.json()
+        const errorData = await response.json().catch(() => ({ error: 'Erreur de communication' }))
 
         // Gestion spécifique de la limite Flash (8 questions)
         if (errorData.code === 'FLASH_LIMIT_REACHED') {
@@ -662,10 +666,23 @@ Quel est le **salaire annuel brut du dirigeant** (charges patronales incluses) ?
           })
           setShowUpgradeModal(true)
           setIsLoading(false)
-          return // Ne pas continuer, on affiche le modal
+          return
         }
 
-        throw new Error(errorData.error || 'Erreur de communication')
+        // Gestion des erreurs specifiques avec messages user-friendly
+        const errorMessages: Record<string, string> = {
+          TOKEN_LIMIT_REACHED: 'Tu as atteint ta limite quotidienne. Reessaie demain ou passe au plan Pro pour continuer.',
+          AUTH_REQUIRED: 'Ta session a expire. Rafraichis la page pour te reconnecter.',
+        }
+
+        const userMessage = errorMessages[errorData.code] || errorData.error || 'Erreur de communication avec le serveur'
+
+        // Pour les erreurs 5xx (serveur), proposer un retry
+        if (response.status >= 500) {
+          throw new Error('Le serveur est temporairement indisponible. Reessaie dans quelques instants.')
+        }
+
+        throw new Error(userMessage)
       }
 
       await readStream(
@@ -683,6 +700,7 @@ Quel est le **salaire annuel brut du dirigeant** (charges patronales incluses) ?
           const isFlashComplete = fullText.includes('[FLASH_VALUATION_COMPLETE]')
 
           if (isFlashComplete) {
+            trackConversion('flash_complete', { siren: entreprise.siren })
             // Ajouter le message de la valorisation puis un message de suivi
             const followUpMessage: Message = {
               id: crypto.randomUUID(),
@@ -719,12 +737,18 @@ Avec l'**Évaluation Complète** à 79€, tu bénéficies de :
       setIsStreaming(false)
       setStreamingContent('')
 
-      const errorText = error instanceof Error ? error.message : 'Erreur inconnue'
+      const errorText = error instanceof Error ? error.message : 'Une erreur inattendue est survenue'
+
+      // Detecter les erreurs reseau
+      const isNetworkError = error instanceof TypeError && error.message.includes('fetch')
+      const displayText = isNetworkError
+        ? 'Impossible de joindre le serveur. Verifie ta connexion internet et reessaie.'
+        : errorText
 
       const errorMessage: Message = {
         id: crypto.randomUUID(),
         role: 'assistant',
-        content: `Désolé, j'ai rencontré une erreur: ${errorText}\n\nPeux-tu réessayer ?`,
+        content: `${displayText}\n\nSi le probleme persiste, contacte-nous a contact@evalup.fr.`,
         timestamp: new Date(),
       }
       setMessages(prev => [...prev, errorMessage])

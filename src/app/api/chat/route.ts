@@ -3,7 +3,7 @@
 import { NextRequest } from 'next/server'
 import { anthropic, isAnthropicConfigured } from '@/lib/anthropic'
 import { getModelFallbacks } from '@/lib/ai/models'
-import type { ConversationContext, Message } from '@/lib/anthropic'
+import type { ConversationContext, Message, BilanAnnuel } from '@/lib/anthropic'
 import { getSystemPrompt } from '@/lib/prompts'
 import { createClient } from '@/lib/supabase/server'
 import { chatBodySchema } from '@/lib/security/schemas'
@@ -163,7 +163,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Extraire les données financières du contexte
-    const lastBilan = context.financials?.bilans?.[0] // Le bilan le plus récent
+    const bilans = context.financials?.bilans
+    const lastBilan = bilans?.[0] // Le bilan le plus récent
     const ratiosCtx = context.financials?.ratios
 
     const financialData: DonneesFinancieres | undefined = lastBilan
@@ -177,6 +178,22 @@ export async function POST(request: NextRequest) {
           effectif: context.entreprise?.effectif
             ? parseInt(context.entreprise.effectif.replace(/\D/g, ''), 10) || undefined
             : undefined,
+        }
+      : undefined
+
+    // Données enrichies pour le calculateur (cross-validation avec evaluerEntreprise)
+    const evalDonnees: import('@/lib/evaluation/types').DonneesFinancieres | undefined = lastBilan
+      ? {
+          ca: lastBilan.chiffre_affaires || 0,
+          ebitda: ratiosCtx?.ebitda || 0,
+          resultatNet: lastBilan.resultat_net || 0,
+          capitauxPropres: lastBilan.capitaux_propres || 0,
+          actifNet: lastBilan.capitaux_propres || 0,
+          dettes: lastBilan.dettes_financieres || 0,
+          tresorerie: lastBilan.tresorerie || 0,
+          immobilisationsCorporelles: lastBilan.immobilisations_corporelles || undefined,
+          croissance: calculerCroissanceCA(bilans),
+          historique: buildHistorique(bilans),
         }
       : undefined
 
@@ -342,18 +359,23 @@ export async function POST(request: NextRequest) {
     }
 
     // Cross-validation algorithmique : injecter l'estimation du calculateur
-    if (financialData && financialData.ca > 0) {
+    if (evalDonnees && evalDonnees.ca > 0) {
       try {
         const codeNaf = context.entreprise?.codeNaf || ''
-        const algoEstimation = evaluerRapide(
-          codeNaf,
-          financialData.ca,
-          financialData.ebitda,
-          financialData.resultatNet,
-        )
-        systemPrompt += `\n\n## Cross-validation algorithmique\nEstimation calculée algorithmiquement : ${Math.round(algoEstimation.basse).toLocaleString('fr-FR')}€ — ${Math.round(algoEstimation.haute).toLocaleString('fr-FR')}€ (secteur détecté : ${algoEstimation.secteur}).\nSi ton estimation diverge de plus de 20% de cette fourchette, explique les raisons de l'écart (retraitements qualitatifs, facteurs non captés par l'algorithme, etc.).`
+        // Utiliser evaluerEntreprise (plus riche) si les données complètes sont disponibles
+        const { evaluerEntreprise } = await import('@/lib/evaluation')
+        const algoResultat = evaluerEntreprise(codeNaf, evalDonnees)
+        const v = algoResultat.valorisation
+        systemPrompt += `\n\n## Cross-validation algorithmique\nEstimation calculée algorithmiquement : ${Math.round(v.basse).toLocaleString('fr-FR')}€ — ${Math.round(v.haute).toLocaleString('fr-FR')}€ (moyenne ${Math.round(v.moyenne).toLocaleString('fr-FR')}€, secteur : ${algoResultat.secteur.nom}).\nMéthodes utilisées : ${algoResultat.methodes.map(m => m.nom).join(', ')}.\nSi ton estimation diverge de plus de 20% de cette fourchette, explique les raisons de l'écart (retraitements qualitatifs, facteurs non captés par l'algorithme, etc.).`
       } catch {
-        // Silencieux : pas de cross-validation si le calculateur échoue
+        // Fallback sur evaluerRapide si evaluerEntreprise échoue
+        try {
+          const codeNaf = context.entreprise?.codeNaf || ''
+          const algoEstimation = evaluerRapide(codeNaf, evalDonnees.ca, evalDonnees.ebitda, evalDonnees.resultatNet)
+          systemPrompt += `\n\n## Cross-validation algorithmique\nEstimation calculée algorithmiquement : ${Math.round(algoEstimation.basse).toLocaleString('fr-FR')}€ — ${Math.round(algoEstimation.haute).toLocaleString('fr-FR')}€ (secteur détecté : ${algoEstimation.secteur}).\nSi ton estimation diverge de plus de 20% de cette fourchette, explique les raisons de l'écart.`
+        } catch {
+          // Silencieux : pas de cross-validation si le calculateur échoue
+        }
       }
     }
 
@@ -547,6 +569,11 @@ export async function POST(request: NextRequest) {
             }
           }
 
+          // Détecter si l'IA a donné l'évaluation complète
+          if (evaluationType === 'complete' && fullResponse.includes('[EVALUATION_COMPLETE]')) {
+            console.log('[API] Évaluation complète détectée - synthèse livrée')
+          }
+
           // Tracker l'utilisation
           trackUsage({
             timestamp: Date.now(),
@@ -602,13 +629,49 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue'
     console.error('Erreur API Chat:', errorMessage, error instanceof Error ? error.stack : '')
+
+    const status = (error as { status?: number }).status
+    if (status === 429) {
+      return new Response(
+        JSON.stringify({
+          error: 'Le service est temporairement surcharge. Reessayez dans quelques secondes.',
+          code: 'RATE_LIMIT',
+        }),
+        { status: 429, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
     return new Response(
       JSON.stringify({
-        error: 'Une erreur est survenue lors du traitement de votre demande',
+        error: 'Une erreur est survenue. Reessayez ou contactez contact@evalup.fr si le probleme persiste.',
+        code: 'INTERNAL_ERROR',
       }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }
+}
+
+/**
+ * Calcule la croissance du CA à partir des bilans historiques
+ */
+function calculerCroissanceCA(bilans?: BilanAnnuel[]): number | undefined {
+  if (!bilans || bilans.length < 2) return undefined
+  const [recent, ancien] = bilans
+  if (!ancien.chiffre_affaires || ancien.chiffre_affaires === 0) return undefined
+  return (recent.chiffre_affaires - ancien.chiffre_affaires) / ancien.chiffre_affaires
+}
+
+/**
+ * Construit l'historique multi-annuel pour le calculateur
+ */
+function buildHistorique(bilans?: BilanAnnuel[]): { ca: number; ebitda: number; resultatNet: number; annee: number }[] | undefined {
+  if (!bilans || bilans.length < 2) return undefined
+  return bilans.map(b => ({
+    annee: b.annee,
+    ca: b.chiffre_affaires || 0,
+    ebitda: (b.resultat_exploitation || 0) + (b.dotations_amortissements || 0),
+    resultatNet: b.resultat_net || 0,
+  }))
 }
 
 /**

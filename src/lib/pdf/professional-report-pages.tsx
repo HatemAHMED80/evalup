@@ -4,6 +4,7 @@ import { Page, Text, View } from '@react-pdf/renderer'
 import { COLORS } from './styles'
 import { formatCurrency, formatPercent, cleanText, formatVariation, calculateVariation } from './utils'
 import { BENCHMARKS, compareWithBenchmark, getSectorFromNaf } from './sector-benchmarks'
+import { evaluerRatio, formaterRatio, LABELS_RATIOS, type EvaluationRatio } from '@/lib/analyse/ratios'
 import { styles, Header, Footer, KPICard, NoteCircle, BarChart, type ProfessionalReportData } from './professional-report'
 
 // ============================================
@@ -88,7 +89,7 @@ export const CompanyPresentation = ({ data }: { data: ProfessionalReportData }) 
         </View>
       </View>
 
-      <Footer company={data.entreprise.nom} pageNum={5} totalPages={30} />
+      <Footer company={data.entreprise.nom} pageNum={5} totalPages={32} />
     </Page>
 
     {/* Page 6: Historique */}
@@ -138,7 +139,7 @@ export const CompanyPresentation = ({ data }: { data: ProfessionalReportData }) 
         </>
       )}
 
-      <Footer company={data.entreprise.nom} pageNum={6} totalPages={30} />
+      <Footer company={data.entreprise.nom} pageNum={6} totalPages={32} />
     </Page>
 
     {/* Page 7: Gouvernance */}
@@ -196,7 +197,7 @@ export const CompanyPresentation = ({ data }: { data: ProfessionalReportData }) 
         </View>
       </View>
 
-      <Footer company={data.entreprise.nom} pageNum={7} totalPages={30} />
+      <Footer company={data.entreprise.nom} pageNum={7} totalPages={32} />
     </Page>
   </>
 )
@@ -266,7 +267,7 @@ export const MarketAnalysis = ({ data }: { data: ProfessionalReportData }) => {
           </>
         )}
 
-        <Footer company={data.entreprise.nom} pageNum={8} totalPages={30} />
+        <Footer company={data.entreprise.nom} pageNum={8} totalPages={32} />
       </Page>
 
       {/* Page 9-10: Concurrence */}
@@ -325,7 +326,7 @@ export const MarketAnalysis = ({ data }: { data: ProfessionalReportData }) => {
           </View>
         </View>
 
-        <Footer company={data.entreprise.nom} pageNum={9} totalPages={30} />
+        <Footer company={data.entreprise.nom} pageNum={9} totalPages={32} />
       </Page>
 
       <Page size="A4" style={styles.page}>
@@ -357,7 +358,7 @@ export const MarketAnalysis = ({ data }: { data: ProfessionalReportData }) => {
           </View>
         </View>
 
-        <Footer company={data.entreprise.nom} pageNum={10} totalPages={30} />
+        <Footer company={data.entreprise.nom} pageNum={10} totalPages={32} />
       </Page>
     </>
   )
@@ -411,7 +412,7 @@ export const FinancialAnalysis = ({ data }: { data: ProfessionalReportData }) =>
           </>
         )}
 
-        <Footer company={data.entreprise.nom} pageNum={11} totalPages={30} />
+        <Footer company={data.entreprise.nom} pageNum={11} totalPages={32} />
       </Page>
 
       {/* Page 12: Rentabilité */}
@@ -488,7 +489,7 @@ export const FinancialAnalysis = ({ data }: { data: ProfessionalReportData }) =>
           )}
         </View>
 
-        <Footer company={data.entreprise.nom} pageNum={12} totalPages={30} />
+        <Footer company={data.entreprise.nom} pageNum={12} totalPages={32} />
       </Page>
 
       {/* Page 13: Bilan */}
@@ -546,7 +547,7 @@ export const FinancialAnalysis = ({ data }: { data: ProfessionalReportData }) =>
           </View>
         </View>
 
-        <Footer company={data.entreprise.nom} pageNum={13} totalPages={30} />
+        <Footer company={data.entreprise.nom} pageNum={13} totalPages={32} />
       </Page>
 
       {/* Page 14: BFR */}
@@ -606,53 +607,209 @@ export const FinancialAnalysis = ({ data }: { data: ProfessionalReportData }) =>
           </View>
         </View>
 
-        <Footer company={data.entreprise.nom} pageNum={14} totalPages={30} />
+        <Footer company={data.entreprise.nom} pageNum={14} totalPages={32} />
       </Page>
 
       {/* Page 15: FCF */}
       <Page size="A4" style={styles.page}>
         <Header title="Analyse financiere" />
-        <Text style={styles.sectionSubtitle}>4.5 Flux de tresorerie (estimation)</Text>
+        <Text style={styles.sectionSubtitle}>4.5 Flux de tresorerie</Text>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Free Cash Flow estime</Text>
+          <Text style={styles.cardTitle}>Free Cash Flow</Text>
           <Text style={styles.paragraph}>
             Le Free Cash Flow (FCF) represente la tresorerie disponible apres financement des investissements.
             Il constitue un indicateur cle de la capacite de l'entreprise a generer des liquidites.
           </Text>
         </View>
 
-        <View style={styles.table}>
-          <View style={styles.tableHeader}>
-            <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Element</Text>
-            <Text style={[styles.tableHeaderCell, { flex: 1, textAlign: 'right' }]}>Montant</Text>
-          </View>
-          {[
-            { label: 'EBITDA', value: data.financier.ebitda },
-            { label: '- Impots (estimation 25%)', value: -data.financier.ebitda * 0.25 },
-            { label: '- Variation BFR (estimation)', value: -(data.financier.bfr || 0) * 0.05 },
-            { label: '- CAPEX (estimation 3% CA)', value: -data.financier.ca * 0.03 },
-            { label: '= Free Cash Flow', value: data.financier.ebitda * 0.75 - (data.financier.bfr || 0) * 0.05 - data.financier.ca * 0.03, isBold: true },
-          ].map((item, i) => (
-            <View key={i} style={[styles.tableRow, i === 4 ? { backgroundColor: COLORS.bgLight } : i % 2 === 1 ? styles.tableRowAlt : {}]}>
-              <Text style={[item.isBold ? styles.tableCellBold : styles.tableCell, { flex: 2 }]}>{item.label}</Text>
-              <Text style={[item.isBold ? styles.tableCellBold : styles.tableCell, { flex: 1, textAlign: 'right', color: item.value < 0 ? COLORS.danger : COLORS.gray700 }]}>
-                {formatCurrency(item.value)}
-              </Text>
-            </View>
-          ))}
-        </View>
+        {(() => {
+          const dotations = data.financier.dotationsAmortissements ?? data.financier.ebitda * 0.15
+          const cashFlowOp = data.financier.resultatNet + dotations
+          const variationBFR = (data.financier.bfr || 0) * 0.05
+          const capex = dotations // Hypothese maintenance = amortissements
+          const fcfEstime = data.financier.fcf ?? (cashFlowOp - variationBFR - capex)
+          const fcfSurCa = data.financier.fcfSurCa ?? (fcfEstime / data.financier.ca)
+          const tauxConversion = data.financier.ebitda > 0 ? fcfEstime / data.financier.ebitda : 0
+
+          const lignes: { label: string; value: number; isBold?: boolean; isSub?: boolean }[] = [
+            { label: 'Resultat net', value: data.financier.resultatNet },
+            { label: `+ Dotations aux amortissements${!data.financier.dotationsAmortissements ? ' (est.)' : ''}`, value: dotations },
+            { label: '= Cash flow operationnel', value: cashFlowOp, isBold: true },
+            { label: '- Variation BFR (estimation 5%)', value: -variationBFR },
+            { label: `- Investissements (CAPEX)${!data.financier.dotationsAmortissements ? ' (est.)' : ''}`, value: -capex },
+            { label: '= Free Cash Flow', value: fcfEstime, isBold: true },
+          ]
+
+          return (
+            <>
+              <View style={styles.table}>
+                <View style={styles.tableHeader}>
+                  <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Element</Text>
+                  <Text style={[styles.tableHeaderCell, { flex: 1, textAlign: 'right' }]}>Montant</Text>
+                </View>
+                {lignes.map((item, i) => (
+                  <View key={i} style={[styles.tableRow, i === lignes.length - 1 ? { backgroundColor: COLORS.bgLight } : i % 2 === 1 ? styles.tableRowAlt : {}]}>
+                    <Text style={[item.isBold ? styles.tableCellBold : styles.tableCell, { flex: 2 }]}>{item.label}</Text>
+                    <Text style={[item.isBold ? styles.tableCellBold : styles.tableCell, { flex: 1, textAlign: 'right', color: item.value < 0 ? COLORS.danger : COLORS.gray700 }]}>
+                      {formatCurrency(item.value)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+
+              <View style={styles.row}>
+                <View style={styles.col2}>
+                  <KPICard label="FCF / CA" value={formatPercent(fcfSurCa)} positive={fcfSurCa > 0} />
+                </View>
+                <View style={styles.col2}>
+                  <KPICard label="Conversion EBITDA → FCF" value={formatPercent(tauxConversion)} positive={tauxConversion > 0.5} />
+                </View>
+              </View>
+            </>
+          )
+        })()}
 
         <View style={styles.disclaimer}>
           <Text style={styles.disclaimerTitle}>Note methodologique</Text>
           <Text style={styles.disclaimerText}>
-            Ces estimations de flux sont basees sur des hypotheses standards et doivent etre ajustees
-            en fonction des specificites de l'entreprise (politique d'investissement, saisonnalite du BFR, etc.).
+            Le FCF est calcule a partir du resultat net augmente des dotations aux amortissements, diminue de la variation
+            estimee du BFR et des investissements. Les valeurs marquees (est.) sont estimees a partir des donnees disponibles.
           </Text>
         </View>
 
-        <Footer company={data.entreprise.nom} pageNum={15} totalPages={30} />
+        <Footer company={data.entreprise.nom} pageNum={15} totalPages={32} />
       </Page>
     </>
+  )
+}
+
+// ============================================
+// PAGE 16: TABLEAU DE BORD DES RATIOS
+// ============================================
+
+interface RatioItem {
+  key: string
+  value: number
+}
+
+export const RatioDashboard = ({ data }: { data: ProfessionalReportData }) => {
+  const secteurCode = getSectorFromNaf(data.entreprise.codeNaf)
+  const fin = data.financier
+
+  // Construire les groupes de ratios depuis les données disponibles
+  const groups: { nom: string; ratios: RatioItem[] }[] = [
+    {
+      nom: 'Rentabilite',
+      ratios: [
+        ...(fin.margeBrute !== undefined ? [{ key: 'margeBrute', value: fin.margeBrute }] : []),
+        { key: 'margeEbitda', value: fin.margeEbitda },
+        ...(fin.margeEbit !== undefined ? [{ key: 'margeEbit', value: fin.margeEbit }] : []),
+        { key: 'margeNette', value: fin.margeNette },
+        { key: 'roe', value: fin.roe ?? (fin.capitauxPropres > 0 ? fin.resultatNet / fin.capitauxPropres : 0) },
+      ],
+    },
+    {
+      nom: 'Structure financiere',
+      ratios: [
+        { key: 'ratioEndettement', value: fin.ratioEndettement },
+        ...(fin.detteNetteEbitda !== undefined ? [{ key: 'detteNetteEbitda', value: fin.detteNetteEbitda }] : []),
+        ...(fin.autonomieFinanciere !== undefined ? [{ key: 'autonomieFinanciere', value: fin.autonomieFinanciere }] : []),
+      ],
+    },
+    {
+      nom: 'Liquidite',
+      ratios: [
+        ...(fin.liquiditeGenerale !== undefined ? [{ key: 'liquiditeGenerale', value: fin.liquiditeGenerale }] : []),
+      ],
+    },
+    {
+      nom: 'Cycle d\'exploitation',
+      ratios: [
+        { key: 'dso', value: fin.dso },
+        ...(fin.dpo !== undefined ? [{ key: 'dpo', value: fin.dpo }] : []),
+        ...(fin.bfrSurCa !== undefined ? [{ key: 'bfrSurCa', value: fin.bfrSurCa }] : []),
+      ],
+    },
+    {
+      nom: 'Cash flow',
+      ratios: [
+        ...(fin.fcfSurCa !== undefined ? [{ key: 'fcfSurCa', value: fin.fcfSurCa }] : []),
+      ],
+    },
+  ].filter(g => g.ratios.length > 0)
+
+  const getEvalColor = (evaluation: EvaluationRatio) =>
+    evaluation === 'bon' ? COLORS.success : evaluation === 'moyen' ? COLORS.warning : COLORS.danger
+
+  const getEvalLabel = (evaluation: EvaluationRatio) =>
+    evaluation === 'bon' ? 'Bon' : evaluation === 'moyen' ? 'Moyen' : 'A surveiller'
+
+  return (
+    <Page size="A4" style={styles.page}>
+      <Header title="Analyse financiere" />
+      <Text style={styles.sectionSubtitle}>4.6 Tableau de bord des ratios financiers</Text>
+
+      <View style={[styles.card, { marginBottom: 10, padding: 10 }]}>
+        <Text style={{ fontSize: 9, color: COLORS.gray700 }}>
+          Synthese de {groups.reduce((s, g) => s + g.ratios.length, 0)} indicateurs financiers evalues par rapport aux seuils
+          du secteur ({data.entreprise.secteur}).
+        </Text>
+      </View>
+
+      {groups.map((group, gi) => (
+        <View key={gi} style={{ marginBottom: 10 }}>
+          <Text style={{ fontSize: 10, fontWeight: 'bold', color: COLORS.primary, marginBottom: 4 }}>
+            {group.nom}
+          </Text>
+          <View style={styles.table}>
+            <View style={styles.tableHeader}>
+              <Text style={[styles.tableHeaderCell, { flex: 2.5 }]}>Indicateur</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 1.5, textAlign: 'right' }]}>Valeur</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 1, textAlign: 'center' }]}>Evaluation</Text>
+            </View>
+            {group.ratios.map((r, ri) => {
+              const evaluation = evaluerRatio(r.key, r.value, secteurCode)
+              const color = getEvalColor(evaluation)
+              const label = LABELS_RATIOS[r.key]
+              return (
+                <View key={ri} style={[styles.tableRow, ri % 2 === 1 ? styles.tableRowAlt : {}]}>
+                  <View style={{ flex: 2.5, paddingVertical: 4, paddingHorizontal: 6 }}>
+                    <Text style={{ fontSize: 9, fontWeight: 'bold', color: COLORS.gray900 }}>
+                      {label?.nom || r.key}
+                    </Text>
+                    {label?.description && (
+                      <Text style={{ fontSize: 7, color: COLORS.gray500 }}>{label.description}</Text>
+                    )}
+                  </View>
+                  <Text style={{ flex: 1.5, fontSize: 9, fontWeight: 'bold', textAlign: 'right', paddingVertical: 4, paddingHorizontal: 6 }}>
+                    {formaterRatio(r.key, r.value)}
+                  </Text>
+                  <View style={{ flex: 1, alignItems: 'center', paddingVertical: 4 }}>
+                    <Text style={{
+                      fontSize: 7, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4,
+                      backgroundColor: color + '20', color: color,
+                    }}>
+                      {getEvalLabel(evaluation)}
+                    </Text>
+                  </View>
+                </View>
+              )
+            })}
+          </View>
+        </View>
+      ))}
+
+      <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 6 }}>
+        {(['bon', 'moyen', 'mauvais'] as const).map((level) => (
+          <View key={level} style={{ flexDirection: 'row', alignItems: 'center', marginHorizontal: 10 }}>
+            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: getEvalColor(level), marginRight: 4 }} />
+            <Text style={{ fontSize: 8, color: COLORS.gray500 }}>{getEvalLabel(level)}</Text>
+          </View>
+        ))}
+      </View>
+
+      <Footer company={data.entreprise.nom} pageNum={16} totalPages={32} />
+    </Page>
   )
 }

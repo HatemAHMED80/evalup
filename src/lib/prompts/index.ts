@@ -9,109 +9,15 @@ import { COMMERCE_PROMPT } from './secteurs/commerce'
 import { SERVICES_PROMPT } from './secteurs/services'
 import { SYSTEM_PROMPTS, PEDAGOGY_PROMPTS, type UserParcours, type PedagogyLevel } from './parcours'
 import type { ConversationContext } from '../anthropic'
+import { detecterSecteurEvaluation, SECTEURS } from '../evaluation/secteurs'
+import type { ConfigSecteur } from '../evaluation/types'
 
 // Type d'évaluation
 export type EvaluationType = 'flash' | 'complete'
 
-// Mapping code NAF → secteur
-const NAF_TO_SECTEUR: Record<string, string> = {
-  // Transport
-  '49.41A': 'transport',
-  '49.41B': 'transport',
-  '49.41C': 'transport',
-  '49.42Z': 'transport',
-  '52.29A': 'transport',
-  '52.29B': 'transport',
-
-  // SaaS / Tech
-  '62.01Z': 'saas',
-  '62.02A': 'saas',
-  '62.02B': 'saas',
-  '62.03Z': 'saas',
-  '62.09Z': 'saas',
-  '63.11Z': 'saas',
-  '63.12Z': 'saas',
-  '58.29A': 'saas',
-  '58.29B': 'saas',
-  '58.29C': 'saas',
-
-  // Restaurant
-  '56.10A': 'restaurant',
-  '56.10B': 'restaurant',
-  '56.10C': 'restaurant',
-  '56.21Z': 'restaurant',
-  '56.29A': 'restaurant',
-  '56.29B': 'restaurant',
-  '56.30Z': 'restaurant',
-
-  // Commerce
-  '47.11A': 'commerce',
-  '47.11B': 'commerce',
-  '47.11C': 'commerce',
-  '47.11D': 'commerce',
-  '47.11E': 'commerce',
-  '47.11F': 'commerce',
-  '47.19A': 'commerce',
-  '47.19B': 'commerce',
-  '47.21Z': 'commerce',
-  '47.22Z': 'commerce',
-  '47.23Z': 'commerce',
-  '47.24Z': 'commerce',
-  '47.25Z': 'commerce',
-  '47.26Z': 'commerce',
-  '47.29Z': 'commerce',
-  '47.41Z': 'commerce',
-  '47.42Z': 'commerce',
-  '47.43Z': 'commerce',
-  '47.51Z': 'commerce',
-  '47.52A': 'commerce',
-  '47.52B': 'commerce',
-  '47.53Z': 'commerce',
-  '47.54Z': 'commerce',
-  '47.59A': 'commerce',
-  '47.59B': 'commerce',
-  '47.61Z': 'commerce',
-  '47.62Z': 'commerce',
-  '47.63Z': 'commerce',
-  '47.64Z': 'commerce',
-  '47.65Z': 'commerce',
-  '47.71Z': 'commerce',
-  '47.72A': 'commerce',
-  '47.72B': 'commerce',
-  '47.73Z': 'commerce',
-  '47.74Z': 'commerce',
-  '47.75Z': 'commerce',
-  '47.76Z': 'commerce',
-  '47.77Z': 'commerce',
-  '47.78A': 'commerce',
-  '47.78B': 'commerce',
-  '47.78C': 'commerce',
-  '47.79Z': 'commerce',
-
-  // E-commerce (traité comme commerce)
-  '47.91A': 'commerce',
-  '47.91B': 'commerce',
-
-  // Services B2B
-  '70.10Z': 'services',
-  '70.21Z': 'services',
-  '70.22Z': 'services',
-  '73.11Z': 'services',
-  '73.12Z': 'services',
-  '73.20Z': 'services',
-  '74.10Z': 'services',
-  '74.20Z': 'services',
-  '74.30Z': 'services',
-  '74.90A': 'services',
-  '74.90B': 'services',
-  '78.10Z': 'services',
-  '78.20Z': 'services',
-  '78.30Z': 'services',
-  '69.10Z': 'services',
-  '69.20Z': 'services',
-}
-
-const SECTEUR_PROMPTS: Record<string, string> = {
+// Prompts spécialisés écrits manuellement (benchmarks détaillés)
+// Pour les secteurs sans prompt dédié, on génère automatiquement depuis ConfigSecteur
+const SECTEUR_PROMPTS_MANUELS: Record<string, string> = {
   transport: TRANSPORT_PROMPT,
   saas: SAAS_PROMPT,
   restaurant: RESTAURANT_PROMPT,
@@ -119,29 +25,83 @@ const SECTEUR_PROMPTS: Record<string, string> = {
   services: SERVICES_PROMPT,
 }
 
-const SECTEUR_NOMS: Record<string, string> = {
-  transport: 'Transport Routier',
-  saas: 'SaaS / Tech',
-  restaurant: 'Restauration',
-  commerce: 'Commerce de Détail',
-  services: 'Services B2B',
+/**
+ * Génère un prompt sectoriel à partir d'une ConfigSecteur
+ * Utilisé pour les secteurs sans prompt manuel dédié
+ */
+function genererPromptSectoriel(config: ConfigSecteur): string {
+  const questionsStr = config.questions.map(q => `- ${q}`).join('\n')
+
+  const primesStr = config.facteursPrime.map(f =>
+    `- **${f.description}** (${f.impact})\n  Question à poser : "${f.question}"`
+  ).join('\n')
+
+  const decotesStr = config.facteursDecote.map(f =>
+    `- **${f.description}** (${f.impact})\n  Question à poser : "${f.question}"`
+  ).join('\n')
+
+  const methodesStr = config.methodes.map(m =>
+    `- **${m.nom}** (poids ${m.poids}%)`
+  ).join('\n')
+
+  const multiplesStr = Object.entries(config.multiples)
+    .filter(([, v]) => v)
+    .map(([k, v]) => `- Multiple ${k.toUpperCase()} : ${v!.min}x — ${v!.max}x`)
+    .join('\n')
+
+  return `
+## Expertise : ${config.nom}
+
+${config.explicationSecteur}
+
+### Méthodes d'évaluation
+${methodesStr}
+
+${multiplesStr}
+
+${config.explicationMethodes}
+
+### Questions spécifiques à poser pour ce secteur
+${questionsStr}
+
+### Facteurs de prime (ce qui augmente la valeur)
+${primesStr}
+
+### Facteurs de décote (ce qui diminue la valeur)
+${decotesStr}
+`
 }
 
+/**
+ * Détecte le secteur depuis un code NAF.
+ * Délègue à detecterSecteurEvaluation (15 secteurs) et retourne le code string.
+ */
 export function detecterSecteur(codeNaf: string | undefined): string {
-  // Si pas de code NAF, retourner services par défaut
-  if (!codeNaf) return 'services'
-
-  // Nettoyer le code NAF
-  const codeClean = codeNaf.replace(/[.\s]/g, '').toUpperCase()
-  const codeFormatted = codeClean.length === 5
-    ? `${codeClean.slice(0, 2)}.${codeClean.slice(2)}`
-    : codeNaf
-
-  return NAF_TO_SECTEUR[codeFormatted] || 'services'
+  if (!codeNaf) return 'default'
+  return detecterSecteurEvaluation(codeNaf).code
 }
 
-export function getNomSecteur(secteur: string): string {
-  return SECTEUR_NOMS[secteur] || 'Services'
+/**
+ * Retourne le nom lisible d'un secteur à partir de son code.
+ */
+export function getNomSecteur(secteurCode: string): string {
+  if (!secteurCode || secteurCode === 'default') return 'Activité générale'
+  const config = SECTEURS.find(s => s.code === secteurCode)
+  return config?.nom || 'Activité générale'
+}
+
+/**
+ * Retourne le prompt sectoriel approprié pour un code secteur.
+ * Priorité : prompt manuel > prompt généré depuis ConfigSecteur
+ */
+function getPromptSectoriel(codeNaf: string | undefined): string {
+  const config = detecterSecteurEvaluation(codeNaf || '')
+  // Prompt manuel si disponible (benchmarks détaillés écrits à la main)
+  if (SECTEUR_PROMPTS_MANUELS[config.code]) {
+    return SECTEUR_PROMPTS_MANUELS[config.code]
+  }
+  // Sinon, générer depuis la config sectorielle
+  return genererPromptSectoriel(config)
 }
 
 export function getSystemPrompt(
@@ -151,10 +111,6 @@ export function getSystemPrompt(
   pedagogyLevel?: PedagogyLevel,
   evaluationType: EvaluationType = 'flash'  // Par défaut Flash
 ): string {
-  // Détecter le secteur depuis le code NAF
-  const secteur = detecterSecteur(codeNaf)
-  const secteurPrompt = SECTEUR_PROMPTS[secteur] || SERVICES_PROMPT
-
   // Calculer l'année de référence (dernière année complète ou année en cours)
   const now = new Date()
   const currentYear = now.getFullYear()
@@ -201,6 +157,9 @@ ${formatResponses(responses)}
 `
   }
 
+  // Prompt sectoriel (manuel ou généré) — couvre les 15 secteurs
+  const secteurPrompt = getPromptSectoriel(codeNaf)
+
   // Pour Complete, on garde le prompt complet existant
   return `
 ${parcoursPrompt ? `## PROFIL UTILISATEUR\n\n${parcoursPrompt}\n\n---\n\n` : ''}${pedagogyPrompt ? `${pedagogyPrompt}\n\n---\n\n` : ''}${basePromptWithYear}
@@ -232,9 +191,9 @@ ${documents.length > 0
 ${formatResponses(responses)}
 
 **Progression :**
-📍 Étape ${evaluationProgress.step || 1}/6
-✅ Complété : ${evaluationProgress.completedTopics?.join(', ') || 'Aucun'}
-⏳ À faire : ${evaluationProgress.pendingTopics?.join(', ') || 'À déterminer'}
+Étape ${evaluationProgress.step || 1}/6
+Complété : ${evaluationProgress.completedTopics?.join(', ') || 'Aucun'}
+À faire : ${evaluationProgress.pendingTopics?.join(', ') || 'À déterminer'}
 
 ${financials.anomaliesDetectees && financials.anomaliesDetectees.length > 0 ? `
 **Anomalies détectées à mentionner :**
@@ -308,13 +267,13 @@ function formatResponses(responses: Record<string, string>): string {
 
 function formatDocuments(documents: ConversationContext['documents']): string {
   return documents.map(doc => {
-    const parts: string[] = [`📄 **${doc.name}**`]
+    const parts: string[] = [`**${doc.name}**`]
 
     if (doc.analysis) {
       const analysis = doc.analysis
 
       if (analysis.error || analysis.parseError) {
-        parts.push(`  ⚠️ Erreur d'analyse: ${analysis.error || 'Format non reconnu'}`)
+        parts.push(`  Erreur d'analyse: ${analysis.error || 'Format non reconnu'}`)
       } else {
         if (analysis.typeDocument) {
           parts.push(`  - Type: ${analysis.typeDocument}`)
@@ -357,7 +316,7 @@ function formatDocuments(documents: ConversationContext['documents']): string {
             const anomalie = a as { message?: string; categorie?: string }
             return anomalie.message || anomalie.categorie || 'Anomalie'
           })
-          parts.push(`  - ⚠️ Alertes: ${anomaliesMsgs.join('; ')}`)
+          parts.push(`  - Alertes: ${anomaliesMsgs.join('; ')}`)
         }
       }
     }

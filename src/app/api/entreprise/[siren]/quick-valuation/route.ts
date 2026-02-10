@@ -166,12 +166,33 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     financier: {
       chiffreAffaires: bilansV2[0].chiffreAffaires,
       resultatNet: bilansV2[0].resultatNet,
+      resultatExploitation: bilansV2[0].resultatExploitation,
+      dotationsAmortissements: bilansV2[0].dotationsAmortissements,
       ebitdaComptable: resultat.ebitda.ebitdaComptable,
       tresorerie: bilansV2[0].disponibilites,
       dettes: bilansV2[0].empruntsEtablissementsCredit || 0,
       capitauxPropres: bilansV2[0].capitauxPropres,
+      stocks: bilansV2[0].stocks || 0,
+      creancesClients: bilansV2[0].creancesClients || 0,
+      dettesFournisseurs: bilansV2[0].dettesFournisseurs || 0,
+      provisions: 0,
       anneeDernierBilan: bilansV2[0].annee,
     },
+    // Bilans historiques (3 dernières années) pour enrichir le contexte du chat
+    bilansHistorique: bilansNormalises.map(b => ({
+      annee: b.annee,
+      chiffre_affaires: b.chiffre_affaires,
+      resultat_net: b.resultat_net,
+      resultat_exploitation: b.resultat_exploitation,
+      dotations_amortissements: b.dotations_amortissements || 0,
+      stocks: b.stocks || 0,
+      creances_clients: b.creances_clients || 0,
+      tresorerie: b.tresorerie,
+      capitaux_propres: b.capitaux_propres,
+      dettes_financieres: b.dettes_financieres,
+      dettes_fournisseurs: b.dettes_fournisseurs || 0,
+      provisions: 0,
+    })),
     valorisation: {
       valeurEntreprise: {
         basse: resultat.valeurEntreprise.basse,

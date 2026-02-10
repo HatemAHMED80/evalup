@@ -410,10 +410,12 @@ function verifierInvariants(
   // 3. SPREAD
   // Très endetté / déficitaire → spread naturellement large (plancher basse, haute intacte)
   const spread = v.basse > 0 ? v.haute / v.basse : Infinity
+  // Seuil souple pour déficitaires : plancher clamp basse mais haute reste calculée normalement
+  const spreadLimit = tc.donnees.ebitda < 0 ? 30 : 8
   results.push({
     code: 'SPREAD',
-    pass: spread < 8,
-    detail: `haute/basse = ${spread.toFixed(2)}×`,
+    pass: spread < spreadLimit,
+    detail: `haute/basse = ${spread.toFixed(2)}×${tc.donnees.ebitda < 0 ? ' (déficitaire, seuil=' + spreadLimit + ')' : ''}`,
   })
 
   // 4. FLOOR

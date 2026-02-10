@@ -3,6 +3,7 @@ import { headers } from 'next/headers'
 import { getStripeClient } from '@/lib/stripe/client'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { confirmPurchase } from '@/lib/usage'
+import { sendPaymentConfirmation, sendPaymentFailed, sendSubscriptionWelcome, sendRefundConfirmation } from '@/lib/emails/send'
 import type Stripe from 'stripe'
 
 // Client Supabase avec service role pour les webhooks (lazy init)
@@ -81,8 +82,7 @@ export async function POST(request: NextRequest) {
 
       case 'charge.refunded': {
         const charge = event.data.object as Stripe.Charge
-        console.log('Charge refunded:', charge.id, 'amount:', charge.amount_refunded)
-        // TODO: Révoquer l'accès à l'évaluation si remboursement total
+        await handleChargeRefunded(charge)
         break
       }
 
@@ -129,6 +129,15 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       evaluationId,
       siren: session.metadata?.siren,
     })
+
+    // Envoyer l'email de confirmation de paiement
+    if (session.customer_details?.email) {
+      await sendPaymentConfirmation({
+        to: session.customer_details.email,
+        siren: session.metadata?.siren || '',
+        montant: session.amount_total || 7900,
+      })
+    }
     return
   }
 
@@ -182,6 +191,15 @@ async function handleSubscriptionChange(subscription: Stripe.Subscription) {
   }
 
   console.log('Subscription updated:', subscription.id, 'status:', subscription.status)
+
+  // Envoyer un email de bienvenue lors de la creation d'un abonnement actif
+  if (subscription.status === 'active') {
+    const customer = await getStripeClient().customers.retrieve(subscription.customer as string)
+    if (!('deleted' in customer && customer.deleted) && customer.email) {
+      const planName = planId === 'pro_unlimited' ? 'Pro Illimite' : 'Pro 10'
+      await sendSubscriptionWelcome({ to: customer.email, planName })
+    }
+  }
 }
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
@@ -243,5 +261,81 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
 
 async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   console.log('Payment failed for invoice:', invoice.id)
-  // On pourrait envoyer un email de notification ici
+
+  // Envoyer un email de notification d'echec de paiement
+  if (invoice.customer) {
+    const customer = await getStripeClient().customers.retrieve(invoice.customer as string)
+    if (!('deleted' in customer && customer.deleted) && customer.email) {
+      await sendPaymentFailed({
+        to: customer.email,
+        montant: invoice.amount_due,
+        invoiceUrl: invoice.hosted_invoice_url,
+      })
+    }
+  }
+}
+
+async function handleChargeRefunded(charge: Stripe.Charge) {
+  const supabase = getSupabaseAdmin()
+  const paymentIntentId = charge.payment_intent as string
+  const isFullRefund = charge.amount_refunded >= charge.amount
+
+  console.log('Charge refunded:', charge.id, {
+    amount: charge.amount,
+    amountRefunded: charge.amount_refunded,
+    isFullRefund,
+    paymentIntentId,
+  })
+
+  if (!paymentIntentId) return
+
+  // Trouver l'achat correspondant via le payment_intent
+  const { data: purchase } = await supabase
+    .from('purchases')
+    .select('id, evaluation_id, user_id, status')
+    .eq('stripe_payment_intent_id', paymentIntentId)
+    .single()
+
+  if (!purchase) {
+    console.warn('[Refund] Aucun achat trouve pour payment_intent:', paymentIntentId)
+    return
+  }
+
+  // Mettre a jour le statut de l'achat
+  await supabase
+    .from('purchases')
+    .update({
+      status: isFullRefund ? 'refunded' : 'partially_refunded',
+      refunded_at: new Date().toISOString(),
+      refund_amount: charge.amount_refunded,
+    })
+    .eq('id', purchase.id)
+
+  // Pour un remboursement total, revoquer l'acces a l'evaluation
+  if (isFullRefund && purchase.evaluation_id) {
+    await supabase
+      .from('evaluations')
+      .update({ status: 'refunded' })
+      .eq('id', purchase.evaluation_id)
+
+    console.log('[Refund] Acces evaluation revoque:', purchase.evaluation_id)
+  }
+
+  // Envoyer un email de confirmation de remboursement
+  if (charge.billing_details?.email) {
+    // Recuperer le SIREN depuis les metadata du payment_intent
+    let siren: string | undefined
+    try {
+      const pi = await getStripeClient().paymentIntents.retrieve(paymentIntentId)
+      siren = pi.metadata?.siren
+    } catch {
+      // Non-bloquant
+    }
+
+    await sendRefundConfirmation({
+      to: charge.billing_details.email,
+      montant: charge.amount_refunded,
+      siren,
+    })
+  }
 }

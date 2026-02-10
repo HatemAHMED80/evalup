@@ -115,20 +115,23 @@ export default function ChatPage() {
           },
           parcours: parcours || undefined,
           financials: {
-            bilans: data.financier ? [{
-              annee: data.financier.anneeDernierBilan || new Date().getFullYear() - 1,
-              chiffre_affaires: data.financier.chiffreAffaires || 0,
-              resultat_net: data.financier.resultatNet || 0,
-              resultat_exploitation: data.financier.resultatExploitation || 0,
-              dotations_amortissements: data.financier.dotationsAmortissements || 0,
-              stocks: data.financier.stocks || 0,
-              creances_clients: data.financier.creancesClients || 0,
-              tresorerie: data.financier.tresorerie || 0,
-              capitaux_propres: data.financier.capitauxPropres || 0,
-              dettes_financieres: data.financier.dettes || 0,
-              dettes_fournisseurs: data.financier.dettesFournisseurs || 0,
-              provisions: data.financier.provisions || 0,
-            }] : [],
+            // Utiliser les bilans historiques (3 ans) si disponibles, sinon construire depuis financier
+            bilans: data.bilansHistorique?.length > 0
+              ? data.bilansHistorique
+              : data.financier ? [{
+                  annee: data.financier.anneeDernierBilan || new Date().getFullYear() - 1,
+                  chiffre_affaires: data.financier.chiffreAffaires || 0,
+                  resultat_net: data.financier.resultatNet || 0,
+                  resultat_exploitation: data.financier.resultatExploitation || 0,
+                  dotations_amortissements: data.financier.dotationsAmortissements || 0,
+                  stocks: data.financier.stocks || 0,
+                  creances_clients: data.financier.creancesClients || 0,
+                  tresorerie: data.financier.tresorerie || 0,
+                  capitaux_propres: data.financier.capitauxPropres || 0,
+                  dettes_financieres: data.financier.dettes || 0,
+                  dettes_fournisseurs: data.financier.dettesFournisseurs || 0,
+                  provisions: data.financier.provisions || 0,
+                }] : [],
             ratios: data.ratios || {
               margeNette: 0,
               ebitda: 0,

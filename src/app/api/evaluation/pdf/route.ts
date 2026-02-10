@@ -80,9 +80,17 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Erreur génération PDF:', error)
+    console.error('Erreur generation PDF:', error)
+
+    if (error instanceof SyntaxError) {
+      return NextResponse.json(
+        { error: 'Donnees de rapport invalides. Relancez la generation depuis la conversation.', code: 'INVALID_DATA' },
+        { status: 400 }
+      )
+    }
+
     return NextResponse.json(
-      { error: 'Erreur lors de la génération du PDF' },
+      { error: 'Erreur lors de la generation du rapport PDF. Reessayez ou contactez contact@evalup.fr', code: 'PDF_GENERATION_ERROR' },
       { status: 500 }
     )
   }

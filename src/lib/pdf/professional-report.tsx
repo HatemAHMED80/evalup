@@ -72,6 +72,15 @@ export interface ProfessionalReportData {
     stocks?: number
     creancesClients?: number
     dettesFournisseurs?: number
+    // Ratios étendus pour tableau de bord
+    margeEbit?: number
+    detteNetteEbitda?: number
+    autonomieFinanciere?: number
+    liquiditeGenerale?: number
+    fcf?: number
+    fcfSurCa?: number
+    bfrSurCa?: number
+    dotationsAmortissements?: number
   }
   historique: {
     annee: number
@@ -102,6 +111,7 @@ export interface ProfessionalReportData {
     poids: number
     explication: string
     multiple?: number
+    justificationPoids?: string
   }[]
   // Analyse qualitative
   pointsForts: string[]
@@ -114,6 +124,9 @@ export interface ProfessionalReportData {
     menaces: string[]
   }
   risques?: { titre: string; description: string; niveau: 'faible' | 'moyen' | 'eleve' }[]
+  // Niveau de confiance
+  niveauConfiance?: 'elevee' | 'moyenne' | 'faible'
+  facteursIncertitude?: string[]
   // Diagnostic
   diagnostic: {
     noteGlobale: 'A' | 'B' | 'C' | 'D' | 'E'
@@ -369,16 +382,18 @@ const TableOfContents = ({ data }: { data: ProfessionalReportData }) => (
       { num: '4.3', label: 'Structure du bilan', page: '13', sub: true },
       { num: '4.4', label: 'BFR et tresorerie', page: '14', sub: true },
       { num: '4.5', label: 'Flux de tresorerie', page: '15', sub: true },
-      { num: '5', label: 'Diagnostic financier', page: '16' },
-      { num: '5.1', label: 'Notation et scoring', page: '16', sub: true },
-      { num: '5.2', label: 'Comparaison sectorielle', page: '17', sub: true },
-      { num: '6', label: 'Retraitements de l\'EBITDA', page: '19' },
-      { num: '7', label: 'Valorisation', page: '22' },
-      { num: '7.1', label: 'Methodes utilisees', page: '22', sub: true },
-      { num: '7.2', label: 'Bridge VE vers Prix', page: '24', sub: true },
-      { num: '8', label: 'Analyse SWOT', page: '26' },
-      { num: '9', label: 'Recommandations', page: '28' },
-      { num: '10', label: 'Annexes', page: '30' },
+      { num: '4.6', label: 'Tableau de bord des ratios', page: '16', sub: true },
+      { num: '5', label: 'Diagnostic financier', page: '17' },
+      { num: '5.1', label: 'Notation et scoring', page: '17', sub: true },
+      { num: '5.2', label: 'Comparaison sectorielle', page: '18', sub: true },
+      { num: '6', label: 'Retraitements de l\'EBITDA', page: '20' },
+      { num: '7', label: 'Valorisation', page: '23' },
+      { num: '7.1', label: 'Methodes utilisees', page: '23', sub: true },
+      { num: '7.2', label: 'Bridge VE vers Prix', page: '25', sub: true },
+      { num: '7.3', label: 'Analyse de sensibilite', page: '27', sub: true },
+      { num: '8', label: 'Analyse SWOT', page: '28' },
+      { num: '9', label: 'Recommandations', page: '30' },
+      { num: '10', label: 'Annexes', page: '32' },
     ].map((item, i) => (
       <View key={i} style={[styles.tocItem, item.sub ? styles.tocSub : {}]}>
         <Text style={styles.tocNumber}>{item.num}</Text>
@@ -387,7 +402,7 @@ const TableOfContents = ({ data }: { data: ProfessionalReportData }) => (
       </View>
     ))}
 
-    <Footer company={data.entreprise.nom} pageNum={2} totalPages={30} />
+    <Footer company={data.entreprise.nom} pageNum={2} totalPages={32} />
   </Page>
 )
 
@@ -445,13 +460,33 @@ const ExecutiveSummary = ({ data }: { data: ProfessionalReportData }) => {
             <KPICard label="Marge EBITDA" value={formatPercent(data.financier.margeEbitda)} />
           </View>
           <View style={styles.col3}>
-            <KPICard label="Tresorerie nette" value={formatCurrency(data.financier.tresorerie - data.financier.dettes)} />
-          </View>
-          <View style={styles.col3}>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>NOTE GLOBALE</Text>
               <NoteCircle note={data.diagnostic.noteGlobale} score={data.diagnostic.score} />
             </View>
+          </View>
+          <View style={styles.col3}>
+            {data.niveauConfiance ? (
+              <View style={styles.kpiCard}>
+                <Text style={styles.kpiLabel}>CONFIANCE</Text>
+                <View style={{
+                  backgroundColor: data.niveauConfiance === 'elevee' ? COLORS.success + '20' :
+                                   data.niveauConfiance === 'moyenne' ? COLORS.warning + '20' : COLORS.danger + '20',
+                  borderRadius: 8, padding: 6, alignItems: 'center', marginTop: 4,
+                }}>
+                  <Text style={{
+                    fontSize: 12, fontWeight: 'bold',
+                    color: data.niveauConfiance === 'elevee' ? COLORS.success :
+                           data.niveauConfiance === 'moyenne' ? COLORS.warning : COLORS.danger,
+                  }}>
+                    {data.niveauConfiance === 'elevee' ? 'Elevee' :
+                     data.niveauConfiance === 'moyenne' ? 'Moyenne' : 'Faible'}
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <KPICard label="Tresorerie nette" value={formatCurrency(data.financier.tresorerie - data.financier.dettes)} />
+            )}
           </View>
         </View>
 
@@ -482,7 +517,7 @@ const ExecutiveSummary = ({ data }: { data: ProfessionalReportData }) => {
           </View>
         </View>
 
-        <Footer company={data.entreprise.nom} pageNum={3} totalPages={30} />
+        <Footer company={data.entreprise.nom} pageNum={3} totalPages={32} />
       </Page>
 
       {/* Page 4: Suite synthèse */}
@@ -554,7 +589,7 @@ const ExecutiveSummary = ({ data }: { data: ProfessionalReportData }) => {
           </View>
         </View>
 
-        <Footer company={data.entreprise.nom} pageNum={4} totalPages={30} />
+        <Footer company={data.entreprise.nom} pageNum={4} totalPages={32} />
       </Page>
     </>
   )

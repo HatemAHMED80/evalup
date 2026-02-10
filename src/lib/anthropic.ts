@@ -94,6 +94,7 @@ export interface BilanAnnuel {
   dettes_financieres: number
   dettes_fournisseurs: number
   provisions: number
+  immobilisations_corporelles?: number
 }
 
 export interface RatiosFinanciers {

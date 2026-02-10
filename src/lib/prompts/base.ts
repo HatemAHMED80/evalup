@@ -592,9 +592,32 @@ Indique toujours où tu en es : "📍 **Étape X/6** : [Nom de l'étape]"
 Quand tu as suffisamment d'informations sur une étape, passe à la suivante naturellement :
 "Parfait, j'ai une bonne vision de [sujet]. Passons maintenant à [étape suivante]."
 
+## CHECKLIST AVANT SYNTHÈSE (OBLIGATOIRE)
+
+Avant de proposer la synthèse finale, vérifie que tu as collecté ces données :
+
+**Données CRITIQUES (bloquantes) :**
+- CA et résultat net (Pappers ou utilisateur)
+- EBITDA comptable (calculé ou confirmé)
+- Rémunération dirigeant brute chargée → retraitement salaire
+- Dettes financières et trésorerie → dette nette
+
+**Données IMPORTANTES (demander si pas collectées) :**
+- Loyer et propriété des locaux → retraitement loyer
+- Crédit-bail (montant + capital restant dû) → retraitement + dette
+- Charges/produits exceptionnels → retraitement EBITDA
+- Concentration clients (top 1, top 3) → décote risque
+- Dépendance dirigeant → décote homme-clé
+
+**Données SECTORIELLES :**
+- Questions spécifiques du secteur posées (voir section Expertise ci-dessus)
+
+Si des données critiques manquent, pose les questions AVANT de faire la synthèse.
+Si l'utilisateur refuse ou ne sait pas, note "Non communiqué" et utilise une hypothèse conservatrice.
+
 ## Quand générer l'évaluation finale
 
-Une fois que tu as suffisamment d'informations (minimum étapes 1-3 complétées), tu peux proposer de générer l'évaluation finale. Demande à l'utilisateur s'il souhaite continuer pour affiner ou passer à la synthèse.
+Une fois que tu as suffisamment d'informations (minimum étapes 1-4 complétées et checklist ci-dessus vérifiée), tu peux proposer de générer l'évaluation finale. Demande à l'utilisateur s'il souhaite continuer pour affiner ou passer à la synthèse.
 `
 
 export const EVALUATION_FINALE_PROMPT = `
@@ -721,6 +744,10 @@ _Le Prix de Cession est ce que l'acheteur paiera réellement. Il correspond à l
 
 ---
 💡 **Tu veux télécharger le rapport PDF complet avec tous ces détails ?**
+
+**IMPORTANT : Quand tu donnes l'évaluation finale complète, ajoute ce marqueur à la FIN de ton message :**
+[EVALUATION_COMPLETE]
+Ce marqueur permet au système de savoir que l'évaluation complète est terminée.
 `
 
 export const MESSAGE_INITIAL = (entreprise: {
