@@ -7,7 +7,6 @@ import { ARCHETYPES } from '@/lib/valuation/archetypes'
 import type { Archetype } from '@/lib/valuation/archetypes'
 import { Button } from '@/components/ui/Button'
 import { Footer } from '@/components/layout/Footer'
-import { useAuth } from '@/contexts/AuthContext'
 import { trackConversion } from '@/lib/analytics'
 
 // ---------------------------------------------------------------------------
@@ -28,20 +27,13 @@ interface CompanyInfo {
 function DiagnosticResult() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { user, isLoading: authLoading } = useAuth()
-
   const [archetype, setArchetype] = useState<Archetype | null>(null)
   const [archetypeId, setArchetypeId] = useState('')
   const [company, setCompany] = useState<CompanyInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // ── Auth gate: redirect unauthenticated users ────────────────────────────
-  useEffect(() => {
-    if (!authLoading && !user) {
-      const id = searchParams.get('archetype') || ''
-      router.replace(`/diagnostic/signup?archetype=${encodeURIComponent(id)}`)
-    }
-  }, [authLoading, user, router, searchParams])
+  // Auth gate supprimé : le résultat d'archetype n'est pas sensible.
+  // Le CTA checkout demandera l'auth si nécessaire.
 
   // ── Load archetype + company from sessionStorage / query params ──────────
   useEffect(() => {
@@ -90,16 +82,6 @@ function DiagnosticResult() {
   }, [searchParams])
 
   // ── Guards ───────────────────────────────────────────────────────────────
-
-  if (authLoading) {
-    return (
-      <div className="min-h-[calc(100vh-var(--nav-height))] bg-[var(--bg-primary)] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
-      </div>
-    )
-  }
-
-  if (!user) return null // useEffect above will redirect
 
   if (error) {
     return (
