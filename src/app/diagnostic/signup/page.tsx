@@ -33,7 +33,7 @@ function SignupForm() {
     setError('')
 
     if (password.length < 8) {
-      setError('Le mot de passe doit contenir au moins 8 caract\u00E8res')
+      setError('Le mot de passe doit contenir au moins 8 caractères')
       setIsLoading(false)
       return
     }
@@ -50,7 +50,7 @@ function SignupForm() {
 
       if (authError) {
         if (authError.message.includes('already registered')) {
-          setError('Cet email est d\u00E9j\u00E0 utilis\u00E9. Connectez-vous plut\u00F4t.')
+          setError('Cet email est déjà utilisé. Connectez-vous plutôt.')
         } else {
           setError(authError.message)
         }
@@ -67,7 +67,7 @@ function SignupForm() {
         router.push(resultUrl)
       }, 2000)
     } catch {
-      setError('Une erreur est survenue. R\u00E9essayez.')
+      setError('Une erreur est survenue. Réessayez.')
     } finally {
       setIsLoading(false)
     }
@@ -87,7 +87,7 @@ function SignupForm() {
 
   if (emailSent) {
     return (
-      <div className="min-h-screen bg-[var(--bg-secondary)] flex items-center justify-center px-6">
+      <div className="min-h-[calc(100vh-var(--nav-height))] bg-[var(--bg-secondary)] flex items-center justify-center px-6">
         <div className="w-full max-w-md bg-[var(--bg-primary)] rounded-[var(--radius-2xl)] shadow-[var(--shadow-lg)] border border-[var(--border)] p-8 text-center space-y-4">
           {archetype && (
             <div
@@ -103,12 +103,12 @@ function SignupForm() {
             </svg>
           </div>
           <h2 className="text-[20px] font-bold text-[var(--text-primary)]">
-            Compte cr\u00E9\u00E9 !
+            Compte créé !
           </h2>
           <p className="text-[var(--text-secondary)] text-[14px]">
-            Un email de confirmation a \u00E9t\u00E9 envoy\u00E9 \u00E0 <strong>{email}</strong>.
+            Un email de confirmation a été envoyé à <strong>{email}</strong>.
             <br />
-            Redirection vers votre diagnostic\u2026
+            Redirection vers votre diagnostic…
           </p>
           <div className="pt-2">
             <div className="w-6 h-6 mx-auto border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
@@ -121,7 +121,7 @@ function SignupForm() {
   // ── Signup form ──────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-[var(--bg-secondary)] flex items-center justify-center px-6 py-12">
+    <div className="min-h-[calc(100vh-var(--nav-height))] bg-[var(--bg-secondary)] flex items-center justify-center px-6 py-12">
       <div className="w-full max-w-md space-y-6">
         {/* Archetype teaser */}
         <div className="text-center space-y-4">
@@ -148,7 +148,7 @@ function SignupForm() {
             </h1>
           )}
           <p className="text-[var(--text-secondary)]">
-            Votre diagnostic est pr\u00EAt. Cr\u00E9ez un compte pour le consulter.
+            Votre diagnostic est prêt. Créez un compte pour le consulter.
           </p>
         </div>
 
@@ -173,10 +173,10 @@ function SignupForm() {
             <Input
               label="Mot de passe"
               type="password"
-              placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
+              placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              hint="8 caract\u00E8res minimum"
+              hint="8 caractères minimum"
               required
             />
 
@@ -187,7 +187,7 @@ function SignupForm() {
               className="w-full"
               isLoading={isLoading}
             >
-              Voir mon diagnostic &rarr;
+              Voir mon diagnostic →
             </Button>
           </form>
 
@@ -215,7 +215,7 @@ function SignupForm() {
 
           {/* Login link */}
           <p className="text-center text-[var(--text-secondary)] text-[14px] mt-6">
-            J&apos;ai d\u00E9j\u00E0 un compte{' '}
+            J'ai déjà un compte{' '}
             <Link
               href={`/connexion?redirect=${encodeURIComponent(resultUrl)}`}
               className="text-[var(--accent)] font-medium hover:underline"
@@ -227,10 +227,10 @@ function SignupForm() {
 
         {/* Legal note */}
         <p className="text-center text-[12px] text-[var(--text-muted)]">
-          En cr\u00E9ant un compte, vous acceptez les{' '}
+          En créant un compte, vous acceptez les{' '}
           <Link href="/cgu" className="hover:underline">CGU</Link>
           {' '}et la{' '}
-          <Link href="/privacy" className="hover:underline">politique de confidentialit\u00E9</Link>.
+          <Link href="/privacy" className="hover:underline">politique de confidentialité</Link>.
         </p>
       </div>
     </div>
@@ -244,7 +244,7 @@ function SignupForm() {
 export default function DiagnosticSignupPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[var(--bg-secondary)] flex items-center justify-center">
+      <div className="min-h-[calc(100vh-var(--nav-height))] bg-[var(--bg-secondary)] flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
       </div>
     }>

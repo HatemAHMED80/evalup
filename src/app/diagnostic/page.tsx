@@ -52,7 +52,7 @@ const ACTIVITY_TYPES = [
   { id: 'marketplace', label: 'Marketplace', icon: '\u{1F6D2}' },
   { id: 'ecommerce', label: 'E-commerce', icon: '\u{1F6CD}\uFE0F' },
   { id: 'conseil', label: 'Conseil / Services', icon: '\u{1F4BC}' },
-  { id: 'services', label: 'Services r\u00E9currents', icon: '\u{1F527}' },
+  { id: 'services', label: 'Services récurrents', icon: '\u{1F527}' },
   { id: 'commerce', label: 'Commerce / Retail', icon: '\u{1F3EA}' },
   { id: 'industrie', label: 'Industrie / BTP', icon: '\u{1F3ED}' },
   { id: 'immobilier', label: 'Immobilier', icon: '\u{1F3E0}' },
@@ -198,7 +198,7 @@ export default function DiagnosticPage() {
       const res = await fetch(`/api/entreprise/${digits}`)
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
-        throw new Error(body.error || 'Entreprise non trouv\u00E9e')
+        throw new Error(body.error || 'Entreprise non trouvée')
       }
       const json = await res.json()
       setData((d) => ({
@@ -276,9 +276,9 @@ export default function DiagnosticPage() {
   const animKey = `step-${step}-${direction}`
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] flex flex-col">
+    <div className="min-h-[calc(100vh-var(--nav-height))] bg-[var(--bg-primary)] flex flex-col">
       {/* Progress bar */}
-      <div className="fixed top-0 left-0 right-0 z-50 h-1 bg-[var(--border)]">
+      <div className="fixed top-[var(--nav-height)] left-0 right-0 z-40 h-1 bg-[var(--border)]">
         <div
           className="h-full bg-[var(--accent)] transition-all duration-500 ease-out"
           style={{ width: `${progress}%` }}
@@ -288,7 +288,7 @@ export default function DiagnosticPage() {
       {/* Header */}
       <div className="pt-8 pb-4 px-6 text-center">
         <p className="text-[13px] text-[var(--text-muted)]">
-          \u00C9tape {currentActiveIndex + 1} sur {totalSteps}
+          Étape {currentActiveIndex + 1} sur {totalSteps}
         </p>
       </div>
 
@@ -306,7 +306,7 @@ export default function DiagnosticPage() {
                   Quel est le SIREN de votre entreprise ?
                 </h1>
                 <p className="text-[var(--text-secondary)]">
-                  Nous pr\u00E9-remplirons automatiquement vos donn\u00E9es.
+                  Nous pré-remplirons automatiquement vos données.
                 </p>
               </div>
 
@@ -330,6 +330,7 @@ export default function DiagnosticPage() {
                   containerClassName="flex-1"
                 />
                 <Button
+                  type="button"
                   variant="primary"
                   onClick={lookupSiren}
                   isLoading={sirenLoading}
@@ -366,7 +367,7 @@ export default function DiagnosticPage() {
                 }}
                 className="w-full text-center text-[var(--text-muted)] hover:text-[var(--accent)] text-[14px] transition-colors"
               >
-                Je n&apos;ai pas de SIREN &rarr;
+                Je n'ai pas de SIREN →
               </button>
             </div>
           )}
@@ -376,10 +377,10 @@ export default function DiagnosticPage() {
             <div className="space-y-6">
               <div className="text-center space-y-2">
                 <h1 className="text-[28px] font-bold text-[var(--text-primary)]">
-                  Quel est votre type d&apos;activit\u00E9 ?
+                  Quel est votre type d'activité ?
                 </h1>
                 <p className="text-[var(--text-secondary)]">
-                  Choisissez la cat\u00E9gorie la plus proche.
+                  Choisissez la catégorie la plus proche.
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -419,10 +420,10 @@ export default function DiagnosticPage() {
             <div className="space-y-6">
               <div className="text-center space-y-2">
                 <h1 className="text-[28px] font-bold text-[var(--text-primary)]">
-                  Quel est votre chiffre d&apos;affaires annuel ?
+                  Quel est votre chiffre d'affaires annuel ?
                 </h1>
                 <p className="text-[var(--text-secondary)]">
-                  Dernier exercice clos ou estimation pour l&apos;ann\u00E9e en cours.
+                  Dernier exercice clos ou estimation pour l'année en cours.
                 </p>
               </div>
               <Input
@@ -435,12 +436,12 @@ export default function DiagnosticPage() {
                     revenue: e.target.value === '' ? null : Number(e.target.value),
                   }))
                 }
-                rightIcon={<span className="text-[var(--text-muted)] text-[13px]">\u20AC/an</span>}
+                rightIcon={<span className="text-[var(--text-muted)] text-[13px]">€/an</span>}
                 min={0}
               />
               {data.revenue !== null && data.revenue > 0 && (
                 <p className="text-center text-[var(--text-muted)] text-[14px]">
-                  {formatNumber(data.revenue)} \u20AC
+                  {formatNumber(data.revenue)} €
                 </p>
               )}
             </div>
@@ -454,7 +455,7 @@ export default function DiagnosticPage() {
                   Quel est votre EBITDA annuel ?
                 </h1>
                 <p className="text-[var(--text-secondary)]">
-                  R\u00E9sultat d&apos;exploitation + dotations aux amortissements. Peut \u00EAtre n\u00E9gatif.
+                  Résultat d'exploitation + dotations aux amortissements. Peut être négatif.
                 </p>
               </div>
               <Input
@@ -467,11 +468,11 @@ export default function DiagnosticPage() {
                     ebitda: e.target.value === '' ? null : Number(e.target.value),
                   }))
                 }
-                rightIcon={<span className="text-[var(--text-muted)] text-[13px]">\u20AC/an</span>}
+                rightIcon={<span className="text-[var(--text-muted)] text-[13px]">€/an</span>}
               />
               {data.ebitda !== null && (
                 <p className={`text-center text-[14px] ${data.ebitda < 0 ? 'text-[var(--danger)]' : 'text-[var(--text-muted)]'}`}>
-                  {formatNumber(data.ebitda)} \u20AC
+                  {formatNumber(data.ebitda)} €
                   {data.revenue && data.revenue > 0 && (
                     <span className="ml-2">
                       (marge : {((data.ebitda / data.revenue) * 100).toFixed(1)}%)
@@ -490,12 +491,12 @@ export default function DiagnosticPage() {
                   Quelle est votre croissance annuelle ?
                 </h1>
                 <p className="text-[var(--text-secondary)]">
-                  \u00C9volution du CA sur les 12 derniers mois.
+                  Évolution du CA sur les 12 derniers mois.
                 </p>
               </div>
               <DiagnosticSlider
                 label="Croissance"
-                hint="M\u00E9diane PME : +5%"
+                hint="Médiane PME : +5%"
                 value={data.growth}
                 onChange={(v) => setData((d) => ({ ...d, growth: v }))}
                 min={-30}
@@ -510,15 +511,15 @@ export default function DiagnosticPage() {
             <div className="space-y-6">
               <div className="text-center space-y-2">
                 <h1 className="text-[28px] font-bold text-[var(--text-primary)]">
-                  Quelle part de vos revenus est r\u00E9currente ?
+                  Quelle part de vos revenus est récurrente ?
                 </h1>
                 <p className="text-[var(--text-secondary)]">
-                  Abonnements, contrats, clients r\u00E9guliers.
+                  Abonnements, contrats, clients réguliers.
                 </p>
               </div>
               <DiagnosticSlider
-                label="R\u00E9currence"
-                hint="M\u00E9diane PME : 20%"
+                label="Récurrence"
+                hint="Médiane PME : 20%"
                 value={data.recurring}
                 onChange={(v) => setData((d) => ({ ...d, recurring: v }))}
                 min={0}
@@ -541,7 +542,7 @@ export default function DiagnosticPage() {
               </div>
               <DiagnosticSlider
                 label="Masse salariale / CA"
-                hint="M\u00E9diane PME : 35%"
+                hint="Médiane PME : 35%"
                 value={data.masseSalariale}
                 onChange={(v) => setData((d) => ({ ...d, masseSalariale: v }))}
                 min={0}
@@ -556,7 +557,7 @@ export default function DiagnosticPage() {
             <div className="space-y-6">
               <div className="text-center space-y-2">
                 <h1 className="text-[28px] font-bold text-[var(--text-primary)]">
-                  Combien de salari\u00E9s avez-vous ?
+                  Combien de salariés avez-vous ?
                 </h1>
                 <p className="text-[var(--text-secondary)]">
                   Y compris le dirigeant.
@@ -592,7 +593,7 @@ export default function DiagnosticPage() {
             <div className="space-y-6">
               <div className="text-center space-y-2">
                 <h1 className="text-[28px] font-bold text-[var(--text-primary)]">
-                  Votre entreprise d\u00E9tient-elle un patrimoine significatif ?
+                  Votre entreprise détient-elle un patrimoine significatif ?
                 </h1>
                 <p className="text-[var(--text-secondary)]">
                   Immobilier, fonds de commerce, brevets, actifs corporels importants.
@@ -634,7 +635,7 @@ export default function DiagnosticPage() {
                   Quels sont vos revenus locatifs annuels nets ?
                 </h1>
                 <p className="text-[var(--text-secondary)]">
-                  Loyers per\u00E7us nets de charges.
+                  Loyers perçus nets de charges.
                 </p>
               </div>
               <Input
@@ -647,12 +648,12 @@ export default function DiagnosticPage() {
                     loyersNets: e.target.value === '' ? null : Number(e.target.value),
                   }))
                 }
-                rightIcon={<span className="text-[var(--text-muted)] text-[13px]">\u20AC/an</span>}
+                rightIcon={<span className="text-[var(--text-muted)] text-[13px]">€/an</span>}
                 min={0}
               />
               {data.loyersNets !== null && data.loyersNets > 0 && (
                 <p className="text-center text-[var(--text-muted)] text-[14px]">
-                  {formatNumber(data.loyersNets)} \u20AC/an
+                  {formatNumber(data.loyersNets)} €/an
                 </p>
               )}
             </div>
@@ -664,14 +665,15 @@ export default function DiagnosticPage() {
       <div className="fixed bottom-0 left-0 right-0 bg-[var(--bg-primary)] border-t border-[var(--border)] px-6 py-4">
         <div className="max-w-lg mx-auto flex items-center justify-between gap-4">
           {currentActiveIndex > 0 ? (
-            <Button variant="ghost" onClick={goBack}>
-              &larr; Retour
+            <Button type="button" variant="ghost" onClick={goBack}>
+              ← Retour
             </Button>
           ) : (
             <div />
           )}
           {step === 0 ? (
             <Button
+              type="button"
               variant="primary"
               size="lg"
               onClick={() => {
@@ -682,16 +684,17 @@ export default function DiagnosticPage() {
                 }
               }}
             >
-              {sirenFound ? 'Continuer' : 'Passer cette \u00E9tape'} &rarr;
+              {sirenFound ? 'Continuer' : 'Passer cette étape'} →
             </Button>
           ) : (
             <Button
+              type="button"
               variant="primary"
               size="lg"
               onClick={goNext}
               disabled={!canProceed()}
             >
-              {isLastStep ? 'Voir mon diagnostic' : 'Continuer'} &rarr;
+              {isLastStep ? 'Voir mon diagnostic' : 'Continuer'} →
             </Button>
           )}
         </div>

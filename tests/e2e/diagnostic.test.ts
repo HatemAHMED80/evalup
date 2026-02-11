@@ -72,7 +72,7 @@ async function testValidSirenCompanyCard(page: Page, logger: TestLogger): Promis
   await wait(2000)
 
   // Trouver l'input SIREN
-  const input = await page.$('input[type="text"], input[inputmode="numeric"]')
+  const input = await page.$('input[placeholder="XXX XXX XXX"]')
   if (!input) {
     throw new Error('No SIREN input found on diagnostic page')
   }
@@ -80,7 +80,7 @@ async function testValidSirenCompanyCard(page: Page, logger: TestLogger): Promis
   // Attendre que l'input soit actif
   await page.waitForFunction(
     () => {
-      const input = document.querySelector('input[type="text"], input[inputmode="numeric"]') as HTMLInputElement
+      const input = document.querySelector('input[placeholder="XXX XXX XXX"]') as HTMLInputElement
       return input && !input.disabled
     },
     { timeout: 10000 }
@@ -89,11 +89,15 @@ async function testValidSirenCompanyCard(page: Page, logger: TestLogger): Promis
   logger.info(`Entering valid SIREN: ${TEST_SIRENS.totalEnergies}`)
   await input.type(TEST_SIRENS.totalEnergies)
 
-  // Soumettre
-  const submitBtn = await page.$('button[type="submit"]')
-  if (submitBtn) {
-    await submitBtn.click()
-  } else {
+  // Soumettre via le bouton "Rechercher" ou Enter
+  const clicked = await page.evaluate(() => {
+    const btn = Array.from(document.querySelectorAll('button')).find(
+      b => b.textContent?.trim().includes('Rechercher')
+    )
+    if (btn) { btn.click(); return true }
+    return false
+  })
+  if (!clicked) {
     await page.keyboard.press('Enter')
   }
 
@@ -125,14 +129,14 @@ async function testInvalidSirenError(page: Page, logger: TestLogger): Promise<vo
   await page.goto(`${TEST_CONFIG.baseUrl}/diagnostic`, { waitUntil: 'networkidle2' })
   await wait(2000)
 
-  const input = await page.$('input[type="text"], input[inputmode="numeric"]')
+  const input = await page.$('input[placeholder="XXX XXX XXX"]')
   if (!input) {
     throw new Error('No SIREN input found on diagnostic page')
   }
 
   await page.waitForFunction(
     () => {
-      const input = document.querySelector('input[type="text"], input[inputmode="numeric"]') as HTMLInputElement
+      const input = document.querySelector('input[placeholder="XXX XXX XXX"]') as HTMLInputElement
       return input && !input.disabled
     },
     { timeout: 10000 }

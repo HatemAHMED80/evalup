@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { ARCHETYPES } from '@/lib/valuation/archetypes'
 import type { Archetype } from '@/lib/valuation/archetypes'
 import { Button } from '@/components/ui/Button'
+import { Footer } from '@/components/layout/Footer'
 import { useAuth } from '@/contexts/AuthContext'
 import { trackConversion } from '@/lib/analytics'
 
@@ -92,7 +93,7 @@ function DiagnosticResult() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
+      <div className="min-h-[calc(100vh-var(--nav-height))] bg-[var(--bg-primary)] flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
       </div>
     )
@@ -102,7 +103,7 @@ function DiagnosticResult() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center px-6">
+      <div className="min-h-[calc(100vh-var(--nav-height))] bg-[var(--bg-primary)] flex items-center justify-center px-6">
         <div className="text-center space-y-4">
           <p className="text-[var(--text-primary)] font-medium">{error}</p>
           <button
@@ -118,7 +119,7 @@ function DiagnosticResult() {
 
   if (!archetype) {
     return (
-      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
+      <div className="min-h-[calc(100vh-var(--nav-height))] bg-[var(--bg-primary)] flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
       </div>
     )
@@ -134,7 +135,7 @@ function DiagnosticResult() {
   // ── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)]">
+    <div className="min-h-[calc(100vh-var(--nav-height))] bg-[var(--bg-primary)]">
       <div className="max-w-2xl mx-auto px-6 py-12 space-y-0">
 
         {/* ─── 1. Header ────────────────────────────────────────────── */}
@@ -152,8 +153,8 @@ function DiagnosticResult() {
                   {company.companyName}
                 </p>
                 <p className="text-[12px] text-[var(--text-muted)]">
-                  {company.sector}{company.nafCode ? ` \u00B7 NAF ${company.nafCode}` : ''}
-                  {siren ? ` \u00B7 SIREN ${siren}` : ''}
+                  {company.sector}{company.nafCode ? ` · NAF ${company.nafCode}` : ''}
+                  {siren ? ` · SIREN ${siren}` : ''}
                 </p>
               </div>
             </div>
@@ -180,7 +181,7 @@ function DiagnosticResult() {
                 {archetype.name}
               </h1>
               <p className="text-[14px] text-[var(--text-secondary)] mt-1">
-                M\u00E9thode recommand\u00E9e : <strong style={{ color: archetype.color }}>{archetype.primaryMethod}</strong>
+                Méthode recommandée : <strong style={{ color: archetype.color }}>{archetype.primaryMethod}</strong>
               </p>
             </div>
           </div>
@@ -189,7 +190,7 @@ function DiagnosticResult() {
         {/* ─── 3. Pourquoi cette méthode ? ──────────────────────────── */}
         <section className="pb-10 animate-fade-up delay-2">
           <h2 className="text-[20px] font-bold text-[var(--text-primary)] mb-4">
-            Pourquoi cette m\u00E9thode ?
+            Pourquoi cette méthode ?
           </h2>
           <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded-[var(--radius-xl)] p-6 space-y-4">
             <p className="text-[15px] text-[var(--text-secondary)] leading-relaxed">
@@ -215,7 +216,7 @@ function DiagnosticResult() {
                 </div>
                 <div>
                   <p className="text-[13px] font-medium text-[var(--text-primary)]">{archetype.secondaryMethod}</p>
-                  <p className="text-[11px] text-[var(--text-muted)]">Validation crois\u00E9e</p>
+                  <p className="text-[11px] text-[var(--text-muted)]">Validation croisée</p>
                 </div>
               </div>
             </div>
@@ -267,7 +268,7 @@ function DiagnosticResult() {
                     }
                   `}
                 >
-                  {f.direction === 'up' ? '\u2197' : '\u2198'}
+                  {f.direction === 'up' ? '↗' : '↘'}
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className="text-[14px] font-medium text-[var(--text-primary)]">{f.factor}</p>
@@ -289,9 +290,9 @@ function DiagnosticResult() {
                 Rapport complet par IA
               </h2>
               <p className="text-[14px] text-[var(--text-secondary)]">
-                Notre IA applique la m\u00E9thode{' '}
+                Notre IA applique la méthode{' '}
                 <strong style={{ color: archetype.color }}>{archetype.primaryMethod}</strong>{' '}
-                avec les multiples Damodaran 2026 pour g\u00E9n\u00E9rer votre rapport personnalis\u00E9.
+                avec les multiples Damodaran 2026 pour générer votre rapport personnalisé.
               </p>
             </div>
 
@@ -315,7 +316,7 @@ function DiagnosticResult() {
                     trackConversion('checkout_started', { archetype_id: archetypeId, plan: 'eval_complete' })
                   }}
                 >
-                  G\u00E9n\u00E9rer mon rapport &mdash; 79\u20AC &rarr;
+                  Générer mon rapport — 79€ →
                 </Link>
               </Button>
               <p className="text-center text-[12px] text-[var(--text-muted)] mt-3">
@@ -325,7 +326,7 @@ function DiagnosticResult() {
           </div>
         </section>
 
-        {/* ─── Footer ───────────────────────────────────────────────── */}
+        {/* ─── Restart link ────────────────────────────────────────── */}
         <div className="text-center pt-8 pb-4">
           <button
             onClick={() => router.push('/diagnostic')}
@@ -335,6 +336,8 @@ function DiagnosticResult() {
           </button>
         </div>
       </div>
+
+      <Footer />
     </div>
   )
 }
@@ -346,7 +349,7 @@ function DiagnosticResult() {
 export default function DiagnosticResultPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
+      <div className="min-h-[calc(100vh-var(--nav-height))] bg-[var(--bg-primary)] flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
       </div>
     }>

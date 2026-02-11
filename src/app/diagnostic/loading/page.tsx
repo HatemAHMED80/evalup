@@ -9,11 +9,11 @@ import { trackConversion } from '@/lib/analytics'
 // ---------------------------------------------------------------------------
 
 const MESSAGES = [
-  'Analyse du secteur\u2026',
-  'D\u00E9tection du profil\u2026',
-  'Identification de la m\u00E9thode\u2026',
-  'Benchmark sectoriel\u2026',
-  'G\u00E9n\u00E9ration du diagnostic\u2026',
+  'Analyse du secteur…',
+  'Détection du profil…',
+  'Identification de la méthode…',
+  'Benchmark sectoriel…',
+  'Génération du diagnostic…',
 ]
 
 const MESSAGE_INTERVAL = 1800 // ms between each message rotation
@@ -53,7 +53,7 @@ export default function DiagnosticLoadingPage() {
 
     const raw = sessionStorage.getItem('diagnostic_data')
     if (!raw) {
-      setError('Donn\u00E9es manquantes. Veuillez recommencer le diagnostic.')
+      setError('Données manquantes. Veuillez recommencer le diagnostic.')
       return
     }
 
@@ -61,17 +61,23 @@ export default function DiagnosticLoadingPage() {
     try {
       formData = JSON.parse(raw)
     } catch {
-      setError('Donn\u00E9es corrompues. Veuillez recommencer.')
+      setError('Données corrompues. Veuillez recommencer.')
       return
     }
 
     const callApi = async () => {
       try {
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 15000)
+
         const res = await fetch('/api/diagnostic', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData),
+          signal: controller.signal,
         })
+
+        clearTimeout(timeout)
 
         if (!res.ok) {
           const body = await res.json().catch(() => ({}))
@@ -92,7 +98,11 @@ export default function DiagnosticLoadingPage() {
         await new Promise((r) => setTimeout(r, 600))
         router.push(`/diagnostic/signup?archetype=${result.archetypeId}`)
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Erreur inattendue')
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          setError('Le diagnostic prend trop de temps. Veuillez réessayer.')
+        } else {
+          setError(err instanceof Error ? err.message : 'Erreur inattendue')
+        }
       }
     }
 
@@ -105,7 +115,7 @@ export default function DiagnosticLoadingPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center px-6">
+      <div className="min-h-[calc(100vh-var(--nav-height))] bg-[var(--bg-primary)] flex items-center justify-center px-6">
         <div className="text-center space-y-4 max-w-sm">
           <div className="w-16 h-16 mx-auto bg-[var(--danger-light)] rounded-full flex items-center justify-center">
             <svg className="w-8 h-8 text-[var(--danger)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -127,7 +137,7 @@ export default function DiagnosticLoadingPage() {
   // ── Loading state ────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center px-6">
+    <div className="min-h-[calc(100vh-var(--nav-height))] bg-[var(--bg-primary)] flex items-center justify-center px-6">
       <div className="w-full max-w-sm space-y-10">
         {/* Spinner */}
         <div className="relative w-20 h-20 mx-auto">
@@ -138,7 +148,7 @@ export default function DiagnosticLoadingPage() {
         {/* Title */}
         <div className="text-center space-y-2">
           <h1 className="text-[24px] font-bold text-[var(--text-primary)]">
-            D\u00E9tection de votre profil
+            Détection de votre profil
           </h1>
           <p
             key={messageIndex}
