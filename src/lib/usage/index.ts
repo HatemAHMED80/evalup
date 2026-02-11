@@ -14,7 +14,7 @@ export {
   incrementMonthlyEvalCount,
   createPurchase,
   confirmPurchase,
-  FLASH_QUESTIONS_LIMIT,
+  updateEvaluationDiagnosticData,
 } from './evaluations'
 
 export type {

@@ -406,7 +406,7 @@ export default function LandingPage() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Button variant="white" size="lg" asChild>
-              <Link href="/app">
+              <Link href="/diagnostic">
                 Commencer gratuitement &#8594;
               </Link>
             </Button>

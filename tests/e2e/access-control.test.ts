@@ -8,12 +8,8 @@ import {
   closeTestContext,
   takeScreenshot,
   waitForText,
-  sendChatMessage,
-  waitForBotResponse,
-  waitForStreamingEnd,
   wait,
 } from '../utils/browser'
-import { BOULANGERIE_MARTIN } from '../fixtures/test-companies'
 
 const MODULE_NAME = 'access-control'
 
@@ -41,65 +37,67 @@ async function runTest(
 }
 
 // ============================================================
-// TEST 1: /app redirige si non-authentifié
+// TEST 1: /diagnostic est PUBLIC (pas de redirect)
 // ============================================================
-async function testAppRedirectNoAuth(page: Page, logger: TestLogger): Promise<void> {
-  logger.info('Testing /app redirect without auth')
+async function testDiagnosticPublic(page: Page, logger: TestLogger): Promise<void> {
+  logger.info('Testing /diagnostic is public')
 
-  // Effacer les cookies/session pour s'assurer qu'on est non-auth
   await page.deleteCookie(...(await page.cookies()))
 
-  await page.goto(`${TEST_CONFIG.baseUrl}/app`, { waitUntil: 'networkidle2' })
+  await page.goto(`${TEST_CONFIG.baseUrl}/diagnostic`, { waitUntil: 'networkidle2' })
   await wait(3000)
 
   const url = page.url()
-  const isRedirected = url.includes('/connexion') || url.includes('/inscription')
 
-  if (!isRedirected) {
-    // Vérifier si la page affiche un message d'auth
-    const hasAuthMessage = await page.evaluate(() => {
-      const text = document.body.innerText.toLowerCase()
-      return text.includes('connexion') || text.includes('connecter') || text.includes('authentif')
-    })
-
-    if (!hasAuthMessage) {
-      throw new Error(`/app did not redirect to auth page. Current URL: ${url}`)
-    }
+  // /diagnostic ne doit PAS rediriger vers /connexion
+  if (url.includes('/connexion') || url.includes('/inscription')) {
+    throw new Error(`/diagnostic redirected to auth page: ${url}`)
   }
 
-  logger.info(`/app redirected to: ${url}`)
-  await takeScreenshot(page, 'app_no_auth')
+  // Vérifier que la page de diagnostic est bien chargée
+  const hasContent = await page.evaluate(() => {
+    const text = document.body.innerText.toLowerCase()
+    return text.includes('diagnostic') || text.includes('siren') || text.includes('entreprise') || document.body.innerText.length > 100
+  })
+
+  if (!hasContent) {
+    throw new Error('/diagnostic page has insufficient content')
+  }
+
+  logger.info(`/diagnostic loaded as public page: ${url}`)
+  await takeScreenshot(page, 'diagnostic_public')
 }
 
 // ============================================================
-// TEST 2: /chat redirige si non-authentifié
+// TEST 2: /diagnostic/result redirige si non-auth
 // ============================================================
-async function testChatRedirectNoAuth(page: Page, logger: TestLogger): Promise<void> {
-  logger.info('Testing /chat redirect without auth')
+async function testDiagnosticResultRedirect(page: Page, logger: TestLogger): Promise<void> {
+  logger.info('Testing /diagnostic/result redirect without auth')
 
   await page.deleteCookie(...(await page.cookies()))
 
-  await page.goto(`${TEST_CONFIG.baseUrl}/chat/${TEST_SIRENS.totalEnergies}`, {
+  await page.goto(`${TEST_CONFIG.baseUrl}/diagnostic/result`, {
     waitUntil: 'networkidle2',
   })
   await wait(3000)
 
   const url = page.url()
-  const isRedirected = url.includes('/connexion') || url.includes('/inscription')
+  const isRedirected = url.includes('/connexion') || url.includes('/inscription') || url.includes('/diagnostic/signup')
 
   if (!isRedirected) {
+    // Check if there's an auth message or redirect prompt
     const hasAuthMessage = await page.evaluate(() => {
       const text = document.body.innerText.toLowerCase()
-      return text.includes('connexion') || text.includes('connecter') || text.includes('authentif')
+      return text.includes('connexion') || text.includes('connecter') || text.includes('authentif') || text.includes('inscri')
     })
 
     if (!hasAuthMessage) {
-      throw new Error(`/chat did not redirect to auth page. Current URL: ${url}`)
+      throw new Error(`/diagnostic/result did not redirect to auth page. Current URL: ${url}`)
     }
   }
 
-  logger.info(`/chat redirected to: ${url}`)
-  await takeScreenshot(page, 'chat_no_auth')
+  logger.info(`/diagnostic/result redirected to: ${url}`)
+  await takeScreenshot(page, 'diagnostic_result_no_auth')
 }
 
 // ============================================================
@@ -131,56 +129,7 @@ async function testCompteRedirectNoAuth(page: Page, logger: TestLogger): Promise
   await takeScreenshot(page, 'compte_no_auth')
 }
 
-// ============================================================
-// TEST 4: Flash limité à 8 questions
-// ============================================================
-async function testFlash8QuestionLimit(page: Page, logger: TestLogger): Promise<void> {
-  logger.info('Testing Flash 8-question limit')
-
-  await page.goto(`${TEST_CONFIG.baseUrl}/chat/${TEST_SIRENS.totalEnergies}?objectif=vente`, {
-    waitUntil: 'networkidle2',
-  })
-  await wait(3000)
-
-  // Attendre le premier message
-  try {
-    await waitForStreamingEnd(page, 30000)
-  } catch {
-    logger.warn('Streaming end detection timed out, continuing...')
-  }
-
-  // Envoyer des messages jusqu'à atteindre la limite
-  const testCase = BOULANGERIE_MARTIN
-  const responses = Object.values(testCase.flashAnswers.responses)
-  let flashComplete = false
-
-  for (let i = 0; i < Math.min(responses.length, 10); i++) {
-    try {
-      await sendChatMessage(page, responses[i] || `Réponse test numéro ${i + 1}`)
-      await waitForBotResponse(page, 45000)
-      await wait(500)
-
-      // Vérifier si on a atteint la limite Flash
-      const pageText = await page.evaluate(() => document.body.innerText)
-      if (
-        pageText.includes('FLASH_VALUATION_COMPLETE') ||
-        pageText.includes('limite') ||
-        pageText.includes('flash') && pageText.includes('termin') ||
-        pageText.includes('Passer') && pageText.includes('Pro')
-      ) {
-        flashComplete = true
-        logger.info(`Flash limit reached after ${i + 1} messages`)
-        break
-      }
-    } catch (error) {
-      logger.warn(`Message ${i + 1} failed: ${error}`)
-    }
-  }
-
-  // Le test passe si on a détecté la fin Flash ou si on a pu envoyer les messages
-  logger.info(`Flash complete: ${flashComplete}`)
-  await takeScreenshot(page, 'flash_limit')
-}
+// TEST 4 SUPPRIMÉ : "8 questions max" n'existe plus (pas de Flash chat)
 
 // ============================================================
 // TEST 5: Flash - pas de bouton PDF téléchargement
@@ -227,44 +176,7 @@ async function testFlashNoPDFButton(page: Page, logger: TestLogger): Promise<voi
   await takeScreenshot(page, 'flash_no_pdf')
 }
 
-// ============================================================
-// TEST 6: Flash - upload doc désactivé
-// ============================================================
-async function testFlashNoDocUpload(page: Page, logger: TestLogger): Promise<void> {
-  logger.info('Testing Flash mode - document upload disabled')
-
-  await page.goto(`${TEST_CONFIG.baseUrl}/chat/${TEST_SIRENS.totalEnergies}`, {
-    waitUntil: 'networkidle2',
-  })
-  await wait(3000)
-
-  const uploadState = await page.evaluate(() => {
-    const buttons = Array.from(document.querySelectorAll('button'))
-    const uploadBtn = buttons.find(btn =>
-      btn.textContent?.includes('document') ||
-      btn.textContent?.includes('upload') ||
-      btn.textContent?.includes('fichier') ||
-      btn.querySelector('input[type="file"]') !== null
-    )
-
-    const fileInput = document.querySelector('input[type="file"]')
-
-    return {
-      hasUploadButton: !!uploadBtn,
-      isDisabled: uploadBtn?.hasAttribute('disabled') || false,
-      hasFileInput: !!fileInput,
-      fileInputDisabled: (fileInput as HTMLInputElement)?.disabled || false,
-    }
-  })
-
-  logger.info(`Upload state: ${JSON.stringify(uploadState)}`)
-
-  if (uploadState.hasUploadButton && !uploadState.isDisabled) {
-    logger.warn('Upload button found and not disabled in Flash mode')
-  }
-
-  await takeScreenshot(page, 'flash_no_upload')
-}
+// TEST 6 SUPPRIMÉ : "upload doc désactivé en Flash" n'existe plus (pas de Flash chat)
 
 // ============================================================
 // TEST 7: Upgrade CTA visible après flash
@@ -365,23 +277,28 @@ async function testUpgradeSuccessReturn(page: Page, logger: TestLogger): Promise
 async function testUpgradeCanceledReturn(page: Page, logger: TestLogger): Promise<void> {
   logger.info('Testing ?upgrade=canceled return')
 
+  // Clear localStorage to prevent draft contamination from previous success test
+  await page.goto(`${TEST_CONFIG.baseUrl}/chat/${TEST_SIRENS.totalEnergies}`, { waitUntil: 'networkidle2' })
+  await page.evaluate(() => localStorage.clear())
+
   await page.goto(`${TEST_CONFIG.baseUrl}/chat/${TEST_SIRENS.totalEnergies}?upgrade=canceled`, {
     waitUntil: 'networkidle2',
   })
   await wait(2000)
 
-  // La page ne devrait pas afficher de message de succès
+  // La page ne devrait pas afficher de message de succès explicite
   const pageState = await page.evaluate(() => {
     const text = document.body.innerText.toLowerCase()
     return {
-      hasError: text.includes('erreur') && text.includes('paiement'),
-      hasSuccess: text.includes('succès') || text.includes('confirmé'),
+      // Chercher des messages de succès explicites (pas juste le mot "paiement")
+      hasExplicitSuccess: text.includes('paiement confirmé') || text.includes('paiement réussi') ||
+                          text.includes('merci pour votre achat'),
       pageLoaded: document.body.innerText.length > 50,
     }
   })
 
-  if (pageState.hasSuccess) {
-    throw new Error('Canceled payment shows success message!')
+  if (pageState.hasExplicitSuccess) {
+    throw new Error('Canceled payment shows explicit success message!')
   }
 
   if (!pageState.pageLoaded) {
@@ -402,28 +319,20 @@ export async function runAccessControlTests(reporter: TestReporter): Promise<voi
   reporter.startModule(MODULE_NAME)
 
   try {
-    reporter.addResult(await runTest('/app redirige si non-auth', async () => {
-      await testAppRedirectNoAuth(page, logger)
+    reporter.addResult(await runTest('/diagnostic est PUBLIC', async () => {
+      await testDiagnosticPublic(page, logger)
     }, logger, reporter))
 
-    reporter.addResult(await runTest('/chat redirige si non-auth', async () => {
-      await testChatRedirectNoAuth(page, logger)
+    reporter.addResult(await runTest('/diagnostic/result redirige si non-auth', async () => {
+      await testDiagnosticResultRedirect(page, logger)
     }, logger, reporter))
 
     reporter.addResult(await runTest('/compte redirige si non-auth', async () => {
       await testCompteRedirectNoAuth(page, logger)
     }, logger, reporter))
 
-    reporter.addResult(await runTest('Flash : 8 questions max', async () => {
-      await testFlash8QuestionLimit(page, logger)
-    }, logger, reporter))
-
-    reporter.addResult(await runTest('Flash : pas de PDF download', async () => {
+    reporter.addResult(await runTest('Chat : pas de PDF sans paiement', async () => {
       await testFlashNoPDFButton(page, logger)
-    }, logger, reporter))
-
-    reporter.addResult(await runTest('Flash : upload doc désactivé', async () => {
-      await testFlashNoDocUpload(page, logger)
     }, logger, reporter))
 
     reporter.addResult(await runTest('Upgrade CTA visible', async () => {

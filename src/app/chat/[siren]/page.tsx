@@ -67,7 +67,16 @@ export default function ChatPage() {
   const searchParams = useSearchParams()
   const siren = params.siren as string
   const parcours = searchParams.get('parcours') as UserParcours | null
-  const upgradeSuccess = searchParams.get('upgrade') === 'success'
+  const upgradeCanceled = searchParams.get('upgrade') === 'canceled'
+
+  // Clean URL param for canceled upgrade (no action needed, just remove noise)
+  useEffect(() => {
+    if (upgradeCanceled) {
+      const url = new URL(window.location.href)
+      url.searchParams.delete('upgrade')
+      window.history.replaceState({}, '', url.toString())
+    }
+  }, [upgradeCanceled])
 
   const [entreprise, setEntreprise] = useState<EntrepriseData | null>(null)
   const [context, setContext] = useState<ConversationContext | null>(null)
@@ -183,5 +192,5 @@ export default function ChatPage() {
     )
   }
 
-  return <ChatLayout entreprise={entreprise} initialContext={context} bentoGridData={bentoGridData || undefined} upgradeSuccess={upgradeSuccess} />
+  return <ChatLayout entreprise={entreprise} initialContext={context} bentoGridData={bentoGridData || undefined} />
 }

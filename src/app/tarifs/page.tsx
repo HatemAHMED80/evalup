@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
@@ -9,52 +9,57 @@ import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
 import { createClient } from '@/lib/supabase/client'
 
-const PLANS = [
+const PRIMARY_PLANS = [
   {
-    id: 'flash',
-    name: 'Flash',
-    description: 'Evaluation indicative gratuite',
+    id: 'diagnostic',
+    name: 'Diagnostic gratuit',
+    description: 'Decouvrez votre profil de valorisation',
     price: 'Gratuit',
     priceDetail: null,
     features: [
-      'Valorisation indicative',
-      '8 questions essentielles',
-      'Donnees Pappers incluses',
+      'Diagnostic en 2 minutes',
+      'Detection de votre archetype',
+      'Methode de valorisation recommandee',
+      'Erreurs courantes a eviter',
+      'Facteurs cles identifies',
     ],
     limitations: [
-      'Pas d\'upload de documents',
+      'Pas de chiffre de valorisation',
       'Pas de rapport PDF',
     ],
-    cta: 'Commencer',
-    ctaHref: '/app',
+    cta: 'Lancer le diagnostic',
+    ctaHref: '/diagnostic',
     popular: false,
     isSubscription: false,
   },
   {
     id: 'eval_complete',
-    name: 'Evaluation Complete',
-    description: 'Valorisation precise avec rapport',
-    price: '79€',
+    name: 'Rapport complet',
+    description: 'Valorisation precise par IA + rapport PDF',
+    price: '79\u20AC',
     priceDetail: 'par evaluation',
     features: [
-      'Valorisation precise',
-      'Questions illimitees',
-      'Upload documents illimite',
+      'Analyse IA conversationnelle',
+      'Methode adaptee a votre profil',
+      'Multiples Damodaran 2026',
       'Retraitements EBITDA',
       'Analyse des risques',
-      'Rapport PDF professionnel',
+      'Rapport PDF 30+ pages',
     ],
     limitations: [],
-    cta: 'Acheter',
-    ctaHref: '/app',
+    cta: 'Obtenir mon rapport',
+    ctaHref: '/diagnostic',
     popular: true,
     isSubscription: false,
   },
+]
+
+const PRO_PLANS = [
   {
     id: 'pro_10',
     name: 'Pro 10',
     description: 'Pour les professionnels',
-    price: '199€',
+    price: '199\u20AC',
     priceDetail: '/mois',
     features: [
       '10 evaluations completes/mois',
@@ -72,7 +77,7 @@ const PLANS = [
     id: 'pro_unlimited',
     name: 'Pro Illimite',
     description: 'Pour les cabinets M&A',
-    price: '399€',
+    price: '399\u20AC',
     priceDetail: '/mois',
     features: [
       'Evaluations illimitees',
@@ -147,16 +152,16 @@ export default function TarifsPage() {
           </div>
         </section>
 
-        {/* Plans */}
+        {/* Primary Plans */}
         <section className="py-16">
-          <div className="max-w-6xl mx-auto px-8">
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {PLANS.map((plan) => (
+          <div className="max-w-4xl mx-auto px-8">
+            <div className="grid md:grid-cols-2 gap-8">
+              {PRIMARY_PLANS.map((plan) => (
                 <div
                   key={plan.id}
                   className={`
                     bg-[var(--bg-primary)]
-                    border rounded-[var(--radius-xl)] p-6
+                    border rounded-[var(--radius-xl)] p-8
                     relative
                     ${plan.popular
                       ? 'border-[var(--accent)] shadow-[var(--shadow-lg)]'
@@ -171,6 +176,76 @@ export default function TarifsPage() {
                   )}
 
                   <div className="mb-6">
+                    <h3 className="text-[20px] font-bold text-[var(--text-primary)]">
+                      {plan.name}
+                    </h3>
+                    <p className="text-[14px] text-[var(--text-secondary)] mt-1">
+                      {plan.description}
+                    </p>
+                  </div>
+
+                  <div className="mb-6">
+                    <span className="text-[36px] font-bold text-[var(--text-primary)]">
+                      {plan.price}
+                    </span>
+                    {plan.priceDetail && (
+                      <span className="text-[var(--text-muted)] ml-1">
+                        {plan.priceDetail}
+                      </span>
+                    )}
+                  </div>
+
+                  <ul className="space-y-2.5 mb-8">
+                    {plan.features.map((feature, i) => (
+                      <li key={i} className="flex items-start gap-2 text-[14px]">
+                        <svg className="w-4 h-4 text-[var(--success)] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span className="text-[var(--text-primary)]">{feature}</span>
+                      </li>
+                    ))}
+                    {plan.limitations.map((limitation, i) => (
+                      <li key={i} className="flex items-start gap-2 text-[14px]">
+                        <svg className="w-4 h-4 text-[var(--text-muted)] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        <span className="text-[var(--text-muted)]">{limitation}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <Button
+                    variant={plan.popular ? 'primary' : 'outline'}
+                    size="lg"
+                    className="w-full"
+                    asChild
+                  >
+                    <Link href={plan.ctaHref}>{plan.cta}</Link>
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Pro Plans */}
+        <section className="py-16 bg-[var(--bg-secondary)]">
+          <div className="max-w-4xl mx-auto px-8">
+            <div className="text-center mb-10">
+              <h2 className="text-[24px] font-bold text-[var(--text-primary)] mb-2">
+                Offres professionnelles
+              </h2>
+              <p className="text-[var(--text-secondary)]">
+                Pour les experts-comptables, cabinets M&A et professionnels du chiffre.
+              </p>
+            </div>
+            <div className="grid md:grid-cols-2 gap-6">
+              {PRO_PLANS.map((plan) => (
+                <div
+                  key={plan.id}
+                  className="bg-[var(--bg-primary)] border border-[var(--border)] rounded-[var(--radius-xl)] p-6"
+                >
+                  <div className="mb-4">
                     <h3 className="text-[18px] font-bold text-[var(--text-primary)]">
                       {plan.name}
                     </h3>
@@ -179,15 +254,13 @@ export default function TarifsPage() {
                     </p>
                   </div>
 
-                  <div className="mb-6">
-                    <span className="text-[32px] font-bold text-[var(--text-primary)]">
+                  <div className="mb-4">
+                    <span className="text-[28px] font-bold text-[var(--text-primary)]">
                       {plan.price}
                     </span>
-                    {plan.priceDetail && (
-                      <span className="text-[var(--text-muted)] ml-1">
-                        {plan.priceDetail}
-                      </span>
-                    )}
+                    <span className="text-[var(--text-muted)] ml-1">
+                      {plan.priceDetail}
+                    </span>
                   </div>
 
                   <ul className="space-y-2 mb-6">
@@ -199,34 +272,16 @@ export default function TarifsPage() {
                         <span className="text-[var(--text-primary)]">{feature}</span>
                       </li>
                     ))}
-                    {plan.limitations.map((limitation, i) => (
-                      <li key={i} className="flex items-start gap-2 text-[13px]">
-                        <svg className="w-4 h-4 text-[var(--text-muted)] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                        <span className="text-[var(--text-muted)]">{limitation}</span>
-                      </li>
-                    ))}
                   </ul>
 
-                  {plan.isSubscription ? (
-                    <Button
-                      variant={plan.popular ? 'primary' : 'outline'}
-                      className="w-full"
-                      onClick={() => handleSubscribe(plan.id)}
-                      isLoading={isLoading === plan.id}
-                    >
-                      {plan.cta}
-                    </Button>
-                  ) : (
-                    <Button
-                      variant={plan.popular ? 'primary' : 'outline'}
-                      className="w-full"
-                      asChild
-                    >
-                      <Link href={plan.ctaHref}>{plan.cta}</Link>
-                    </Button>
-                  )}
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => handleSubscribe(plan.id)}
+                    isLoading={isLoading === plan.id}
+                  >
+                    {plan.cta}
+                  </Button>
                 </div>
               ))}
             </div>

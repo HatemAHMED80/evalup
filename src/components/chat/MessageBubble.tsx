@@ -2,8 +2,6 @@
 
 import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { FlashValuationDisplay, parseFlashValuation } from './FlashValuationDisplay'
-
 interface MessageBubbleProps {
   message: {
     id?: string
@@ -14,10 +12,6 @@ interface MessageBubbleProps {
   }
   isStreaming?: boolean
   onSuggestionClick?: (suggestion: string) => void
-  onUpgrade?: () => void
-  entrepriseNom?: string
-  entrepriseActivite?: string
-  siren?: string
 }
 
 // Types pour le parsing
@@ -92,24 +86,14 @@ export function MessageBubble({
   message,
   isStreaming = false,
   onSuggestionClick,
-  onUpgrade,
-  entrepriseNom,
-  entrepriseActivite,
-  siren
 }: MessageBubbleProps) {
   const isUser = message.role === 'user'
   const [selectedSuggestions, setSelectedSuggestions] = useState<string[]>([])
 
-  // Détecter si c'est une valorisation Flash complète
-  const isFlashValuation = !isUser && message.content.includes('[FLASH_VALUATION_COMPLETE]')
-
-  // Parser les données de valorisation si c'est une évaluation Flash
-  const flashData = isFlashValuation ? parseFlashValuation(message.content) : null
-
   // Extraire les différentes sections du contenu
   const { mainContent, context, question, suggestions } = isUser
     ? { mainContent: message.content, context: null, question: null, suggestions: [] }
-    : parseContent(message.content.replace('[FLASH_VALUATION_COMPLETE]', '').replace('[EVALUATION_COMPLETE]', ''))
+    : parseContent(message.content.replace('[EVALUATION_COMPLETE]', ''))
 
   // Toggle une suggestion
   const toggleSuggestion = (suggestion: string) => {
@@ -146,36 +130,6 @@ export function MessageBubble({
           <div className="bg-[#c9a227] text-[#1a1a2e] rounded-2xl rounded-br-md px-4 py-3">
             <p className="whitespace-pre-wrap">{message.content}</p>
           </div>
-        </div>
-      </div>
-    )
-  }
-
-  // Si c'est une valorisation Flash avec données parsées, afficher le composant visuel
-  if (isFlashValuation && flashData && !isStreaming) {
-    // Enrichir les données avec le nom et l'activité de l'entreprise
-    const enrichedData = {
-      ...flashData,
-      entreprise: entrepriseNom || flashData.entreprise,
-      activite: entrepriseActivite || flashData.activite,
-    }
-
-    return (
-      <div className="flex gap-3">
-        {/* Avatar */}
-        <div className="flex-shrink-0">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#c9a227] to-[#e8c547] flex items-center justify-center">
-            <span className="text-[#1a1a2e] font-bold text-xs">E</span>
-          </div>
-        </div>
-
-        {/* Contenu - Composant Flash Valuation */}
-        <div className="flex-1 min-w-0 pt-1">
-          <FlashValuationDisplay
-            data={enrichedData}
-            onUpgrade={onUpgrade}
-            siren={siren}
-          />
         </div>
       </div>
     )

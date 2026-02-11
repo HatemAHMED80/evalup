@@ -41,7 +41,7 @@ export function Hero() {
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-up delay-3">
             <Link
-              href="/app"
+              href="/diagnostic"
               className="inline-flex items-center justify-center px-7 py-3.5 text-[15px] font-semibold bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] rounded-[var(--radius-lg)] shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] transition-all duration-150"
             >
               Commencer gratuitement

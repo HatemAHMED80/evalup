@@ -1,16 +1,12 @@
 // Module d'évaluation par secteur
 // Exporte toutes les fonctionnalités du moteur d'évaluation
 
-// Types V1 (rétrocompatibilité)
+// Types
 export type {
   ConfigSecteur,
   ResultatEvaluation,
   DonneesFinancieres,
   FacteursAjustement,
-} from './types'
-
-// Types V2 (nouvelle méthodologie)
-export type {
   BilanAnnuel,
   RetraitementEbitda,
   EbitdaNormalise,
@@ -33,33 +29,10 @@ export {
   detecterSecteurEvaluation,
   getSecteurParCode,
   getTousLesSecteurs,
-  TRANSPORT,
-  SAAS,
-  RESTAURANT,
-  COMMERCE,
-  ECOMMERCE,
-  BTP,
-  INDUSTRIE,
-  SERVICES,
-  SANTE,
-  PHARMACIE,
-  LABO,
-  MEDECIN,
-  DENTAIRE,
-  PARAMEDICAL,
-  DEFAULT,
 } from './secteurs'
 
-// Calculateur V1 (rétrocompatibilité)
-export {
-  evaluerEntreprise,
-  evaluerRapide,
-  getQuestionsParSecteur,
-  getFacteursParSecteur,
-} from './calculateur'
-
-// Calculateur V2 (nouvelle méthodologie)
-export { evaluerEntrepriseV2 } from './calculateur-v2'
+// Calculateur
+export { evaluerEntrepriseV2 } from './calculateur'
 
 // EBITDA normalisé
 export {

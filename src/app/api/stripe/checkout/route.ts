@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { stripe } from '@/lib/stripe/client'
 import { PLANS } from '@/lib/stripe/plans'
-import { createPurchase } from '@/lib/usage'
+import { createPurchase, updateEvaluationDiagnosticData } from '@/lib/usage'
 import { checkoutBodySchema } from '@/lib/security/schemas'
 
 // Client admin pour les opérations sur profiles (bypass RLS)
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { planId, evaluationId, siren } = parseResult.data
+    const { planId, evaluationId, siren, archetypeId, diagnosticData } = parseResult.data
 
     // Verifier que le plan existe
     const plan = PLANS[planId as keyof typeof PLANS]
@@ -147,6 +147,15 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      // Stocker les données du diagnostic dans l'évaluation
+      if (evalId && archetypeId) {
+        try {
+          await updateEvaluationDiagnosticData(evalId, archetypeId, diagnosticData || {})
+        } catch (diagError) {
+          console.error('Erreur stockage diagnostic data (non-bloquant):', diagError)
+        }
+      }
+
       // Creer la session Checkout en mode payment (one-time)
       const session = await stripe.checkout.sessions.create({
         customer: customerId,
@@ -158,13 +167,14 @@ export async function POST(request: NextRequest) {
             quantity: 1,
           },
         ],
-        success_url: `${process.env.NEXT_PUBLIC_APP_URL}/chat/${siren}?upgrade=success`,
-        cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/chat/${siren}?upgrade=canceled`,
+        success_url: `${process.env.NEXT_PUBLIC_APP_URL}/evaluation/${evalId}/upload?payment=success`,
+        cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/diagnostic/result?canceled=true`,
         metadata: {
           supabase_user_id: user.id,
           plan_id: planId,
           evaluation_id: evalId || '',
           siren: siren || '',
+          archetype_id: archetypeId || '',
         },
         payment_intent_data: {
           metadata: {

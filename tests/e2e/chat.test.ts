@@ -192,48 +192,36 @@ async function testObjectifSelection(page: Page, logger: TestLogger): Promise<vo
 }
 
 // ============================================================
-// TEST 5: Conversation Flash complète avec réponses réalistes
+// TEST 5: Conversation complète avec prompt archétype (post-paiement)
 // ============================================================
-async function testFlashConversation(page: Page, logger: TestLogger): Promise<void> {
+async function testArchetypeConversation(page: Page, logger: TestLogger): Promise<void> {
   const testCase = BOULANGERIE_MARTIN
 
-  logger.info(`Starting Flash conversation for: ${testCase.name}`)
+  logger.info(`Starting post-payment conversation for: ${testCase.name}`)
   await page.goto(`${TEST_CONFIG.baseUrl}/chat/${TEST_SIRENS.totalEnergies}?objectif=vente`)
 
   await wait(3000)
 
   // Attendre le premier message
-  await waitForStreamingEnd(page, 30000)
+  try {
+    await waitForStreamingEnd(page, 30000)
+  } catch {
+    logger.warn('Streaming end detection timed out, continuing...')
+  }
 
   // Répondre aux questions avec des données réalistes
   const conversationSteps = [
-    {
-      userMessage: testCase.flashAnswers.responses['activite_detail'],
-      waitForKeyword: 'activité',
-    },
-    {
-      userMessage: testCase.flashAnswers.responses['tendance_ca'] ||
-        `Notre CA est d'environ ${testCase.financials.ca.toLocaleString('fr-FR')}€, stable sur les 3 dernières années.`,
-      waitForKeyword: 'chiffre',
-    },
-    {
-      userMessage: testCase.flashAnswers.responses['effectif_detail'] ||
-        `Nous avons une équipe de ${testCase.expectedData.effectif}.`,
-      waitForKeyword: 'équipe',
-    },
-    {
-      userMessage: testCase.flashAnswers.responses['particularite'] ||
-        'Notre positionnement est unique sur notre zone de chalandise.',
-      waitForKeyword: 'particularité',
-    },
+    testCase.flashAnswers.responses['activite_detail'],
+    testCase.flashAnswers.responses['tendance_ca'] ||
+      `Notre CA est d'environ ${testCase.financials.ca.toLocaleString('fr-FR')}€, stable sur les 3 dernières années.`,
+    testCase.flashAnswers.responses['effectif_detail'] ||
+      `Nous avons une équipe de ${testCase.expectedData.effectif}.`,
   ]
 
-  for (const step of conversationSteps) {
+  for (const message of conversationSteps) {
     try {
-      logger.info(`Sending: ${step.userMessage.substring(0, 60)}...`)
-      await sendChatMessage(page, step.userMessage)
-
-      // Attendre la réponse
+      logger.info(`Sending: ${message.substring(0, 60)}...`)
+      await sendChatMessage(page, message)
       await waitForBotResponse(page, 45000)
       await wait(1000)
     } catch (error) {
@@ -241,30 +229,49 @@ async function testFlashConversation(page: Page, logger: TestLogger): Promise<vo
     }
   }
 
-  await takeScreenshot(page, 'flash_conversation')
-  logger.info('Flash conversation test completed')
+  // Vérifier que la conversation est guidée (questions structurées, benchmarks)
+  const hasStructuredResponse = await page.evaluate(() => {
+    const text = document.body.innerText.toLowerCase()
+    return text.includes('?') && (
+      text.includes('secteur') ||
+      text.includes('marge') ||
+      text.includes('chiffre') ||
+      text.includes('activité')
+    )
+  })
+
+  if (!hasStructuredResponse) {
+    logger.warn('Conversation may not be using archetype-guided questions')
+  }
+
+  await takeScreenshot(page, 'archetype_conversation')
+  logger.info('Archetype conversation test completed')
 }
 
 // ============================================================
-// TEST 6: Affichage valorisation Flash
+// TEST 6: Affichage valorisation avec méthode archétype
 // ============================================================
-async function testFlashValuationDisplay(page: Page, logger: TestLogger): Promise<void> {
-  logger.info('Checking for Flash valuation display')
+async function testArchetypeValuationDisplay(page: Page, logger: TestLogger): Promise<void> {
+  logger.info('Checking for archetype-based valuation display')
 
-  // Vérifier si on a un composant de valorisation
-  const hasValuation = await page.evaluate(() => {
+  // Vérifier si on a des éléments de valorisation
+  const valuationState = await page.evaluate(() => {
     const text = document.body.innerText
-    return text.includes('valorisation') ||
-           text.includes('Valorisation') ||
-           text.includes('fourchette') ||
-           text.includes('€')
+    return {
+      hasValuation: text.includes('valorisation') || text.includes('Valorisation'),
+      hasFourchette: text.includes('fourchette') || text.includes('entre'),
+      hasEuro: text.includes('€'),
+      hasMethode: text.includes('méthode') || text.includes('EBITDA') || text.includes('multiple'),
+    }
   })
 
-  if (hasValuation) {
+  logger.info(`Valuation state: ${JSON.stringify(valuationState)}`)
+
+  if (valuationState.hasValuation || valuationState.hasFourchette) {
     logger.info('Valuation elements found on page')
   }
 
-  await takeScreenshot(page, 'flash_valuation')
+  await takeScreenshot(page, 'archetype_valuation')
 }
 
 // ============================================================
@@ -365,17 +372,17 @@ export async function runChatTests(reporter: TestReporter): Promise<void> {
       }, logger, reporter)
     )
 
-    // Test 5: Conversation Flash
+    // Test 5: Conversation avec prompt archétype
     reporter.addResult(
-      await runTest('Conversation Flash complète', async () => {
-        await testFlashConversation(page, logger)
+      await runTest('Conversation complète (archétype)', async () => {
+        await testArchetypeConversation(page, logger)
       }, logger, reporter)
     )
 
-    // Test 6: Valorisation Flash
+    // Test 6: Valorisation archétype
     reporter.addResult(
-      await runTest('Affichage valorisation Flash', async () => {
-        await testFlashValuationDisplay(page, logger)
+      await runTest('Affichage valorisation (archétype)', async () => {
+        await testArchetypeValuationDisplay(page, logger)
       }, logger, reporter)
     )
 

@@ -1,0 +1,1153 @@
+{
+  "metadata": {
+    "description": "Cas de benchmark pour validation du moteur de valorisation EvalUp",
+    "sources": [
+      "Thauvron - Évaluation d'entreprise (corrigés exercices)",
+      "Vernimmen - Finance d'entreprise (cas pratiques)",
+      "Damodaran - Corporate Valuations (NYU Stern)"
+    ],
+    "format_version": "1.0",
+    "generated": "2026-02-11",
+    "total_cases": 28,
+    "cases_by_source": {
+      "Damodaran": 3,
+      "Vernimmen": 7,
+      "Thauvron": 18
+    },
+    "methods_covered": 18,
+    "notes": "2 cas Vernimmen (Europcar, EPC) ont des données partielles — annexes PDF/Excel requises pour compléter"
+  },
+
+  "cases": [
+
+    {
+      "id": "DAM-001",
+      "source": "Damodaran",
+      "company": "Consolidated Edison (Con Ed)",
+      "country": "US",
+      "sector": "Utilities (electric)",
+      "currency": "USD",
+      "valuation_date": "2008",
+      "method": "gordon_growth_ddm",
+      "method_label": "Gordon Growth Dividend Discount Model",
+      "inputs": {
+        "financial": {
+          "earnings_per_share": 3.17,
+          "dividends_per_share": 2.32,
+          "payout_ratio": 0.7319,
+          "stock_price": 43.42
+        },
+        "assumptions": {
+          "beta": 0.80,
+          "risk_free_rate": 0.041,
+          "equity_risk_premium": 0.045,
+          "cost_of_equity": 0.077,
+          "expected_growth_rate": 0.021
+        }
+      },
+      "expected_results": {
+        "value_per_share": 42.30,
+        "implied_growth_rate": 0.0224,
+        "sensitivity": [
+          {"growth_rate": 0.041, "value": 67.09},
+          {"growth_rate": 0.031, "value": 52.00},
+          {"growth_rate": 0.021, "value": 42.30},
+          {"growth_rate": 0.011, "value": 35.54},
+          {"growth_rate": 0.001, "value": 30.56},
+          {"growth_rate": -0.009, "value": 26.73},
+          {"growth_rate": -0.019, "value": 23.72},
+          {"growth_rate": -0.029, "value": 21.28},
+          {"growth_rate": -0.039, "value": 19.22}
+        ]
+      },
+      "notes": "Stable-growth utility. Value ≈ market price → efficient pricing."
+    },
+
+    {
+      "id": "DAM-002",
+      "source": "Damodaran",
+      "company": "3M (Pre-Crisis)",
+      "country": "US",
+      "sector": "Industrial conglomerate",
+      "currency": "USD",
+      "valuation_date": "2008",
+      "method": "dcf_fcff",
+      "method_label": "Multi-stage FCFF Discounted Cash Flow",
+      "inputs": {
+        "financial": {
+          "revenue": 24462000000,
+          "ebit_reported": 5344000000,
+          "ebit_adjusted": 5344000000,
+          "tax_rate": 0.32,
+          "capex": 1422000000,
+          "depreciation": 1036000000,
+          "working_capital_change": 0,
+          "debt_book": 5279000000,
+          "cash": 1896000000,
+          "shares_outstanding_millions": 694.3,
+          "stock_price": 80.00,
+          "operating_leases_debt_adjustment": 377000000,
+          "operating_leases_ebit_adjustment": 172000000,
+          "rd_amortization_adjustment": true,
+          "option_dilution_black_scholes": 1216000000
+        },
+        "assumptions": {
+          "risk_free_rate": 0.0372,
+          "equity_risk_premium": 0.04,
+          "beta_bottom_up": 1.3638,
+          "high_growth_years": 5,
+          "high_growth_rate": 0.075,
+          "high_growth_roc": 0.25,
+          "high_growth_reinvestment_rate": 0.30,
+          "stable_growth_rate": 0.0372,
+          "stable_roc": 0.10,
+          "stable_reinvestment_rate": 0.372,
+          "wacc_high_growth": 0.0863,
+          "wacc_stable": 0.0676,
+          "cost_of_debt_pretax": 0.055
+        },
+        "segments": [
+          {"name": "Industrial & Transportation", "revenue_pct": 0.2739, "beta": 1.39},
+          {"name": "Health Care", "revenue_pct": 0.1701, "beta": 1.18},
+          {"name": "Display & Graphics", "revenue_pct": 0.1615, "beta": 1.74},
+          {"name": "Consumer & Office", "revenue_pct": 0.1404, "beta": 1.17},
+          {"name": "Safety, Security & Protection", "revenue_pct": 0.1377, "beta": 1.38},
+          {"name": "Electro & Communications", "revenue_pct": 0.1165, "beta": 1.04}
+        ]
+      },
+      "expected_results": {
+        "value_per_share": 82.19,
+        "enterprise_value": null,
+        "equity_value": null,
+        "upside_vs_market": 0.027
+      },
+      "notes": "Pre-crisis valuation. Operating leases capitalized, R&D amortized, options diluted via Black-Scholes. Bottom-up beta from 6 segments."
+    },
+
+    {
+      "id": "DAM-003",
+      "source": "Damodaran",
+      "company": "3M (Post-Crisis)",
+      "country": "US",
+      "sector": "Industrial conglomerate",
+      "currency": "USD",
+      "valuation_date": "2009",
+      "method": "dcf_fcff",
+      "method_label": "Multi-stage FCFF DCF (Crisis-Adjusted)",
+      "inputs": {
+        "financial": {
+          "revenue": 24462000000,
+          "ebit_reported": 5344000000,
+          "ebit_normalized": 4892000000,
+          "normalization_method": "sector_margin_20pct",
+          "tax_rate": 0.32,
+          "debt_book": 5279000000,
+          "cash": 1896000000,
+          "shares_outstanding_millions": 694.3,
+          "stock_price": 80.00
+        },
+        "assumptions": {
+          "risk_free_rate": 0.0372,
+          "equity_risk_premium": 0.06,
+          "beta_bottom_up": 1.3638,
+          "high_growth_years": 5,
+          "high_growth_rate": 0.05,
+          "high_growth_roc": 0.20,
+          "stable_growth_rate": 0.0372,
+          "stable_roc": 0.10,
+          "wacc_high_growth": 0.1027,
+          "wacc_stable": 0.0755
+        }
+      },
+      "expected_results": {
+        "value_per_share": 60.53,
+        "upside_vs_market": -0.243
+      },
+      "notes": "Post-crisis: ERP raised to 6%, growth lowered to 5%, earnings normalized using sector margin (20%). Implies 24% overvaluation."
+    },
+
+    {
+      "id": "VER-001",
+      "source": "Vernimmen",
+      "company": "MEDICA",
+      "country": "FR",
+      "sector": "Healthcare / EHPAD (elderly care)",
+      "currency": "EUR",
+      "valuation_date": "2010",
+      "method": "dcf_fcff",
+      "method_label": "DCF (Free Cash Flow to Firm)",
+      "inputs": {
+        "financial": {
+          "revenue": [525, 580, 628, 686, 693, 716, 737, 759, 781, 803],
+          "revenue_years": ["2010e", "2011e", "2012e", "2013e", "2014e", "2015e", "2016e", "2017e", "2018e", "2019e"],
+          "ebit": [73, 82, 90, 99, 104, 104, 107, 110, 114, 117],
+          "depreciation": [29, 20, 21, 21, 21, 22, 22, 23, 24, 24],
+          "capex": [-39, -35, -35, -30, -28, -26, -27, -28, -29, -30],
+          "fcf": [43, 49, 54, 67, 72, 73, 74, 75, 77, 75.85],
+          "net_debt": 769,
+          "shares_millions": 14.2,
+          "tax_rate": 0.34
+        },
+        "assumptions": {
+          "risk_free_rate": 0.034,
+          "equity_risk_premium": 0.056,
+          "beta": 1.4,
+          "cost_of_equity": 0.1124,
+          "cost_of_debt_after_tax": 0.0433,
+          "debt_weight": 0.45,
+          "equity_weight": 0.55,
+          "wacc": 0.0813,
+          "terminal_growth": 0.025,
+          "terminal_fcf": 75.85
+        }
+      },
+      "expected_results": {
+        "enterprise_value": 1013.5,
+        "equity_value": 244.5,
+        "value_per_share": 17.22,
+        "actual_ipo_price": 13.0
+      },
+      "comparables": {
+        "method": "EV/EBITDA and EV/EBIT",
+        "korian": {"ev_ebitda": 12.7, "ev_ebit": 18.5},
+        "range_per_share": {"low": 14.2, "high": 20.2}
+      },
+      "common_dcf_errors": [
+        {"analyst": 1, "error": "Used Ke instead of WACC + forgot to PV terminal value", "wrong_result": 31.04},
+        {"analyst": 2, "error": "Forgot to subtract net debt", "wrong_result": 71.38},
+        {"analyst": 3, "error": "Used net income instead of NOPAT + ignored WC", "wrong_result": 30.65},
+        {"analyst": 4, "error": "Correct", "correct_result": 17.22}
+      ],
+      "notes": "LBO company preparing IPO. Excellent teaching case: 4 analysts, only one correct. Actual IPO at 13€ (market deterioration)."
+    },
+
+    {
+      "id": "VER-002",
+      "source": "Vernimmen",
+      "company": "Autoroutes du Sud de la France (ASF)",
+      "country": "FR",
+      "sector": "Toll motorways (concession)",
+      "currency": "EUR",
+      "valuation_date": "2002",
+      "method": "dcf_finite_life",
+      "method_label": "DCF with finite concession life (no terminal value)",
+      "inputs": {
+        "financial": {
+          "revenue_2001": 1929.8,
+          "ebitda_2001": 1150.8,
+          "ebitda_margin": 0.596,
+          "net_debt_range": [7429, 8349],
+          "market_cap": 6384,
+          "stock_price_ipo": 25.0,
+          "stock_price_first_trade": 26.70,
+          "network_km": 2794
+        },
+        "assumptions": {
+          "wacc": 0.06954,
+          "asset_beta": 0.595,
+          "concession_end": 2037,
+          "traffic_growth_passengers": [0.022, 0.042],
+          "traffic_growth_freight": [0.019, 0.029],
+          "tariff_increase_annual": 0.022
+        }
+      },
+      "expected_results": {
+        "enterprise_value": null,
+        "equity_value": null,
+        "ipo_price": 25.0,
+        "oversubscription": "19x"
+      },
+      "comparables": [
+        {"name": "Acesa", "ev_millions": 3435, "ebitda_margin": 0.679, "beta": 0.84},
+        {"name": "AREA", "ev_millions": 2510, "ebitda_margin": 0.836, "beta": 0.90},
+        {"name": "Autostrade", "ev_millions": 12454, "ebitda_margin": 0.593, "beta": 0.70},
+        {"name": "Brisa", "ev_millions": 3943, "ebitda_margin": 0.748, "beta": 0.68}
+      ],
+      "notes": "Concession company: finite-life DCF (no perpetual terminal value). Cash flows projected 2003-2037."
+    },
+
+    {
+      "id": "VER-003",
+      "source": "Vernimmen",
+      "company": "Pirelli",
+      "country": "IT",
+      "sector": "Tires (automotive)",
+      "currency": "EUR",
+      "valuation_date": "2017",
+      "method": "dcf_fcff",
+      "method_label": "DCF (FCFF) for IPO pricing",
+      "inputs": {
+        "financial": {
+          "revenue_2016": 4976,
+          "ebit_2016": 844,
+          "ebit_margin": 0.170,
+          "net_debt_2017e": 3531,
+          "shares_millions": 1000,
+          "segments": {
+            "haut_de_gamme_pct": 0.575,
+            "standard_pct": 0.425
+          }
+        },
+        "assumptions": {
+          "risk_free_rate": 0.02195,
+          "equity_risk_premium": 0.06,
+          "beta": 1.11,
+          "cost_of_equity": 0.0886,
+          "cost_of_debt_after_tax": 0.04248,
+          "debt_weight": 0.254,
+          "equity_weight": 0.746,
+          "wacc": 0.07685,
+          "terminal_growth": 0.015,
+          "terminal_fcf": 781.75
+        }
+      },
+      "expected_results": {
+        "enterprise_value": 11336,
+        "equity_value": 7805,
+        "value_per_share": 7.81
+      },
+      "common_dcf_errors": [
+        {"analyst": 1, "error": "Used Ke instead of WACC", "wrong_result": 8.98},
+        {"analyst": 2, "error": "No debt subtraction", "wrong_result": 11.34},
+        {"analyst": 3, "error": "Net income instead of NOPAT", "wrong_result": 4.91},
+        {"analyst": 4, "error": "Correct", "correct_result": 7.81}
+      ],
+      "comparables": [
+        {"name": "Bridgestone", "market_cap_millions": 29500},
+        {"name": "Continental", "market_cap_millions": 43300},
+        {"name": "Goodyear", "market_cap_millions": 7000},
+        {"name": "Michelin", "market_cap_millions": 22000}
+      ],
+      "notes": "IPO valuation Oct 2017. Same 4-analyst error pattern as MEDICA. Premium segment 57.5% of revenue."
+    },
+
+    {
+      "id": "VER-004",
+      "source": "Vernimmen",
+      "company": "SYCOM",
+      "country": "FR",
+      "sector": "Light industrial (niche assembly)",
+      "currency": "EUR",
+      "valuation_date": "2019",
+      "method": "opco_propco",
+      "method_label": "Opco-Propco Separation + Operating Multiples",
+      "inputs": {
+        "financial": {
+          "revenue": 9000000,
+          "revenue_cagr": 0.08,
+          "roce": 0.11,
+          "net_cash": 2300000,
+          "market_cap": 5600000,
+          "float_pct": 0.02,
+          "controlling_shareholder_pct": 0.70,
+          "real_estate_book": 2000000,
+          "real_estate_fair_value": 6000000,
+          "annual_depreciation": 140000
+        },
+        "assumptions": {
+          "real_estate_return_rate": 0.05,
+          "capital_gains_tax": 0.28,
+          "operating_result_multiple": 5
+        }
+      },
+      "expected_results": {
+        "equity_value": 15000000,
+        "ev_ebit_implied": 1.9,
+        "valuation_formula": "(0.857*2 - 5%*6 + 0.140)*5 + 2.307 + (6 - 4*0.28)"
+      },
+      "notes": "Extreme undervaluation case. Market EV/EBIT = 1.9x. Only 2% float. Opco-propco separation reveals hidden real estate value."
+    },
+
+    {
+      "id": "VER-005",
+      "source": "Vernimmen",
+      "company": "MAB",
+      "country": "FR",
+      "sector": "Real estate (commercial property)",
+      "currency": "EUR",
+      "valuation_date": "2024",
+      "method": "anr",
+      "method_label": "ANR (Actif Net Réévalué) — Real Estate",
+      "inputs": {
+        "financial": {
+          "annual_rental_income": 11000000,
+          "gross_debt": 80000000,
+          "financial_expenses_2023": 386000,
+          "shares_outstanding": 193521,
+          "controlling_shareholder_pct": 0.94,
+          "portfolio_sqm": 165288,
+          "tenants": 130,
+          "vacancy_rate_2024": 0.07,
+          "projected_vacancy_rate": 0.15,
+          "capex_2024_2028": 64600000,
+          "capex_2029_2035": 43400000,
+          "projected_rentals_2035": 11200000
+        },
+        "assumptions": {
+          "offer_price_per_share": 230,
+          "market_response": "0 shares tendered, trading 22% above offer"
+        }
+      },
+      "expected_results": {
+        "offer_price_per_share": 230,
+        "market_implied_value": "22% above 230 = ~280"
+      },
+      "notes": "Real estate (SIIC). Independent expert valued at 230€/share but market trades 22% higher. 83% logistics, 10% offices, 7% retail."
+    },
+
+    {
+      "id": "VER-006",
+      "source": "Vernimmen",
+      "company": "Europcar",
+      "country": "FR",
+      "sector": "Car rental",
+      "currency": "EUR",
+      "valuation_date": "2019",
+      "method": "dcf_multiples",
+      "method_label": "DCF + Multiples (case with downloadable annexes)",
+      "inputs": {
+        "financial": {
+          "market_cap": 784000000,
+          "eurazeo_stake": 0.304,
+          "fox_rent_revenue_usd": 280000000
+        },
+        "assumptions": {}
+      },
+      "expected_results": {},
+      "notes": "Data in downloadable annexes only (Questions_Evaluation_Europcar.pdf, ANNEXE_Evaluation_Europcar.pdf, Projections_et_comparables_Europcar.xlsx). Requires manual extraction."
+    },
+
+    {
+      "id": "VER-007",
+      "source": "Vernimmen",
+      "company": "EPC (Explosifs et Produits Chimiques)",
+      "country": "FR",
+      "sector": "Explosives / Mining chemicals",
+      "currency": "EUR",
+      "valuation_date": "2016",
+      "method": "dcf_multiples",
+      "method_label": "DCF + Multiples (case with downloadable annexes)",
+      "inputs": {
+        "financial": {
+          "employees": 2000,
+          "countries": 20,
+          "jv_partners": "CRH (€27B revenue)"
+        },
+        "assumptions": {}
+      },
+      "expected_results": {},
+      "notes": "Data in downloadable annexes only (Questions_Evaluation_EPC.pdf, ANNEXE_Evaluation_EPC.pdf, Corrige_EPC.xlsx). 50/50 JVs in Ireland and USA."
+    },
+
+    {
+      "id": "THA-001",
+      "source": "Thauvron",
+      "company": "Les Applications Oleo Mecaniques de Paris (AOMP)",
+      "country": "FR",
+      "sector": "Industrial (mechanical)",
+      "currency": "EUR",
+      "valuation_date": "2004",
+      "method": "financial_analysis",
+      "method_label": "Analyse financière (SIG, rentabilité, CAF, bilan fonctionnel)",
+      "inputs": {
+        "financial": {
+          "production_vendue": 3992000,
+          "valeur_ajoutee": 1444000,
+          "charges_personnel": 910000,
+          "personnel_exterieur": 50000,
+          "ebe": 484000,
+          "dotations_amort_provisions": 190000,
+          "dotations_amort_credit_bail": 24363,
+          "transferts_charges": 40000,
+          "resultat_exploitation": 309637,
+          "produits_financiers": 14000,
+          "charges_financieres": 45000,
+          "charges_financieres_credit_bail": 15637,
+          "resultat_courant": 263000,
+          "resultat_exceptionnel": 15000,
+          "impot": 90000,
+          "resultat_net": 188000
+        },
+        "balance_sheet": {
+          "immobilisations_nettes": 405000,
+          "credit_bail": 125637,
+          "bfr": -283000,
+          "tresorerie_active": 1048000,
+          "actif_economique": 1295637,
+          "capitaux_propres": 780000,
+          "dettes_financieres": 515637
+        }
+      },
+      "expected_results": {
+        "rentabilite_economique_ka": 0.1588,
+        "cout_dette_kd": 0.0590,
+        "rentabilite_capitaux_propres_kc": 0.2248,
+        "effet_levier": 0.0998,
+        "caf": 378000,
+        "autofinancement": 268000,
+        "ete": 322000,
+        "seuil_rentabilite_exploitation": 3051768,
+        "fonds_roulement_fonctionnel": 890000,
+        "leverage_formula": "Kc = Ka + (Ka - Kd) × D/CP = 22.48%"
+      },
+      "notes": "Chapitre 2 Thauvron. Analyse financière complète (pas une valorisation en soi mais inputs pour les chapitres suivants)."
+    },
+
+    {
+      "id": "THA-002",
+      "source": "Thauvron",
+      "company": "Saint Gobain",
+      "country": "FR",
+      "sector": "Building materials",
+      "currency": "EUR",
+      "valuation_date": "2004",
+      "method": "beta_regression",
+      "method_label": "Beta Estimation via CAPM Regression",
+      "inputs": {
+        "market_index": "CAC 40",
+        "period": "Nov 1999 - Nov 2004",
+        "frequency": "semi-annual",
+        "observations": 10,
+        "price_data": [
+          {"date": "1999-11", "stock": 35.82, "index": 5341.62},
+          {"date": "2000-05", "stock": 31.69, "index": 6426.26},
+          {"date": "2000-11", "stock": 33.59, "index": 5928.08},
+          {"date": "2001-05", "stock": 37.28, "index": 5454.19},
+          {"date": "2001-11", "stock": 34.53, "index": 4476.06},
+          {"date": "2002-05", "stock": 40.27, "index": 4274.64},
+          {"date": "2002-11", "stock": 28.58, "index": 3326.65},
+          {"date": "2003-05", "stock": 30.30, "index": 2991.75},
+          {"date": "2003-11", "stock": 36.30, "index": 3424.79},
+          {"date": "2004-05", "stock": 40.10, "index": 3669.63},
+          {"date": "2004-11", "stock": 42.81, "index": 3753.75}
+        ]
+      },
+      "expected_results": {
+        "covariance": 0.00724458,
+        "variance_market": 0.01668561,
+        "beta": 0.4342,
+        "r_squared": 0.1601,
+        "regression_equation": "y = 0.3688x - 0.0368"
+      },
+      "notes": "Chapitre 3 Ex.1 Thauvron. Beta faible (0.43) typique d'un titre défensif."
+    },
+
+    {
+      "id": "THA-003",
+      "source": "Thauvron",
+      "company": "Danone",
+      "country": "FR",
+      "sector": "Food & beverages",
+      "currency": "EUR",
+      "valuation_date": "2005",
+      "method": "beta_regression",
+      "method_label": "Beta Estimation via CAPM Regression",
+      "inputs": {
+        "market_index": "SBF 120",
+        "period": "Feb 2001 - Feb 2005",
+        "frequency": "monthly",
+        "observations": 48
+      },
+      "expected_results": {
+        "covariance": 0.001333369,
+        "variance_market": 0.003619074,
+        "beta": 0.3684
+      },
+      "notes": "Chapitre 3 Ex.2 Thauvron. Données Excel disponibles (donnees_danone.xls)."
+    },
+
+    {
+      "id": "THA-004",
+      "source": "Thauvron",
+      "company": "Cadet-Choiseul (Groupe)",
+      "country": "FR",
+      "sector": "Conglomerate",
+      "currency": "EUR",
+      "valuation_date": null,
+      "method": "beta_unlevering",
+      "method_label": "Beta Unlevering / Relevering (Hamada)",
+      "inputs": {
+        "tax_rate": 0.3333,
+        "subsidiaries": [
+          {"name": "Cadet", "beta_equity": 0.90, "debt_market": 450, "equity_market": 4000},
+          {"name": "Choiseul", "beta_equity": 1.20, "debt_market": 300, "equity_market": 2000}
+        ]
+      },
+      "expected_results": {
+        "cadet_beta_asset": 0.837,
+        "choiseul_beta_asset": 1.091,
+        "group_beta_asset": 0.923,
+        "scenario_equity_financed": {"equity": 6000, "debt": 750, "beta_equity": 1.00},
+        "scenario_debt_financed": {"equity": 4000, "debt": 2750, "beta_equity": 1.21}
+      },
+      "notes": "Chapitre 3 Ex.3 Thauvron. Formule Hamada : β_asset = β_equity / (1 + (1-t) × D/E)."
+    },
+
+    {
+      "id": "THA-005",
+      "source": "Thauvron",
+      "company": "Dibilio-Leso (Groupe)",
+      "country": "FR",
+      "sector": "Conglomerate",
+      "currency": "EUR",
+      "valuation_date": null,
+      "method": "beta_risky_debt",
+      "method_label": "Beta with Non-Zero Beta Debt",
+      "inputs": {
+        "risk_free_rate": 0.05,
+        "market_risk_premium": 0.04,
+        "subsidiaries": [
+          {"name": "Dibilio", "beta_equity": 1.40, "cost_of_debt": 0.08, "beta_debt": 0.75, "debt_market": 20, "equity_market": 21},
+          {"name": "Leso", "beta_equity": 1.20, "cost_of_debt": 0.06, "beta_debt": 0.25, "debt_market": 45, "equity_market": 90}
+        ]
+      },
+      "expected_results": {
+        "dibilio_beta_asset": 1.14,
+        "leso_beta_asset": 0.962,
+        "group_beta_asset": 1.096,
+        "group_beta_equity": 1.33,
+        "group_beta_debt": 0.875,
+        "group_cost_of_debt": 0.085
+      },
+      "notes": "Chapitre 3 Ex.4 Thauvron. Extension avec dette risquée (β_dette ≠ 0)."
+    },
+
+    {
+      "id": "THA-006",
+      "source": "Thauvron",
+      "company": "Eiffage",
+      "country": "FR",
+      "sector": "Construction / BTP",
+      "currency": "EUR",
+      "valuation_date": "2005",
+      "method": "dcf_fcff",
+      "method_label": "DCF (Free Cash Flow to Firm)",
+      "inputs": {
+        "financial": {
+          "net_debt": 80,
+          "shares_millions": 29.562,
+          "projections": [
+            {"year": "2005", "rex": 340, "is_tax": -115, "rex_after_tax": 224, "dap": 121, "delta_bfr": -13.9, "capex": -129, "fcf": 202},
+            {"year": "2006", "rex": 360, "is_tax": -122, "rex_after_tax": 237, "dap": 125, "delta_bfr": -3.5, "capex": -134, "fcf": 226},
+            {"year": "2007", "rex": 380, "is_tax": -129, "rex_after_tax": 251, "dap": 130, "delta_bfr": -3.3, "capex": -138, "fcf": 239},
+            {"year": "2008", "rex": 401, "is_tax": -136, "rex_after_tax": 265, "dap": 134, "delta_bfr": -1.7, "capex": -143, "fcf": 254}
+          ]
+        },
+        "assumptions": {
+          "cost_of_equity": 0.055,
+          "wacc": 0.055,
+          "risk_free_rate": 0.035,
+          "beta": 0.50,
+          "market_risk_premium": 0.04,
+          "terminal_growth": 0.03
+        }
+      },
+      "expected_results": {
+        "terminal_value": 10460,
+        "terminal_value_discounted": 8444,
+        "pv_fcf": 803,
+        "enterprise_value": 9247,
+        "equity_value": 9167,
+        "value_per_share": 310.09
+      },
+      "notes": "Chapitre 4 Cas 1 Thauvron. TV = FCF₅×(1+g)/(WACC-g) = 254×1.03/0.025."
+    },
+
+    {
+      "id": "THA-007",
+      "source": "Thauvron",
+      "company": "Guenegaud",
+      "country": "FR",
+      "sector": "Generic (teaching case)",
+      "currency": "EUR",
+      "valuation_date": null,
+      "method": "dcf_two_phase",
+      "method_label": "DCF Two-Phase WACC",
+      "inputs": {
+        "financial": {
+          "ca_initial": 15000,
+          "ebe_initial": 1000,
+          "debt_market_value": 1700,
+          "bond_details": {"outstanding": 1000000, "price": 1700, "coupon": 150, "par": 1500, "maturity": 5, "implied_rd": 0.0677},
+          "shares_outstanding": 100000000,
+          "share_price": 150,
+          "equity_market_value": 15000
+        },
+        "assumptions": {
+          "risk_free_rate": 0.03,
+          "market_risk_premium": 0.06,
+          "phase_1": {
+            "years": "N+1 to N+5",
+            "growth_rates": [0.20, 0.17, 0.14, 0.11, 0.08],
+            "beta": 1.50,
+            "cost_of_equity": 0.12,
+            "wacc": 0.1125
+          },
+          "phase_2": {
+            "years": "N+6 to infinity",
+            "growth_rate": 0.05,
+            "beta": 1.10,
+            "cost_of_equity": 0.096,
+            "wacc": 0.0916
+          }
+        }
+      },
+      "expected_results": {
+        "fcf_projections": [
+          {"year": "N+1", "ca": 18000, "ebe": 1200, "fcf": 457},
+          {"year": "N+2", "ca": 21060, "ebe": 1404, "fcf": 553},
+          {"year": "N+3", "ca": 24008, "ebe": 1601, "fcf": 652},
+          {"year": "N+4", "ca": 26649, "ebe": 1777, "fcf": 750},
+          {"year": "N+5", "ca": 28781, "ebe": 1919, "fcf": 841},
+          {"year": "N+6", "ca": 30220, "ebe": 2015, "fcf": 872}
+        ],
+        "terminal_value": 22009,
+        "pv_fcf": 2774,
+        "equity_value": 15274
+      },
+      "notes": "Chapitre 4 Cas 2 Thauvron. Deux phases avec WACC et beta distincts."
+    },
+
+    {
+      "id": "THA-008",
+      "source": "Thauvron",
+      "company": "Apolline",
+      "country": "FR",
+      "sector": "Generic (high-growth tech teaching case)",
+      "currency": "EUR",
+      "valuation_date": null,
+      "method": "dcf_multi_phase",
+      "method_label": "DCF Multi-Phase with Variable Beta",
+      "inputs": {
+        "financial": {
+          "ca_initial": 150000,
+          "rex_initial": 60000,
+          "growth_trajectory": [0.20, 0.20, 0.20, 0.20, 0.20, 0.16, 0.12, 0.08, 0.04, 0.04],
+          "beta_trajectory": [1.8, 1.8, 1.8, 1.8, 1.8, 1.7, 1.6, 1.5, 1.4, 1.3],
+          "cost_equity_trajectory": [0.138, 0.138, 0.138, 0.138, 0.138, 0.132, 0.126, 0.12, 0.114, 0.108]
+        }
+      },
+      "expected_results": {
+        "fcf_projections": [
+          {"year": "N+1", "ca": 180000, "rex": 72000, "fcf": 6000},
+          {"year": "N+5", "ca": 373248, "rex": 149299, "fcf": 12442},
+          {"year": "N+9", "ca": 544666, "rex": 217867, "fcf": 46087}
+        ],
+        "terminal_value": 704860,
+        "terminal_value_discounted": 280056,
+        "pv_fcf": 83021,
+        "equity_value": 363077
+      },
+      "notes": "Chapitre 4 Cas 3 Thauvron. Profil startup: 20% growth → 4% terminal, beta 1.8 → 1.3."
+    },
+
+    {
+      "id": "THA-009",
+      "source": "Thauvron",
+      "company": "Provence",
+      "country": "FR",
+      "sector": "Generic (teaching case)",
+      "currency": "EUR",
+      "valuation_date": null,
+      "method": "dcf_value_creation",
+      "method_label": "DCF with Value Creation Analysis",
+      "inputs": {
+        "financial": {
+          "ca": 58000,
+          "bfr": 32000,
+          "book_equity": 44000,
+          "book_debt_nominal": 7000,
+          "debt_coupon": 420,
+          "debt_maturity": 5,
+          "shares_outstanding": 1000000,
+          "share_price": 45
+        },
+        "assumptions": {
+          "risk_free_rate": 0.03,
+          "beta": 1.3,
+          "market_risk_premium": 0.06,
+          "cost_of_equity": 0.108,
+          "current_debt_rate": 0.06,
+          "market_borrowing_rate": 0.058,
+          "tax_rate": 0.3333,
+          "growth_rates": [0.10, 0.10, 0.08, 0.06, 0.04],
+          "terminal_growth": 0.03
+        }
+      },
+      "expected_results": {
+        "debt_market_value": 7059,
+        "wacc": 0.0986,
+        "terminal_value_at_n": 85889,
+        "pv_fcf": 4720,
+        "pv_terminal": 58963,
+        "equity_value": 56624,
+        "value_creation": {
+          "reco_n": 0.0784,
+          "cost_of_capital": 0.1025,
+          "destroys_value_in_year_n": true,
+          "creates_value_from": "N+3"
+        }
+      },
+      "notes": "Chapitre 4 Cas 4 Thauvron. Analyse destruction/création de valeur. Détruit de la valeur en N (ROIC < WACC), en crée à partir de N+3."
+    },
+
+    {
+      "id": "THA-010",
+      "source": "Thauvron",
+      "company": "Generic DDM",
+      "country": "FR",
+      "sector": "Generic",
+      "currency": "EUR",
+      "valuation_date": null,
+      "method": "gordon_growth_ddm",
+      "method_label": "Gordon Growth Model (Simple DDM)",
+      "inputs": {
+        "dividend": 10,
+        "cost_of_equity": 0.12,
+        "growth_rate": 0.04
+      },
+      "expected_results": {
+        "value_per_share": 125,
+        "formula": "D / (Kc - g) = 10 / (0.12 - 0.04)"
+      },
+      "notes": "Chapitre 5 Ex.1 Thauvron. Cas trivial Gordon Growth."
+    },
+
+    {
+      "id": "THA-011",
+      "source": "Thauvron",
+      "company": "Tiquetonne",
+      "country": "FR",
+      "sector": "Generic (teaching case)",
+      "currency": "EUR",
+      "valuation_date": null,
+      "method": "ddm_implied_growth",
+      "method_label": "Two-Stage DDM (Implied Growth Rate)",
+      "inputs": {
+        "current_price": 500,
+        "cost_of_equity": 0.15,
+        "dividends": [12, 16, 22]
+      },
+      "expected_results": {
+        "implied_perpetual_growth_rate": 0.1151
+      },
+      "notes": "Chapitre 5 Ex.2 Thauvron. Extraction du taux de croissance implicite."
+    },
+
+    {
+      "id": "THA-012",
+      "source": "Thauvron",
+      "company": "Hospitalieres Saint Gervais",
+      "country": "FR",
+      "sector": "Healthcare",
+      "currency": "EUR",
+      "valuation_date": null,
+      "method": "ddm_with_leverage",
+      "method_label": "DDM with Leverage Effect & Beta Unlevering",
+      "inputs": {
+        "dividend_per_share": 5,
+        "eps": 12.5,
+        "book_equity_per_share": 70,
+        "risk_free_rate": 0.03,
+        "market_risk_premium": 0.06,
+        "beta_equity_growth": 0.90,
+        "debt_to_equity_growth": 0.12,
+        "ka_economic_return": 0.10,
+        "cost_of_debt": 0.065,
+        "debt_to_equity_maturity": 0.333
+      },
+      "expected_results": {
+        "payout_ratio": 0.40,
+        "roe": 0.1786,
+        "growth_rate_g": 0.1072,
+        "beta_asset": 0.803,
+        "beta_equity_maturity": 0.876,
+        "cost_equity_maturity": 0.0826,
+        "perpetual_growth": 0.04,
+        "eps_n6": 21.63,
+        "dividend_n7": 14.26,
+        "value_at_n6": 334.74,
+        "formula": "D₇ / (Ke - g) = 14.26 / (0.0826 - 0.04)"
+      },
+      "notes": "Chapitre 5 Ex.3 Thauvron. DDM complet avec effet de levier, désendettement/réendettement du beta."
+    },
+
+    {
+      "id": "THA-013",
+      "source": "Thauvron",
+      "company": "Eiffage (Multiples)",
+      "country": "FR",
+      "sector": "Construction / BTP",
+      "currency": "EUR",
+      "valuation_date": "2005-02-10",
+      "method": "multiples_comparables",
+      "method_label": "Trading Multiples (VGE/REX et PER)",
+      "inputs": {
+        "target": {
+          "name": "Eiffage",
+          "share_price": 94.50,
+          "net_debt": 81,
+          "revenue": 7697,
+          "ebit": 285,
+          "eps_2005e": 8.19,
+          "shares_thousands": 29562
+        },
+        "comparables": [
+          {"name": "Vinci", "share_price": 113.80, "net_debt": 9339, "revenue": 17456, "ebit": 709, "eps_2005e": 9.29, "shares_thousands": 84230, "market_cap": 9585, "ev": 18924, "ev_ebit": 26.69, "per": 12.25},
+          {"name": "Ciments Francais", "share_price": 77.00, "net_debt": 1295, "revenue": 3049, "ebit": 533, "eps_2005e": 8.43, "shares_thousands": 38165, "market_cap": 2939, "ev": 4234, "ev_ebit": 7.94, "per": 9.13}
+        ]
+      },
+      "expected_results": {
+        "ev_ebit_method": {
+          "average_multiple": 17.315,
+          "equity_value": 4853.77,
+          "value_per_share": 164.19
+        },
+        "per_method": {
+          "average_per": 10.69,
+          "value_per_share": 87.55
+        }
+      },
+      "notes": "Chapitre 6 Ex.1 Thauvron. Grande dispersion entre VGE/REX (164€) et PER (88€)."
+    },
+
+    {
+      "id": "THA-014",
+      "source": "Thauvron",
+      "company": "Hermes",
+      "country": "FR",
+      "sector": "Luxury goods",
+      "currency": "EUR",
+      "valuation_date": "1998",
+      "method": "multiples_comparables",
+      "method_label": "Multi-Criteria Comparable Valuation",
+      "inputs": {
+        "target": {
+          "name": "Hermes",
+          "ca": 4183,
+          "ebitda": 917,
+          "ebit": 753,
+          "debt": 1008,
+          "eps_97e": 20,
+          "eps_98e": 17.8,
+          "book_equity_per_share": 76.7,
+          "shares_thousands": 36.71,
+          "per_market_97": 14,
+          "per_market_98": 15.9
+        },
+        "comparables": [
+          {"name": "LVMH", "ev_ca": 5.04, "ev_ebitda": 19.22, "ev_ebit": 22.34, "per_rel_97": 1.53, "per_rel_98": 1.53, "p_bv": 3.73},
+          {"name": "L'Oreal", "ev_ca": 2.73, "ev_ebitda": 19.08, "ev_ebit": 24.73, "per_rel_97": 1.94, "per_rel_98": 1.96, "p_bv": 5.68},
+          {"name": "Clarins", "ev_ca": 3.26, "ev_ebitda": 17.15, "ev_ebit": 19.95, "per_rel_97": 1.64, "per_rel_98": 1.61, "p_bv": 5.01},
+          {"name": "Gucci", "ev_ca": 4.10, "ev_ebitda": 14.40, "ev_ebit": 15.13, "per_rel_97": 0.88, "per_rel_98": 0.83, "p_bv": 7.74},
+          {"name": "Bulgari", "ev_ca": 5.96, "ev_ebitda": 38.93, "ev_ebit": 46.17, "per_rel_97": 1.75, "per_rel_98": 1.63, "p_bv": 7.77}
+        ],
+        "average_multiples": {
+          "ev_ca": 4.22,
+          "ev_ebitda": 21.76,
+          "ev_ebit": 25.66,
+          "per_relatif_97": 1.55,
+          "per_relatif_98": 1.51,
+          "p_bv": 5.98
+        }
+      },
+      "expected_results": {
+        "ev_ca_equity": 18650,
+        "ev_ebitda_equity": 20959,
+        "ev_ebit_equity": 20333,
+        "per_97_equity": 15932,
+        "per_98_equity": 15688,
+        "p_bv_equity": 16838,
+        "range": [15688, 20959]
+      },
+      "notes": "Chapitre 6 Ex.2 Thauvron. 6 critères de valorisation, fourchette 15.7-21.0 ME."
+    },
+
+    {
+      "id": "THA-015",
+      "source": "Thauvron",
+      "company": "Huillo",
+      "country": "FR",
+      "sector": "Generic (teaching case)",
+      "currency": "EUR",
+      "valuation_date": "2004",
+      "method": "goodwill_rente",
+      "method_label": "Goodwill (Rente de Goodwill sur 5 ans)",
+      "inputs": {
+        "financial": {
+          "anr": 160000,
+          "anr_breakdown": "100000 + 80000 + 30000 - 30000 - 20000",
+          "cpne_initial": 190000,
+          "resultat_exploitation": 24000,
+          "agios": -500,
+          "pertes_change": -200,
+          "resultat_avant_is": 23300,
+          "is": 7767,
+          "resultat_associe": 15533
+        },
+        "assumptions": {
+          "discount_rate": 0.10,
+          "cpne_growth_rate": 0.03,
+          "theoretical_return_rate": 0.07,
+          "horizon": 5
+        }
+      },
+      "expected_results": {
+        "rentes": [2300, 2369, 2440, 2513, 2589],
+        "goodwill": 9206,
+        "equity_value": 169206,
+        "formula": "ANR + GW = 160000 + 9206"
+      },
+      "notes": "Chapitre 7 Cas 1 Thauvron. Méthode du goodwill (rente actualisée sur 5 ans)."
+    },
+
+    {
+      "id": "THA-016",
+      "source": "Thauvron",
+      "company": "George V",
+      "country": "FR",
+      "sector": "Generic (teaching case)",
+      "currency": "EUR",
+      "valuation_date": null,
+      "method": "goodwill_triple",
+      "method_label": "Goodwill (3 Approaches: ANRE, VSB, CPNE)",
+      "inputs": {
+        "financial": {
+          "resultat_exploitation": 2800,
+          "charges_financieres": -660,
+          "loyers_hangars": -360,
+          "cout_hangars": 120,
+          "vsb_total": 25380,
+          "cpne_total": 20070
+        }
+      },
+      "expected_results": {
+        "anre_method": {"anr_exploitation": 10300, "anr_total": 12700, "goodwill": 3001, "equity_value": 15701},
+        "vsb_method": {"goodwill": 197, "equity_value": 12897},
+        "cpne_method": {"goodwill": 234, "equity_value": 12934},
+        "range": [12897, 15701]
+      },
+      "notes": "Chapitre 7 Cas 2 Thauvron. 3 méthodes de goodwill donnant des résultats différents."
+    },
+
+    {
+      "id": "THA-017",
+      "source": "Thauvron",
+      "company": "RDC (Mine d'or)",
+      "country": "FR",
+      "sector": "Mining (gold)",
+      "currency": "USD",
+      "valuation_date": null,
+      "method": "real_options_black_scholes",
+      "method_label": "Real Options (Black-Scholes with Cost of Carry) + NPV",
+      "inputs": {
+        "npv_inputs": {
+          "gold_price_per_ounce": 424,
+          "grams_per_ounce": 28.57,
+          "gold_price_per_gram": 14.84,
+          "extraction_cost_per_gram": 10,
+          "annual_production_grams": 1000000,
+          "annual_net_cash_flow": 4840000,
+          "project_life_years": 10,
+          "investment": 15000000,
+          "cost_of_capital": 0.068,
+          "beta": 0.80,
+          "risk_free_rate": 0.036,
+          "market_risk_premium": 0.04
+        },
+        "option_inputs": {
+          "underlying_S": 34310,
+          "strike_K": 15000,
+          "maturity_T": 10,
+          "risk_free_r": 0.036,
+          "volatility_sigma": 0.30,
+          "cost_of_carry_y": 0.10
+        }
+      },
+      "expected_results": {
+        "npv": 19310000,
+        "option_d1": 0.6719,
+        "option_d2": -0.2768,
+        "option_n_d1": 0.7492,
+        "option_n_d2": 0.3910,
+        "option_value": 5364000
+      },
+      "notes": "Chapitre 8 Ex.1 Thauvron. VAN positive + valeur d'option additionnelle de flexibilité."
+    },
+
+    {
+      "id": "THA-018",
+      "source": "Thauvron",
+      "company": "Corentin",
+      "country": "FR",
+      "sector": "Generic (teaching case)",
+      "currency": "EUR",
+      "valuation_date": null,
+      "method": "real_options_black_scholes",
+      "method_label": "Real Options (Black-Scholes) — Negative NPV but Positive Option",
+      "inputs": {
+        "npv_inputs": {
+          "annual_cash_flow": 35000000,
+          "discount_rate": 0.12,
+          "project_life_years": 5,
+          "pv_cash_flows": 126000000,
+          "investment": 150000000
+        },
+        "option_inputs": {
+          "underlying_S": 126,
+          "strike_K": 150,
+          "maturity_T": 5,
+          "risk_free_r": 0.04,
+          "volatility_sigma": 0.387,
+          "cost_of_carry_y": 0.0397
+        }
+      },
+      "expected_results": {
+        "npv": -24000000,
+        "option_d1": 0.2335,
+        "option_d2": -0.6325,
+        "option_n_d1": 0.5923,
+        "option_n_d2": 0.2635,
+        "option_value": 29000000
+      },
+      "notes": "Chapitre 8 Ex.2 Thauvron. VAN négative (-24M) mais option réelle positive (29M). Le projet a de la valeur malgré la VAN négative."
+    }
+  ],
+
+  "method_index": {
+    "gordon_growth_ddm": ["DAM-001", "THA-010"],
+    "dcf_fcff": ["DAM-002", "DAM-003", "VER-001", "VER-003", "THA-006"],
+    "dcf_two_phase": ["THA-007"],
+    "dcf_multi_phase": ["THA-008"],
+    "dcf_value_creation": ["THA-009"],
+    "dcf_finite_life": ["VER-002"],
+    "multiples_comparables": ["THA-013", "THA-014"],
+    "beta_regression": ["THA-002", "THA-003"],
+    "beta_unlevering": ["THA-004"],
+    "beta_risky_debt": ["THA-005"],
+    "goodwill_rente": ["THA-015"],
+    "goodwill_triple": ["THA-016"],
+    "real_options_black_scholes": ["THA-017", "THA-018"],
+    "opco_propco": ["VER-004"],
+    "anr": ["VER-005"],
+    "ddm_implied_growth": ["THA-011"],
+    "ddm_with_leverage": ["THA-012"],
+    "financial_analysis": ["THA-001"]
+  },
+
+  "sector_index": {
+    "utilities": ["DAM-001"],
+    "industrial": ["DAM-002", "DAM-003", "THA-001", "VER-003"],
+    "construction": ["THA-006", "THA-013"],
+    "healthcare": ["VER-001", "THA-012"],
+    "real_estate": ["VER-005"],
+    "toll_roads": ["VER-002"],
+    "luxury": ["THA-014"],
+    "mining": ["THA-017"],
+    "car_rental": ["VER-006"],
+    "explosives": ["VER-007"],
+    "food_beverages": ["THA-003"],
+    "building_materials": ["THA-002"],
+    "light_industrial": ["VER-004"]
+  }
+}

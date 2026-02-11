@@ -1,4 +1,4 @@
-// Tests E2E du flow complet Flash avec validation de pertinence
+// Tests E2E du flow complet diagnostic → paiement → chat IA avec validation de pertinence
 import { Page } from 'puppeteer'
 import * as fs from 'fs'
 import * as path from 'path'
@@ -229,7 +229,7 @@ async function runFullFlowTest(
     logger.info(`Objectif: ${testCase.flashAnswers.objectif}`)
     logger.info(`${'='.repeat(60)}`)
 
-    // Naviguer vers la page de chat avec l'objectif
+    // Naviguer vers la page de chat avec l'objectif (post-paiement)
     await page.goto(`${TEST_CONFIG.baseUrl}/chat/${testCase.siren}?objectif=${testCase.flashAnswers.objectif}`)
     await wait(3000)
 
@@ -240,12 +240,14 @@ async function runFullFlowTest(
     let questions = await extractAssistantQuestions(page)
     result.questionsAsked.push(...questions)
 
-    // Répondre à chaque question avec les réponses du cas test
-    const responses = Object.values(testCase.flashAnswers.responses)
+    // Répondre aux questions avec les réponses du cas test (flash + complete)
+    const flashResponses = Object.values(testCase.flashAnswers.responses)
+    const completeResponses = Object.values(testCase.completeAnswers.responses)
+    const allResponses = [...flashResponses, ...completeResponses]
     let questionIndex = 0
 
-    for (const answer of responses) {
-      if (questionIndex >= 8) break // Max 8 questions pour Flash
+    for (const answer of allResponses) {
+      if (questionIndex >= 12) break // Max 12 questions pour le test
 
       logger.info(`\n--- Question ${questionIndex + 1} ---`)
 

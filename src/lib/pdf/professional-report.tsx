@@ -146,6 +146,23 @@ export interface ProfessionalReportData {
     clientele?: string
     fournisseurs?: string
   }
+  // Archétype
+  archetypeId?: string
+  archetypeName?: string
+  archetypeIcon?: string
+  archetypeColor?: string
+  archetypePrimaryMethod?: string
+  archetypeSecondaryMethod?: string
+  archetypeWhyThisMethod?: string
+  archetypeCommonMistakes?: { mistake: string; impact: string; icon: string }[]
+  archetypeKeyFactors?: { factor: string; impact: string; direction: 'up' | 'down' }[]
+  // Damodaran benchmarks
+  damodaranMultiples?: {
+    primaryMultiple: { metric: string; low: number; median: number; high: number }
+    secondaryMultiple: { metric: string; low: number; median: number; high: number }
+    damodaranSector: string
+    source: string
+  }
   // Métadonnées
   dateGeneration: string
   analyste?: string
@@ -362,38 +379,44 @@ const CoverPage = ({ data }: { data: ProfessionalReportData }) => (
 // PAGE 2: SOMMAIRE
 // ============================================
 
-const TableOfContents = ({ data }: { data: ProfessionalReportData }) => (
+const TableOfContents = ({ data }: { data: ProfessionalReportData }) => {
+  const hasArchetype = !!data.archetypeId
+  // Offset pages by 1 when archetype profile page is present
+  const o = hasArchetype ? 1 : 0
+
+  return (
   <Page size="A4" style={styles.page}>
     <Header title="Sommaire" />
     <Text style={styles.sectionTitle}>Sommaire</Text>
 
     {[
-      { num: '1', label: 'Synthese executive', page: '3' },
-      { num: '2', label: 'Presentation de l\'entreprise', page: '5' },
-      { num: '2.1', label: 'Identite et informations legales', page: '5', sub: true },
-      { num: '2.2', label: 'Historique et activite', page: '6', sub: true },
-      { num: '2.3', label: 'Organisation et gouvernance', page: '7', sub: true },
-      { num: '3', label: 'Analyse du marche', page: '8' },
-      { num: '3.1', label: 'Secteur d\'activite', page: '8', sub: true },
-      { num: '3.2', label: 'Positionnement concurrentiel', page: '9', sub: true },
-      { num: '4', label: 'Analyse financiere', page: '11' },
-      { num: '4.1', label: 'Evolution du chiffre d\'affaires', page: '11', sub: true },
-      { num: '4.2', label: 'Rentabilite et marges', page: '12', sub: true },
-      { num: '4.3', label: 'Structure du bilan', page: '13', sub: true },
-      { num: '4.4', label: 'BFR et tresorerie', page: '14', sub: true },
-      { num: '4.5', label: 'Flux de tresorerie', page: '15', sub: true },
-      { num: '4.6', label: 'Tableau de bord des ratios', page: '16', sub: true },
-      { num: '5', label: 'Diagnostic financier', page: '17' },
-      { num: '5.1', label: 'Notation et scoring', page: '17', sub: true },
-      { num: '5.2', label: 'Comparaison sectorielle', page: '18', sub: true },
-      { num: '6', label: 'Retraitements de l\'EBITDA', page: '20' },
-      { num: '7', label: 'Valorisation', page: '23' },
-      { num: '7.1', label: 'Methodes utilisees', page: '23', sub: true },
-      { num: '7.2', label: 'Bridge VE vers Prix', page: '25', sub: true },
-      { num: '7.3', label: 'Analyse de sensibilite', page: '27', sub: true },
-      { num: '8', label: 'Analyse SWOT', page: '28' },
-      { num: '9', label: 'Recommandations', page: '30' },
-      { num: '10', label: 'Annexes', page: '32' },
+      ...(hasArchetype ? [{ num: '', label: 'Votre profil d\'entreprise', page: '3' }] : []),
+      { num: '1', label: 'Synthese executive', page: String(3 + o) },
+      { num: '2', label: 'Presentation de l\'entreprise', page: String(5 + o) },
+      { num: '2.1', label: 'Identite et informations legales', page: String(5 + o), sub: true },
+      { num: '2.2', label: 'Historique et activite', page: String(6 + o), sub: true },
+      { num: '2.3', label: 'Organisation et gouvernance', page: String(7 + o), sub: true },
+      { num: '3', label: 'Analyse du marche', page: String(8 + o) },
+      { num: '3.1', label: 'Secteur d\'activite', page: String(8 + o), sub: true },
+      { num: '3.2', label: 'Positionnement concurrentiel', page: String(9 + o), sub: true },
+      { num: '4', label: 'Analyse financiere', page: String(11 + o) },
+      { num: '4.1', label: 'Evolution du chiffre d\'affaires', page: String(11 + o), sub: true },
+      { num: '4.2', label: 'Rentabilite et marges', page: String(12 + o), sub: true },
+      { num: '4.3', label: 'Structure du bilan', page: String(13 + o), sub: true },
+      { num: '4.4', label: 'BFR et tresorerie', page: String(14 + o), sub: true },
+      { num: '4.5', label: 'Flux de tresorerie', page: String(15 + o), sub: true },
+      { num: '4.6', label: 'Tableau de bord des ratios', page: String(16 + o), sub: true },
+      { num: '5', label: 'Diagnostic financier', page: String(17 + o) },
+      { num: '5.1', label: 'Notation et scoring', page: String(17 + o), sub: true },
+      { num: '5.2', label: 'Comparaison sectorielle', page: String(18 + o), sub: true },
+      { num: '6', label: 'Retraitements de l\'EBITDA', page: String(20 + o) },
+      { num: '7', label: 'Valorisation', page: String(23 + o) },
+      { num: '7.1', label: 'Methodes utilisees', page: String(23 + o), sub: true },
+      { num: '7.2', label: 'Bridge VE vers Prix', page: String(25 + o), sub: true },
+      { num: '7.3', label: 'Analyse de sensibilite', page: String(27 + o), sub: true },
+      { num: '8', label: 'Analyse SWOT', page: String(28 + o) },
+      { num: '9', label: 'Recommandations', page: String(30 + o) },
+      { num: '10', label: 'Annexes', page: String(32 + o) },
     ].map((item, i) => (
       <View key={i} style={[styles.tocItem, item.sub ? styles.tocSub : {}]}>
         <Text style={styles.tocNumber}>{item.num}</Text>
@@ -402,9 +425,10 @@ const TableOfContents = ({ data }: { data: ProfessionalReportData }) => (
       </View>
     ))}
 
-    <Footer company={data.entreprise.nom} pageNum={2} totalPages={32} />
+    <Footer company={data.entreprise.nom} pageNum={2} totalPages={32 + o} />
   </Page>
-)
+  )
+}
 
 // ============================================
 // PAGES 3-4: SYNTHÈSE EXECUTIVE

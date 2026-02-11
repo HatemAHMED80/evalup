@@ -79,6 +79,48 @@ export interface ConversationContext {
   // Évaluation complète (après paiement)
   evaluationType?: 'flash' | 'complete'
   isPaid?: boolean
+  // Nouveau flow : archétype détecté par le diagnostic
+  archetype?: string // ID de l'archétype (ex: 'saas_hyper', 'ecommerce', etc.)
+  diagnosticData?: {
+    revenue: number
+    ebitda: number
+    growth: number
+    recurring: number
+    masseSalariale: number
+    effectif: string
+  }
+  // Données extraites des documents comptables (post-upload, validées par l'utilisateur)
+  extractedDocData?: {
+    exercices: ExtractedExercice[]
+    metadata: {
+      completeness_score: number
+      missing_critical: string[]
+      source_documents: string[]
+    }
+  }
+}
+
+export interface ExtractedExercice {
+  annee: number
+  ca: number | null
+  resultat_exploitation: number | null
+  resultat_net: number | null
+  ebitda: number | null
+  dotations_amortissements: number | null
+  dotations_provisions: number | null
+  charges_personnel: number | null
+  effectif_moyen: number | null
+  remuneration_dirigeant: number | null
+  loyers: number | null
+  credit_bail: number | null
+  capitaux_propres: number | null
+  dettes_financieres: number | null
+  tresorerie: number | null
+  total_actif: number | null
+  actif_immobilise: number | null
+  stocks: number | null
+  creances_clients: number | null
+  dettes_fournisseurs: number | null
 }
 
 export interface BilanAnnuel {

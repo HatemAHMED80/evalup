@@ -13,6 +13,7 @@ function CheckoutContent() {
   const siren = searchParams.get('siren')
   const evalId = searchParams.get('eval')
   const planId = searchParams.get('plan') || 'eval_complete'
+  const archetypeId = searchParams.get('archetype')
 
   useEffect(() => {
     async function initiateCheckout() {
@@ -23,6 +24,13 @@ function CheckoutContent() {
           throw new Error('Plan invalide')
         }
 
+        // Récupérer les données du diagnostic depuis sessionStorage
+        let diagnosticData: Record<string, unknown> | null = null
+        try {
+          const raw = sessionStorage.getItem('diagnostic_data')
+          if (raw) diagnosticData = JSON.parse(raw)
+        } catch { /* ignore */ }
+
         // Le serveur résout le priceId à partir du planId (car env vars serveur)
         const response = await fetch('/api/stripe/checkout', {
           method: 'POST',
@@ -31,6 +39,8 @@ function CheckoutContent() {
             planId: plan.id,
             evaluationId: evalId,
             siren,
+            archetypeId,
+            diagnosticData,
           }),
         })
 
@@ -39,7 +49,7 @@ function CheckoutContent() {
         if (!response.ok) {
           // Si non authentifie, rediriger vers connexion
           if (response.status === 401) {
-            const returnUrl = encodeURIComponent(`/checkout?siren=${siren}&eval=${evalId}&plan=${planId}`)
+            const returnUrl = encodeURIComponent(`/checkout?siren=${siren}&eval=${evalId}&plan=${planId}${archetypeId ? `&archetype=${archetypeId}` : ''}`)
             router.push(`/connexion?redirect=${returnUrl}`)
             return
           }
@@ -63,7 +73,7 @@ function CheckoutContent() {
       setError('Paramètres manquants')
       setIsLoading(false)
     }
-  }, [siren, evalId, planId, router])
+  }, [siren, evalId, planId, archetypeId, router])
 
   if (error) {
     return (

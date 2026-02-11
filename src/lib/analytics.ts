@@ -11,6 +11,16 @@ type ConversionEvent =
   | 'purchase_complete'
   | 'pdf_download'
   | 'contact_submit'
+  // Diagnostic flow events
+  | 'diagnostic_start'
+  | 'sirene_entered'
+  | 'sirene_skipped'
+  | 'form_step_completed'
+  | 'archetype_detected'
+  | 'signup_completed'
+  | 'diagnostic_viewed'
+  | 'report_cta_clicked'
+  | 'checkout_started'
 
 interface EventParams {
   siren?: string
@@ -54,6 +64,16 @@ export function trackConversion(event: ConversionEvent, params?: EventParams) {
       purchase_complete: 'purchase',
       pdf_download: 'file_download',
       contact_submit: 'generate_lead',
+      // Diagnostic flow
+      diagnostic_start: 'tutorial_begin',
+      sirene_entered: 'search',
+      sirene_skipped: 'tutorial_begin',
+      form_step_completed: 'tutorial_complete',
+      archetype_detected: 'view_item',
+      signup_completed: 'sign_up',
+      diagnostic_viewed: 'view_item',
+      report_cta_clicked: 'select_promotion',
+      checkout_started: 'begin_checkout',
     }
 
     const ga4Event = ga4Mapping[event] || event

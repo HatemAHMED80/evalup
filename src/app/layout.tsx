@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ThemeProvider } from '@/contexts/ThemeContext'
-import { FlowTester } from '@/components/debug/FlowTester'
 import '../styles/globals.css'
 import '../styles/animations.css'
 
@@ -138,7 +137,6 @@ export default function RootLayout({
         <AuthProvider>
           <ThemeProvider>
             {children}
-            {process.env.NODE_ENV === 'development' && <FlowTester />}
           </ThemeProvider>
         </AuthProvider>
       </body>

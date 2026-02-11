@@ -4,7 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { rechercherEntreprise, isPappersConfigured, PappersError } from '@/lib/pappers'
 import { detecterSecteur, getNomSecteur } from '@/lib/prompts'
-import { evaluerEntrepriseV2 } from '@/lib/evaluation/calculateur-v2'
+import { evaluerEntrepriseV2 } from '@/lib/evaluation/calculateur'
 import { genererDiagnostic } from '@/lib/analyse/diagnostic'
 import { convertirBilansNormalises } from '@/lib/analyse/anomalies'
 import type { DonneesEvaluationV2, BilanAnnuel as BilanV2 } from '@/lib/evaluation/types'

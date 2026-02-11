@@ -48,6 +48,8 @@ export const checkoutBodySchema = z.object({
   planId: z.string().min(1).max(50),
   evaluationId: z.string().uuid().optional().nullable(),
   siren: z.string().regex(/^\d{9,14}$/).optional().nullable(),
+  archetypeId: z.string().min(1).max(100).optional().nullable(),
+  diagnosticData: z.record(z.string(), z.unknown()).optional().nullable(),
 })
 
 // ============================================

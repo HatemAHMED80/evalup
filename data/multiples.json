@@ -1,0 +1,98 @@
+{
+  "source": "Damodaran, NYU Stern, January 2026",
+  "sourceUrl": "https://stern.nyu.edu/~adamodar/pc/datasets/vebitda.xls",
+  "lastUpdated": "2026-01",
+  "note": "Multiples US avec ajustement France -20% à -30% appliqué. Les valeurs low/median/high incluent déjà la décote France sur la médiane. Pour les archétypes patrimoniaux (#10, #11), la valorisation est basée sur l'ANR et non sur des multiples.",
+  "archetypes": {
+    "saas_hyper": {
+      "primaryMultiple": { "metric": "ARR", "low": 8, "median": 15, "high": 25 },
+      "secondaryMultiple": { "metric": "Revenue", "low": 4, "median": 8, "high": 15 },
+      "damodaranSector": "Software (System & Application)",
+      "source": "Software (System & Application) — Damodaran, ajusté croissance >40%"
+    },
+    "saas_mature": {
+      "primaryMultiple": { "metric": "EBITDA", "low": 10, "median": 15, "high": 20 },
+      "secondaryMultiple": { "metric": "ARR", "low": 4, "median": 7, "high": 10 },
+      "damodaranSector": "Software (System & Application)",
+      "source": "Software (System & Application) — Damodaran, croissance 5-40%"
+    },
+    "saas_decline": {
+      "primaryMultiple": { "metric": "EBITDA", "low": 4, "median": 6, "high": 8 },
+      "secondaryMultiple": { "metric": "Revenue", "low": 1, "median": 2, "high": 3 },
+      "damodaranSector": "Software (System & Application)",
+      "source": "Software (System & Application) — Damodaran, décote 20-40% vs SaaS mature"
+    },
+    "marketplace": {
+      "primaryMultiple": { "metric": "GMV", "low": 1, "median": 2, "high": 4 },
+      "secondaryMultiple": { "metric": "CA net", "low": 5, "median": 10, "high": 15 },
+      "damodaranSector": "Software (Internet)",
+      "source": "Software (Internet) — Damodaran, ajusté pour take rate et effet réseau"
+    },
+    "ecommerce": {
+      "primaryMultiple": { "metric": "CA", "low": 1, "median": 2, "high": 3 },
+      "secondaryMultiple": { "metric": "EBITDA", "low": 6, "median": 9, "high": 12 },
+      "damodaranSector": "Retail (Online)",
+      "source": "Retail (Online) — Damodaran, ajusté marge brute et marque"
+    },
+    "conseil": {
+      "primaryMultiple": { "metric": "EBITDA", "low": 3.5, "median": 5, "high": 7 },
+      "secondaryMultiple": { "metric": "CA", "low": 0.5, "median": 0.8, "high": 1.2 },
+      "damodaranSector": "Business & Consumer Services",
+      "source": "Business & Consumer Services — Damodaran, ajusté CRA France (cabinets 3-6×, ESN 5-8×)"
+    },
+    "services_recurrents": {
+      "primaryMultiple": { "metric": "EBITDA", "low": 5, "median": 7, "high": 10 },
+      "secondaryMultiple": { "metric": "CA récurrent", "low": 2, "median": 3, "high": 4 },
+      "damodaranSector": "Business & Consumer Services",
+      "source": "Business & Consumer Services — Damodaran, prime récurrence >60%"
+    },
+    "commerce_retail": {
+      "primaryMultiple": { "metric": "EBITDA", "low": 3, "median": 4.5, "high": 6 },
+      "secondaryMultiple": { "metric": "CA", "low": 0.3, "median": 0.5, "high": 0.8 },
+      "damodaranSector": "Retail (General)",
+      "source": "Retail (General) — Damodaran, ajusté fonds de commerce France"
+    },
+    "industrie": {
+      "primaryMultiple": { "metric": "EBITDA", "low": 4, "median": 5.5, "high": 7 },
+      "secondaryMultiple": { "metric": "CA", "low": 0.4, "median": 0.6, "high": 0.9 },
+      "damodaranSector": "Machinery",
+      "source": "Machinery — Damodaran, ajusté capex et actifs corporels"
+    },
+    "patrimoine": {
+      "primaryMultiple": { "metric": "ANR", "low": 0.7, "median": 0.85, "high": 1 },
+      "secondaryMultiple": { "metric": "Loyers nets", "low": 10, "median": 14, "high": 18 },
+      "damodaranSector": "Real Estate (General/Diversified)",
+      "source": "Real Estate — Damodaran, décote holding 15-30% intégrée dans ANR"
+    },
+    "patrimoine_dominant": {
+      "primaryMultiple": { "metric": "ANR", "low": 0.6, "median": 0.75, "high": 0.85 },
+      "secondaryMultiple": { "metric": "Rendement potentiel", "low": 8, "median": 12, "high": 16 },
+      "damodaranSector": "Real Estate (General/Diversified)",
+      "source": "Real Estate — Damodaran, décote liquidité 15-40% (actifs spécifiques)"
+    },
+    "deficit_structurel": {
+      "primaryMultiple": { "metric": "CA", "low": 0.3, "median": 0.8, "high": 1.5 },
+      "secondaryMultiple": { "metric": "Valeur liquidation", "low": 0.1, "median": 0.3, "high": 0.5 },
+      "damodaranSector": "N/A — distressed",
+      "source": "Pas de comparable Damodaran direct — multiples de retournement (Houlihan Lokey)"
+    },
+    "masse_salariale_lourde": {
+      "primaryMultiple": { "metric": "EBITDA", "low": 3, "median": 4, "high": 5 },
+      "secondaryMultiple": { "metric": "CA", "low": 0.5, "median": 0.8, "high": 1.5 },
+      "damodaranSector": "Business & Consumer Services",
+      "source": "Business & Consumer Services — Damodaran, multiple prudent (marge faible)"
+    },
+    "micro_solo": {
+      "primaryMultiple": { "metric": "Bénéfice retraité", "low": 1, "median": 2, "high": 3 },
+      "secondaryMultiple": { "metric": "CA", "low": 0.2, "median": 0.5, "high": 0.8 },
+      "damodaranSector": "N/A — micro-entreprise",
+      "source": "Barème fiscal Administration Fiscale + pratiques de marché France (CRA, BPI)"
+    },
+    "pre_revenue": {
+      "primaryMultiple": { "metric": "DCF", "low": 0, "median": 0, "high": 0 },
+      "secondaryMultiple": { "metric": "Méthode VC", "low": 0, "median": 0, "high": 0 },
+      "damodaranSector": "N/A — pre-revenue",
+      "source": "Multiples non applicables — utiliser DCF sur business plan ou méthode VC (Berkus)"
+    }
+  }
+}

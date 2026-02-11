@@ -5,10 +5,10 @@ export const TEST_CONFIG = {
   slowMo: parseInt(process.env.TEST_SLOW_MO || '0'),
   timeout: 60000,
 
-  // Credentials de test
+  // Credentials de test (compte existant dans Supabase)
   testUser: {
-    email: process.env.TEST_USER_EMAIL || 'test@evalup.fr',
-    password: process.env.TEST_USER_PASSWORD || 'TestPassword123!',
+    email: process.env.TEST_USER_EMAIL || 'hatem+evalup@cajis.fr',
+    password: process.env.TEST_USER_PASSWORD || 'qsdfghjk',
   },
 
   // Stripe test card

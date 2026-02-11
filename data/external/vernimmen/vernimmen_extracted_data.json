@@ -1,0 +1,704 @@
+{
+  "source": "Vernimmen Case Studies (vernimmen.net)",
+  "files_parsed": [
+    "MEDICA.xls",
+    "ASF.xls",
+    "Pirelli_DCF.xlsx",
+    "Corrige_Medica.pdf",
+    "Corrige_SYCOM.pdf",
+    "Pirelli_Enonce.pdf"
+  ],
+  "notes": {
+    "Corrige_ASF.pdf": "FILE IS CORRUPTED - contains HTML 404 page instead of actual PDF content",
+    "ANNEXE_SYCOM.pdf": "Additional annexe file present but not requested"
+  },
+  "case_studies": {
+    "MEDICA": {
+      "company": {
+        "name": "MEDICA",
+        "context": "IPO valuation case (October 2010)",
+        "sector": "Healthcare / Elderly care clinics (EHPAD)",
+        "situation": "Company under LBO, preparing IPO in January 2010",
+        "shares_outstanding_millions": 14.2,
+        "currency": "EUR millions"
+      },
+      "income_statement_projections": {
+        "years": [
+          "2010e",
+          "2011e",
+          "2012e",
+          "2013e",
+          "2014e",
+          "2015e",
+          "2016e",
+          "2017e",
+          "2018e",
+          "2019e"
+        ],
+        "revenue": [
+          525,
+          580,
+          628,
+          686,
+          693,
+          716,
+          737,
+          759,
+          781,
+          803
+        ],
+        "EBIT": [
+          73,
+          82,
+          90,
+          99,
+          104,
+          104,
+          107,
+          110,
+          114,
+          117
+        ],
+        "net_income_analyst3": [
+          15,
+          33,
+          51,
+          69,
+          75,
+          85,
+          90,
+          95,
+          100,
+          105
+        ],
+        "depreciation": [
+          29,
+          20,
+          21,
+          21,
+          21,
+          22,
+          22,
+          23,
+          24,
+          24
+        ],
+        "capex": [
+          -39,
+          -35,
+          -35,
+          -30,
+          -28,
+          -26,
+          -27,
+          -28,
+          -29,
+          -30
+        ],
+        "wc_change": [
+          5,
+          6,
+          6,
+          4,
+          5,
+          2,
+          2,
+          3,
+          3,
+          3
+        ],
+        "tax_rate": 0.34,
+        "tax_on_EBIT": [
+          -25,
+          -28,
+          -31,
+          -34,
+          -35,
+          -35,
+          -36,
+          -37,
+          -39,
+          -40
+        ],
+        "FCF": [
+          43,
+          45,
+          51,
+          60,
+          67,
+          67,
+          68,
+          71,
+          73,
+          74
+        ]
+      },
+      "balance_sheet": {
+        "net_debt_and_minorities": 769
+      },
+      "comparable_company_analysis": {
+        "best_comparable": "KORIAN",
+        "korian_multiples_2009": {
+          "EV_EBITDA": 12.7,
+          "EV_EBIT": 18.5,
+          "PER": 26.1
+        },
+        "medica_valuation_by_comparables": {
+          "EV_EBITDA_method": {
+            "multiple_used": 11.7,
+            "equity_value": 202,
+            "value_per_share_EUR": 14.2
+          },
+          "EV_EBIT_method": {
+            "multiple_used": 16.5,
+            "equity_value": 287,
+            "value_per_share_EUR": 20.2
+          },
+          "PER_method": "Not applicable - MEDICA had net losses in 2009"
+        }
+      },
+      "dcf_models": {
+        "analyst_1_INCORRECT": {
+          "error": "Uses cost of equity instead of WACC; forgets to discount terminal value",
+          "inputs": {
+            "risk_free_rate": 0.034,
+            "equity_risk_premium": 0.056,
+            "equity_beta": 1.4,
+            "cost_of_equity": 0.1124,
+            "terminal_growth": 0.025
+          },
+          "results": {
+            "enterprise_value": 1209.83,
+            "equity_value": 440.83,
+            "value_per_share_EUR": 31.04
+          }
+        },
+        "analyst_2_INCORRECT": {
+          "error": "Does not subtract net debt from enterprise value",
+          "inputs": {
+            "WACC": 0.081305,
+            "terminal_growth": 0.025,
+            "cost_of_debt_after_tax": 0.0433,
+            "debt_to_EV": 0.45
+          },
+          "results": {
+            "equity_value_WRONG": 1013.54,
+            "value_per_share_EUR": 71.38
+          }
+        },
+        "analyst_3_INCORRECT": {
+          "error": "Uses net income instead of NOPAT for FCF; ignores WC changes",
+          "inputs": {
+            "WACC": 0.081305,
+            "terminal_growth": 0.025
+          },
+          "results": {
+            "enterprise_value": 1204.27,
+            "equity_value": 435.27,
+            "value_per_share_EUR": 30.65
+          }
+        },
+        "analyst_4_CORRECT": {
+          "is_correct": true,
+          "inputs": {
+            "risk_free_rate": 0.034,
+            "equity_risk_premium": 0.056,
+            "equity_beta": 1.4,
+            "cost_of_equity": 0.1124,
+            "cost_of_debt_after_tax": 0.0433,
+            "debt_to_EV": 0.45,
+            "WACC": 0.081305,
+            "terminal_growth": 0.025,
+            "terminal_FCF_2020": 75.85
+          },
+          "results": {
+            "terminal_value_2019": 1347.13,
+            "PV_terminal_value": 616.49,
+            "PV_of_FCFs": 397.05,
+            "enterprise_value": 1013.54,
+            "net_debt": 769,
+            "equity_value": 244.54,
+            "value_per_share_EUR": 17.22
+          }
+        }
+      },
+      "sensitivity_analysis": {
+        "base_case_value_per_share": 17.3,
+        "scenarios": [
+          {
+            "change": "WACC +10%",
+            "value": 8.0,
+            "pct": "-54%"
+          },
+          {
+            "change": "WACC -10%",
+            "value": 29.8,
+            "pct": "+72%"
+          },
+          {
+            "change": "g +10%",
+            "value": 19.3,
+            "pct": "+12%"
+          },
+          {
+            "change": "g -10%",
+            "value": 15.5,
+            "pct": "-11%"
+          },
+          {
+            "change": "FCF +10%",
+            "value": 21.7,
+            "pct": "+25%"
+          },
+          {
+            "change": "FCF -10%",
+            "value": 13.0,
+            "pct": "-25%"
+          }
+        ]
+      },
+      "final_valuation": {
+        "DCF_value_per_share_EUR": 17.3,
+        "comparable_range_EUR": [
+          14.0,
+          20.0
+        ],
+        "analyst_consensus_range_EUR": [
+          16.0,
+          19.5
+        ],
+        "actual_IPO_price_EUR": 13.0,
+        "note": "Price reduced from 16-19.5 range to 13 EUR due to deteriorating market"
+      }
+    },
+    "ASF": {
+      "company": {
+        "name": "Autoroutes du Sud de la France (ASF)",
+        "sector": "Toll motorways / Concessions",
+        "stock_price": 28.0,
+        "market_cap": 6384.43,
+        "currency": "EUR millions"
+      },
+      "income_statement": {
+        "years": [
+          "1999",
+          "2000",
+          "2001",
+          "2002e",
+          "2003e",
+          "2004e",
+          "2005e",
+          "2006e",
+          "2007e",
+          "2008e"
+        ],
+        "revenue": [
+          1781.4,
+          1886.6,
+          1929.8,
+          2087.4,
+          2215.2,
+          2351.8,
+          2498.2,
+          2626.3,
+          2740.7,
+          2849.1
+        ],
+        "EBITDA": [
+          1128.7,
+          1194.7,
+          1150.8,
+          1255.5,
+          1349.1,
+          1448.4,
+          1562.5,
+          1659.8,
+          1750.7,
+          1836.2
+        ],
+        "EBIT": [
+          791.9,
+          843.2,
+          753.6,
+          849.2,
+          917.0,
+          970.3,
+          1068.5,
+          1146.5,
+          1240.3,
+          1283.7
+        ],
+        "net_income": [
+          212.5,
+          258.2,
+          211.4,
+          286.5,
+          338.5,
+          373.5,
+          425.1,
+          476.7,
+          535.2,
+          562.9
+        ]
+      },
+      "balance_sheet": {
+        "net_debt": [
+          7429.1,
+          7474.7,
+          8348.5,
+          7584.2,
+          7701.0,
+          7888.5,
+          7783.4,
+          7838.5,
+          7953.6,
+          7882.2
+        ],
+        "equity": [
+          1623.0,
+          1884.4,
+          1985.4,
+          3071.9,
+          3275.0,
+          3499.1,
+          3754.2,
+          3944.9,
+          4158.9,
+          4384.1
+        ],
+        "capex": [
+          -1017.7,
+          -787.1,
+          -946.2,
+          -769.0,
+          -777.0,
+          -707.8,
+          -646.3,
+          -727.6,
+          -800.7,
+          -659.7
+        ]
+      },
+      "dcf_inputs": {
+        "risk_free_rate": 0.05217,
+        "equity_beta": 0.7486766,
+        "market_risk_premium": 0.04,
+        "WACC": 0.06954,
+        "asset_beta": 0.595,
+        "concession_type": "Finite life - no terminal value, cash flows end at 2037"
+      },
+      "dcf_cash_flows_2009_2037": {
+        "2009e": 750,
+        "2010e": 801,
+        "2011e": 900,
+        "2012e": 1000,
+        "2013e": 1100,
+        "2014e": 1200,
+        "2015e": 1300,
+        "2016e": 1350,
+        "2017e": 1400,
+        "2018e": 1450,
+        "2019e": 1500,
+        "2020e": 1650,
+        "2021e": 1850,
+        "2022e": 1900,
+        "2023e": 2191,
+        "2024e": 2258,
+        "2025e": 2405,
+        "2026e": 1962,
+        "2027e": 2090,
+        "2028e": 2160,
+        "2029e": 2395,
+        "2030e": 2491,
+        "2031e": 2645,
+        "2032e": 2645,
+        "2033e": 2000,
+        "2034e": 1500,
+        "2035e": 1000,
+        "2036e": 500,
+        "2037e": 0
+      },
+      "comparable_companies": {
+        "Acesa": {
+          "market_cap": 2158,
+          "net_debt": 1277,
+          "EV": 3435,
+          "revenue": 710,
+          "EBITDA": 482,
+          "EBIT": 356,
+          "beta": 0.84,
+          "asset_beta": 0.62
+        },
+        "Aurea": {
+          "market_cap": 1602,
+          "net_debt": 908,
+          "EV": 2510,
+          "revenue": 293,
+          "EBITDA": 245,
+          "EBIT": 166,
+          "beta": 0.9,
+          "asset_beta": 0.67
+        },
+        "Autostrade": {
+          "market_cap": 9116,
+          "net_debt": 3338,
+          "EV": 12454,
+          "revenue": 2229,
+          "EBITDA": 1323,
+          "EBIT": 927,
+          "beta": 0.7,
+          "asset_beta": 0.57
+        },
+        "Brisa": {
+          "market_cap": 2588,
+          "net_debt": 1355,
+          "EV": 3943,
+          "revenue": 477,
+          "EBITDA": 357,
+          "EBIT": 262.6,
+          "beta": 0.68,
+          "asset_beta": 0.52
+        }
+      }
+    },
+    "PIRELLI": {
+      "company": {
+        "name": "Pirelli",
+        "context": "IPO valuation case (October 2017)",
+        "sector": "Pneumatics / Tires",
+        "shares_outstanding_millions": 1000,
+        "currency": "EUR millions"
+      },
+      "income_statement": {
+        "years": [
+          "2014",
+          "2015",
+          "2016",
+          "2017e",
+          "2018e",
+          "2019e",
+          "2020e"
+        ],
+        "revenue": [
+          4480,
+          4785,
+          4976,
+          5412,
+          5747,
+          6192,
+          6684
+        ],
+        "EBITDA": [
+          890,
+          1021,
+          1082,
+          1196,
+          1337,
+          1488,
+          1666
+        ],
+        "EBIT": [
+          654,
+          769,
+          844,
+          933,
+          1056,
+          1183,
+          1336
+        ],
+        "net_income": [
+          280,
+          390,
+          296,
+          387,
+          null,
+          null,
+          null
+        ],
+        "net_income_projected": [
+          375,
+          446,
+          574,
+          699
+        ]
+      },
+      "balance_sheet": {
+        "years": [
+          "2014",
+          "2015",
+          "2016",
+          "2017e"
+        ],
+        "equity": [
+          3193,
+          2974,
+          3971,
+          5370
+        ],
+        "net_debt": [
+          5506,
+          5600,
+          5275,
+          3531
+        ],
+        "economic_assets": [
+          8698,
+          8574,
+          9246,
+          8901
+        ],
+        "leverage_debt_equity": [
+          1.72,
+          1.88,
+          1.33,
+          0.66
+        ]
+      },
+      "dcf_projections": {
+        "years": [
+          "2017e",
+          "2018e",
+          "2019e",
+          "2020e"
+        ],
+        "revenue": [
+          5412,
+          5747,
+          6192,
+          6684
+        ],
+        "EBIT": [
+          933,
+          1056,
+          1183,
+          1336
+        ],
+        "tax_rate": 0.28,
+        "depreciation": [
+          264,
+          281,
+          304,
+          329
+        ],
+        "capex": [
+          -489,
+          -433,
+          -441,
+          -434
+        ],
+        "wc_change": [
+          299,
+          -423,
+          -76,
+          -87
+        ],
+        "FCF": [
+          744,
+          186,
+          639,
+          770
+        ]
+      },
+      "dcf_models": {
+        "analyst_1_INCORRECT": {
+          "error": "Uses cost of equity (8.86%) instead of WACC to discount",
+          "value_per_share_EUR": 8.98
+        },
+        "analyst_2_INCORRECT": {
+          "error": "Does not subtract net debt from enterprise value",
+          "value_per_share_EUR": 11.34
+        },
+        "analyst_3_INCORRECT": {
+          "error": "Uses net income instead of NOPAT; ignores WC changes",
+          "value_per_share_EUR": 4.91
+        },
+        "analyst_4_CORRECT": {
+          "is_correct": true,
+          "inputs": {
+            "risk_free_rate": 0.02195,
+            "equity_risk_premium": 0.06,
+            "equity_beta": 1.11,
+            "cost_of_equity": 0.0886,
+            "cost_of_debt_after_tax": 0.04248,
+            "debt_to_EV": 0.2541,
+            "WACC": 0.07685,
+            "terminal_growth": 0.015,
+            "terminal_FCF_2021": 781.75
+          },
+          "results": {
+            "terminal_value_2020": 12639.43,
+            "PV_terminal_value": 9399.53,
+            "PV_of_FCFs": 1936.61,
+            "enterprise_value": 11336.13,
+            "net_debt": 3531,
+            "equity_value": 7805.13,
+            "value_per_share_EUR": 7.81
+          }
+        }
+      },
+      "comparable_companies": {
+        "Bridgestone": {
+          "market_cap": 29499,
+          "net_debt": -972,
+          "EBIT_2017": 3279
+        },
+        "Continental": {
+          "market_cap": 43250,
+          "net_debt": 6960,
+          "EBIT_2017": 4692
+        },
+        "Goodyear": {
+          "market_cap": 7005,
+          "net_debt": 3458,
+          "EBIT_2017": 1170
+        },
+        "Michelin": {
+          "market_cap": 22012,
+          "net_debt": 4387,
+          "EBIT_2017": 2742
+        }
+      }
+    },
+    "SYCOM": {
+      "company": {
+        "name": "SYCOM",
+        "sector": "Light industrial assembly",
+        "market_cap_kEUR": 5568,
+        "float": "2%"
+      },
+      "key_financials": {
+        "revenue_2013_MEUR": 6.7,
+        "revenue_2017_MEUR": 9.0,
+        "revenue_CAGR": "8%",
+        "EBITDA_margin_2017": "15.7%",
+        "EBITDA_margin_H1_2018": "21%",
+        "ROCE": "~11%",
+        "cost_of_capital": "10%",
+        "net_cash_MEUR": 2.307
+      },
+      "valuation": {
+        "market_EV_EBIT_2018e": 1.9,
+        "PBR": 0.8,
+        "opco_propco_equity_value_MEUR": 15.0,
+        "calculation": "(0.857*2 - 5%*6 + 0.140)*5 + 2.307 + (6 - 4*28%) = 15 MEUR"
+      }
+    }
+  },
+  "methodology_lessons": {
+    "correct_DCF_formula": {
+      "FCF": "EBIT*(1-t) + D&A - Capex - Delta_WC",
+      "WACC": "Ke*(E/V) + Kd*(1-t)*(D/V)",
+      "terminal_value": "FCF_terminal / (WACC - g)",
+      "enterprise_value": "PV(FCFs) + PV(Terminal_Value)",
+      "equity_value": "EV - Net_Debt - Minorities",
+      "per_share": "Equity_Value / Shares"
+    },
+    "common_errors": [
+      "Using cost of equity instead of WACC to discount FCFs",
+      "Not subtracting net debt from enterprise value",
+      "Using net income (post-interest) instead of NOPAT for FCF",
+      "Ignoring working capital changes in FCF",
+      "Forgetting to discount terminal value to present"
+    ]
+  }
+}

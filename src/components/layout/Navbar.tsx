@@ -14,7 +14,7 @@ interface NavbarProps {
 }
 
 const DEFAULT_NAV_ITEMS: NavItem[] = [
-  { label: 'Fonctionnalites', href: '#features' },
+  { label: 'Diagnostic gratuit', href: '/diagnostic' },
   { label: 'Comment ca marche', href: '#how-it-works' },
   { label: 'Tarifs', href: '/tarifs' },
   { label: 'Aide', href: '/aide' },
@@ -73,7 +73,7 @@ export function Navbar({ items = DEFAULT_NAV_ITEMS, className = '' }: NavbarProp
             Connexion
           </a>
           <a
-            href="/app"
+            href="/diagnostic"
             className="px-5 py-2.5 text-[14px] font-semibold bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] rounded-[var(--radius-md)] shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] transition-all duration-150 cursor-pointer"
           >
             Commencer gratuitement
@@ -122,7 +122,7 @@ export function Navbar({ items = DEFAULT_NAV_ITEMS, className = '' }: NavbarProp
                 Connexion
               </Link>
               <Link
-                href="/app"
+                href="/diagnostic"
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="block w-full text-center px-5 py-2.5 text-[14px] font-semibold bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] rounded-[var(--radius-md)] transition-all duration-150"
               >

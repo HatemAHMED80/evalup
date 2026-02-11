@@ -12,7 +12,7 @@ import { getDraftBySiren } from '@/lib/evaluation-draft'
 import type { ConversationContext, Message, UploadedDocument } from '@/lib/anthropic'
 import { MESSAGE_INITIAL } from '@/lib/prompts/base'
 import { INTRO_MESSAGES, DOCUMENT_RESPONSE_YES, DOCUMENT_RESPONSE_NO, PEDAGOGY_OPTIONS, type UserParcours, type PedagogyLevel } from '@/lib/prompts/parcours'
-import { trackConversion, trackPurchase } from '@/lib/analytics'
+import { trackConversion } from '@/lib/analytics'
 
 // Options d'objectif de valorisation
 const OBJECTIF_OPTIONS = [
@@ -81,10 +81,9 @@ interface ChatInterfaceProps {
   onStepChange?: (step: number) => void
   previousMessages?: { role: 'assistant' | 'user', content: string }[]
   bentoGridData?: BentoGridData
-  upgradeSuccess?: boolean
 }
 
-export function ChatInterface({ entreprise, initialContext, onStepChange, previousMessages, bentoGridData, upgradeSuccess }: ChatInterfaceProps) {
+export function ChatInterface({ entreprise, initialContext, onStepChange, previousMessages, bentoGridData }: ChatInterfaceProps) {
   // Un seul tableau de messages pour tout l'historique
   const [messages, setMessages] = useState<Message[]>(() => {
     if (previousMessages?.length) {
@@ -126,14 +125,6 @@ export function ChatInterface({ entreprise, initialContext, onStepChange, previo
   // Index pour savoir où insérer le bento grid (après les messages initiaux)
   const bentoInsertIndex = useRef(previousMessages?.length || 0)
 
-  // Modal d'upgrade Flash -> Complete
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
-  const [upgradeData, setUpgradeData] = useState<{
-    url: string
-    price: number
-    questionsUsed?: number
-  } | null>(null)
-
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const typeIntervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -162,70 +153,6 @@ export function ChatInterface({ entreprise, initialContext, onStepChange, previo
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entreprise.siren])
-
-  // Gérer le retour après paiement réussi
-  const [hasHandledUpgrade, setHasHandledUpgrade] = useState(false)
-  useEffect(() => {
-    if (upgradeSuccess && !hasHandledUpgrade) {
-      setHasHandledUpgrade(true)
-
-      // Track la conversion d'achat
-      trackPurchase({ siren: entreprise.siren, plan: 'eval_complete', value: 79 })
-
-      // Nettoyer l'URL pour retirer le paramètre upgrade
-      const url = new URL(window.location.href)
-      url.searchParams.delete('upgrade')
-      window.history.replaceState({}, '', url.toString())
-
-      // Restaurer le brouillon existant (même si marqué comme complété)
-      const existingDraft = getDraftBySiren(entreprise.siren)
-      let restoredMessages: Message[] = []
-      let restoredContext = context
-
-      if (existingDraft && existingDraft.messages.length > 0) {
-        restoredMessages = existingDraft.messages
-        restoredContext = existingDraft.context
-
-        // Restaurer l'objectif si présent
-        if (existingDraft.context.objectif) {
-          setSelectedObjectif(existingDraft.context.objectif as ObjectifType)
-          setShowObjectifQuestion(true)
-        }
-      }
-
-      // Ajouter un message de confirmation après les messages restaurés
-      const successMessage: Message = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: `🎉 **Paiement confirmé !** Merci pour ta confiance.
-
-Tu as maintenant accès à l'**Évaluation Complète** pour ${entreprise.nom}.
-
-J'ai conservé toutes les informations de ton évaluation Flash. Je vais maintenant pouvoir approfondir l'analyse avec :
-- ✅ Analyse de tes documents comptables en détail
-- ✅ Retraitements du résultat (rémunération dirigeant, charges exceptionnelles...)
-- ✅ Évaluation des risques et décotes applicables
-- ✅ Comparaison avec les transactions récentes du secteur
-- ✅ Génération de ton **rapport PDF professionnel**
-
-**Continuons !** As-tu des documents comptables à me partager pour affiner l'analyse ? (bilans, comptes de résultat, liasses fiscales...)
-
-[SUGGESTIONS]Oui, je vais uploader mes documents|Non, continuons avec les données déjà collectées[/SUGGESTIONS]`,
-        timestamp: new Date(),
-      }
-
-      // Mettre à jour les messages (brouillon + message de succès)
-      setMessages([...restoredMessages, successMessage])
-
-      // Mettre à jour le contexte pour indiquer que c'est une évaluation complète
-      setContext({
-        ...restoredContext,
-        evaluationType: 'complete' as const,
-        isPaid: true,
-      })
-    }
-  }, [upgradeSuccess, hasHandledUpgrade, entreprise.nom, entreprise.siren, context])
-
 
   // Si l'objectif est déjà sélectionné au chargement, ajouter le message d'intro
   useEffect(() => {
@@ -657,18 +584,6 @@ Quel est le **salaire annuel brut du dirigeant** (charges patronales incluses) ?
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Erreur de communication' }))
 
-        // Gestion spécifique de la limite Flash (8 questions)
-        if (errorData.code === 'FLASH_LIMIT_REACHED') {
-          setUpgradeData({
-            url: errorData.upgrade?.url || `/checkout?siren=${entreprise.siren}`,
-            price: errorData.upgrade?.price || 79,
-            questionsUsed: 8,
-          })
-          setShowUpgradeModal(true)
-          setIsLoading(false)
-          return
-        }
-
         // Gestion des erreurs specifiques avec messages user-friendly
         const errorMessages: Record<string, string> = {
           TOKEN_LIMIT_REACHED: 'Tu as atteint ta limite quotidienne. Reessaie demain ou passe au plan Pro pour continuer.',
@@ -696,36 +611,7 @@ Quel est le **salaire annuel brut du dirigeant** (charges patronales incluses) ?
             timestamp: new Date(),
           }
 
-          // Détecter si c'est une valorisation Flash complète
-          const isFlashComplete = fullText.includes('[FLASH_VALUATION_COMPLETE]')
-
-          if (isFlashComplete) {
-            trackConversion('flash_complete', { siren: entreprise.siren })
-            // Ajouter le message de la valorisation puis un message de suivi
-            const followUpMessage: Message = {
-              id: crypto.randomUUID(),
-              role: 'assistant',
-              content: `Voilà ta **fourchette de valorisation indicative** basée sur les éléments que tu m'as donnés.
-
-Cette estimation est réalisée à partir de données déclaratives, sans analyse documentaire ni vérification approfondie.
-
-**Tu souhaites affiner cette valorisation ?**
-
-Avec l'**Évaluation Complète** à 79€, tu bénéficies de :
-- 📄 Analyse de tes documents comptables (bilans, comptes de résultat)
-- 🔧 Retraitements du résultat (rémunération dirigeant, charges exceptionnelles)
-- ⚠️ Analyse des risques et décotes applicables
-- 📈 Comparaison avec les transactions récentes du secteur
-- 📑 **Rapport PDF professionnel de 30 pages**
-
-[SUGGESTIONS]Oui, je veux affiner mon évaluation|Non merci, ça me suffit pour l'instant[/SUGGESTIONS]`,
-              timestamp: new Date(),
-            }
-
-            setMessages(prev => [...prev, assistantMessage, followUpMessage])
-          } else {
-            setMessages(prev => [...prev, assistantMessage])
-          }
+          setMessages(prev => [...prev, assistantMessage])
 
           setStreamingContent('')
           setIsStreaming(false)
@@ -785,9 +671,6 @@ Avec l'**Évaluation Complète** à 79€, tu bénéficies de :
               key={message.id}
               message={message}
               onSuggestionClick={handleSuggestionClick}
-              entrepriseNom={entreprise.nom}
-              entrepriseActivite={entreprise.secteur}
-              siren={entreprise.siren}
             />
           ))}
 
@@ -852,9 +735,6 @@ Avec l'**Évaluation Complète** à 79€, tu bénéficies de :
               key={message.id}
               message={message}
               onSuggestionClick={handleSuggestionClick}
-              entrepriseNom={entreprise.nom}
-              entrepriseActivite={entreprise.secteur}
-              siren={entreprise.siren}
             />
           ))}
 
@@ -890,9 +770,6 @@ Avec l'**Évaluation Complète** à 79€, tu bénéficies de :
               }}
               isStreaming={true}
               onSuggestionClick={handleSuggestionClick}
-              entrepriseNom={entreprise.nom}
-              entrepriseActivite={entreprise.secteur}
-              siren={entreprise.siren}
             />
           )}
           {isLoading && <TypingIndicator />}
@@ -985,78 +862,6 @@ Avec l'**Évaluation Complète** à 79€, tu bénéficies de :
         </div>
       </div>
 
-      {/* Modal d'upgrade Flash -> Complete */}
-      {showUpgradeModal && upgradeData && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#1a1a2e] border border-[#c9a227]/30 rounded-2xl max-w-lg w-full p-6 shadow-2xl">
-            {/* Header */}
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 bg-[#c9a227]/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-3xl">🎯</span>
-              </div>
-              <h2 className="text-2xl font-bold text-white mb-2">
-                Évaluation Flash terminée !
-              </h2>
-              <p className="text-white/60">
-                Tu as utilisé tes {upgradeData.questionsUsed || 8} questions gratuites pour {entreprise.nom}
-              </p>
-            </div>
-
-            {/* Ce qui manque */}
-            <div className="bg-white/5 rounded-xl p-4 mb-6">
-              <p className="text-white/80 font-medium mb-3">Pour affiner ta valorisation, il te manque :</p>
-              <ul className="space-y-2">
-                <li className="flex items-start gap-2 text-white/70">
-                  <span className="text-red-400 mt-0.5">✗</span>
-                  <span>Les <strong className="text-white">retraitements</strong> (rémunération dirigeant, charges exceptionnelles...)</span>
-                </li>
-                <li className="flex items-start gap-2 text-white/70">
-                  <span className="text-red-400 mt-0.5">✗</span>
-                  <span>L&apos;analyse des <strong className="text-white">risques</strong> (clients, fournisseurs, homme-clé...)</span>
-                </li>
-                <li className="flex items-start gap-2 text-white/70">
-                  <span className="text-red-400 mt-0.5">✗</span>
-                  <span>L&apos;upload de <strong className="text-white">documents</strong> (bilans, comptes de résultat)</span>
-                </li>
-                <li className="flex items-start gap-2 text-white/70">
-                  <span className="text-red-400 mt-0.5">✗</span>
-                  <span>Le <strong className="text-white">rapport PDF</strong> détaillé</span>
-                </li>
-              </ul>
-            </div>
-
-            {/* CTA */}
-            <div className="space-y-3">
-              <a
-                href={upgradeData.url}
-                className="block w-full py-4 px-6 bg-[#c9a227] hover:bg-[#e8c547] text-[#1a1a2e] font-bold text-lg rounded-xl transition-colors text-center"
-              >
-                Affiner mon évaluation → {upgradeData.price}€
-              </a>
-              <button
-                onClick={() => setShowUpgradeModal(false)}
-                className="block w-full py-3 px-6 text-white/50 hover:text-white/80 text-sm transition-colors text-center"
-              >
-                Non merci, rester sur l&apos;évaluation Flash
-              </button>
-            </div>
-
-            {/* Réassurance */}
-            <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-center gap-4 text-xs text-white/40">
-              <span className="flex items-center gap-1">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-                Paiement sécurisé
-              </span>
-              <span>•</span>
-              <span>Sans engagement</span>
-              <span>•</span>
-              <span>Accès immédiat</span>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

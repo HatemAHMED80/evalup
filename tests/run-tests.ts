@@ -22,11 +22,15 @@ import { runNavigationTests } from './e2e/navigation.test'
 import { runAccessControlTests } from './e2e/access-control.test'
 import { runMobileTests } from './e2e/mobile.test'
 import { runAIQualityTests } from './e2e/ai-quality.test'
+import { runAuthTests } from './e2e/auth.test'
+import { runDiagnosticTests } from './e2e/diagnostic.test'
 
 // Définition des modules disponibles
 const AVAILABLE_MODULES: Record<string, (reporter: TestReporter) => Promise<void>> = {
   navigation: runNavigationTests,
   'access-control': runAccessControlTests,
+  auth: runAuthTests,
+  diagnostic: runDiagnosticTests,
   mobile: runMobileTests,
   chat: runChatTests,
   payment: runPaymentTests,

@@ -3,7 +3,8 @@
 import { NextRequest } from 'next/server'
 import { anthropic, isAnthropicConfigured } from '@/lib/anthropic'
 import { getModelFallbacks } from '@/lib/ai/models'
-import type { ConversationContext, Message, BilanAnnuel } from '@/lib/anthropic'
+import type { ConversationContext, Message } from '@/lib/anthropic'
+import { buildArchetypePrompt } from '@/lib/prompts/builder'
 import { getSystemPrompt } from '@/lib/prompts'
 import { createClient } from '@/lib/supabase/server'
 import { chatBodySchema } from '@/lib/security/schemas'
@@ -12,7 +13,6 @@ import {
   checkEvaluationAccess,
   incrementQuestionCount,
   checkTokenUsage,
-  FLASH_QUESTIONS_LIMIT,
 } from '@/lib/usage'
 import {
   // Router intelligent (v2 avec analyse sémantique)
@@ -48,7 +48,6 @@ import {
   // Tracking
   trackUsage,
 } from '@/lib/ai'
-import { evaluerRapide } from '@/lib/evaluation'
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
@@ -99,7 +98,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ============================================
-    // 0.5 VERIFICATION TOKENS + LIMITE FLASH
+    // 0.5 VERIFICATION TOKENS + ACCES
     // ============================================
 
     // Vérifier les limites de tokens (toujours, même sans siren)
@@ -117,8 +116,6 @@ export async function POST(request: NextRequest) {
     }
 
     const evalSiren = context.entreprise?.siren
-    let evaluationType: 'flash' | 'complete' = 'flash'
-    let currentQuestionCount = 1
 
     // Exiger un SIREN pour toute utilisation du chat
     if (!evalSiren) {
@@ -130,30 +127,28 @@ export async function POST(request: NextRequest) {
 
     const evalAccess = await checkEvaluationAccess(userId, evalSiren)
 
-    // Déterminer le type d'évaluation
-    evaluationType = evalAccess.evaluation?.type || 'flash'
-    currentQuestionCount = (evalAccess.evaluation?.questions_count || 0) + 1
-
-    // Si Flash terminee et pas paye -> bloquer
-    if (evalAccess.needsPayment && !evalAccess.canContinue) {
+    // Si l'utilisateur ne peut pas continuer -> bloquer
+    if (!evalAccess.canContinue) {
+      if (evalAccess.needsPayment) {
+        return new Response(
+          JSON.stringify({
+            error: 'Paiement requis pour acceder a l\'evaluation complete.',
+            code: 'PAYMENT_REQUIRED',
+            upgrade: {
+              url: `/checkout?siren=${evalSiren}&eval=${evalAccess.evaluation?.id}`,
+              price: 79,
+            },
+          }),
+          { status: 402, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
       return new Response(
         JSON.stringify({
-          error: `Evaluation Flash terminee ! Tu as obtenu une valorisation indicative. Pour affiner avec les retraitements, risques et rapport PDF, passe a l'evaluation complete.`,
-          code: 'FLASH_LIMIT_REACHED',
-          evaluation: {
-            id: evalAccess.evaluation?.id,
-            questionsCount: evalAccess.evaluation?.questions_count,
-            questionsLimit: FLASH_QUESTIONS_LIMIT,
-            valuationLow: evalAccess.evaluation?.valuation_low,
-            valuationHigh: evalAccess.evaluation?.valuation_high,
-          },
-          upgrade: {
-            url: `/checkout?siren=${evalSiren}&eval=${evalAccess.evaluation?.id}`,
-            price: 79,
-            message: 'Affiner mon evaluation pour 79€',
-          },
+          error: 'Acces non autorise a cette evaluation.',
+          code: 'ACCESS_DENIED',
+          status: evalAccess.evaluation?.status,
         }),
-        { status: 402, headers: { 'Content-Type': 'application/json' } }
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -178,22 +173,6 @@ export async function POST(request: NextRequest) {
           effectif: context.entreprise?.effectif
             ? parseInt(context.entreprise.effectif.replace(/\D/g, ''), 10) || undefined
             : undefined,
-        }
-      : undefined
-
-    // Données enrichies pour le calculateur (cross-validation avec evaluerEntreprise)
-    const evalDonnees: import('@/lib/evaluation/types').DonneesFinancieres | undefined = lastBilan
-      ? {
-          ca: lastBilan.chiffre_affaires || 0,
-          ebitda: ratiosCtx?.ebitda || 0,
-          resultatNet: lastBilan.resultat_net || 0,
-          capitauxPropres: lastBilan.capitaux_propres || 0,
-          actifNet: lastBilan.capitaux_propres || 0,
-          dettes: lastBilan.dettes_financieres || 0,
-          tresorerie: lastBilan.tresorerie || 0,
-          immobilisationsCorporelles: lastBilan.immobilisations_corporelles || undefined,
-          croissance: calculerCroissanceCA(bilans),
-          historique: buildHistorique(bilans),
         }
       : undefined
 
@@ -336,47 +315,39 @@ export async function POST(request: NextRequest) {
     // ============================================
     // 5. OPTIMISATION DU CONTEXTE
     // ============================================
-    // Injecter le numéro de question actuel dans le contexte pour le prompt Flash
     const contextWithProgress = {
       ...context,
       evaluationProgress: {
         ...context.evaluationProgress,
-        step: currentQuestionCount,
+        step: (evalAccess.evaluation?.questions_count || 0) + 1,
       },
     }
 
-    let systemPrompt = getSystemPrompt(
-      context.entreprise?.codeNaf,
-      contextWithProgress,
-      context.parcours,
-      context.pedagogyLevel,
-      evaluationType
-    )
+    // ── Choix du prompt : archétype (priorité) ou fallback base ──
+    let systemPrompt: string
+
+    if (context.archetype) {
+      console.log(`[API] Flow archétype: ${context.archetype}`)
+      systemPrompt = buildArchetypePrompt({
+        archetypeId: context.archetype,
+        context: contextWithProgress,
+        parcours: context.parcours,
+        pedagogyLevel: context.pedagogyLevel,
+        includeFondsCommerce: context.objet === 'fonds_commerce',
+      })
+    } else {
+      // Fallback si pas d'archétype (legacy)
+      systemPrompt = getSystemPrompt(
+        context.entreprise?.codeNaf,
+        contextWithProgress,
+        context.parcours,
+        context.pedagogyLevel,
+      )
+    }
 
     // Ajouter l'analyse locale au prompt si disponible
     if (localAnalysis) {
       systemPrompt += `\n\n## Analyse préliminaire (calculée automatiquement)\n${localAnalysis}`
-    }
-
-    // Cross-validation algorithmique : injecter l'estimation du calculateur
-    if (evalDonnees && evalDonnees.ca > 0) {
-      try {
-        const codeNaf = context.entreprise?.codeNaf || ''
-        // Utiliser evaluerEntreprise (plus riche) si les données complètes sont disponibles
-        const { evaluerEntreprise } = await import('@/lib/evaluation')
-        const algoResultat = evaluerEntreprise(codeNaf, evalDonnees)
-        const v = algoResultat.valorisation
-        systemPrompt += `\n\n## Cross-validation algorithmique\nEstimation calculée algorithmiquement : ${Math.round(v.basse).toLocaleString('fr-FR')}€ — ${Math.round(v.haute).toLocaleString('fr-FR')}€ (moyenne ${Math.round(v.moyenne).toLocaleString('fr-FR')}€, secteur : ${algoResultat.secteur.nom}).\nMéthodes utilisées : ${algoResultat.methodes.map(m => m.nom).join(', ')}.\nSi ton estimation diverge de plus de 20% de cette fourchette, explique les raisons de l'écart (retraitements qualitatifs, facteurs non captés par l'algorithme, etc.).`
-      } catch {
-        // Fallback sur evaluerRapide si evaluerEntreprise échoue
-        try {
-          const codeNaf = context.entreprise?.codeNaf || ''
-          const algoEstimation = evaluerRapide(codeNaf, evalDonnees.ca, evalDonnees.ebitda, evalDonnees.resultatNet)
-          systemPrompt += `\n\n## Cross-validation algorithmique\nEstimation calculée algorithmiquement : ${Math.round(algoEstimation.basse).toLocaleString('fr-FR')}€ — ${Math.round(algoEstimation.haute).toLocaleString('fr-FR')}€ (secteur détecté : ${algoEstimation.secteur}).\nSi ton estimation diverge de plus de 20% de cette fourchette, explique les raisons de l'écart.`
-        } catch {
-          // Silencieux : pas de cross-validation si le calculateur échoue
-        }
-      }
     }
 
     let claudeMessages = messages.map(m => ({
@@ -559,18 +530,8 @@ export async function POST(request: NextRequest) {
             }
           }
 
-          // Détecter si l'IA a donné la valorisation Flash
-          // Le marqueur [FLASH_VALUATION_COMPLETE] indique que l'évaluation Flash est terminée
-          if (evaluationType === 'flash' && fullResponse.includes('[FLASH_VALUATION_COMPLETE]')) {
-            console.log('[API] Valorisation Flash détectée - marquage comme terminée')
-            const { markFlashCompleteByUserAndSiren } = await import('@/lib/usage/evaluations')
-            if (userId && evalSiren) {
-              await markFlashCompleteByUserAndSiren(userId, evalSiren)
-            }
-          }
-
           // Détecter si l'IA a donné l'évaluation complète
-          if (evaluationType === 'complete' && fullResponse.includes('[EVALUATION_COMPLETE]')) {
+          if (fullResponse.includes('[EVALUATION_COMPLETE]')) {
             console.log('[API] Évaluation complète détectée - synthèse livrée')
           }
 
@@ -649,29 +610,6 @@ export async function POST(request: NextRequest) {
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }
-}
-
-/**
- * Calcule la croissance du CA à partir des bilans historiques
- */
-function calculerCroissanceCA(bilans?: BilanAnnuel[]): number | undefined {
-  if (!bilans || bilans.length < 2) return undefined
-  const [recent, ancien] = bilans
-  if (!ancien.chiffre_affaires || ancien.chiffre_affaires === 0) return undefined
-  return (recent.chiffre_affaires - ancien.chiffre_affaires) / ancien.chiffre_affaires
-}
-
-/**
- * Construit l'historique multi-annuel pour le calculateur
- */
-function buildHistorique(bilans?: BilanAnnuel[]): { ca: number; ebitda: number; resultatNet: number; annee: number }[] | undefined {
-  if (!bilans || bilans.length < 2) return undefined
-  return bilans.map(b => ({
-    annee: b.annee,
-    ca: b.chiffre_affaires || 0,
-    ebitda: (b.resultat_exploitation || 0) + (b.dotations_amortissements || 0),
-    resultatNet: b.resultat_net || 0,
-  }))
 }
 
 /**

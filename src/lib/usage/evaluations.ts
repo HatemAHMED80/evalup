@@ -1,5 +1,5 @@
 // Service de gestion des evaluations
-// Nouveau modele: Flash (gratuit) -> Complete (79€) -> Pro (199€/399€)
+// Modele: Diagnostic (gratuit) -> Complete (79€) -> Pro (199€/399€)
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { getEvalsPerMonthLimit, canDoCompleteEval } from '@/lib/stripe/plans'
@@ -27,7 +27,9 @@ export type EvaluationStatus =
   | 'in_progress'        // Flash en cours
   | 'flash_completed'    // Flash terminee, en attente paiement
   | 'payment_pending'    // Paiement initie
-  | 'paid'               // Paye, pret pour complete
+  | 'paid'               // Paye, pret pour complete (legacy)
+  | 'pending_upload'     // Paye, en attente upload documents
+  | 'pending_review'     // Documents uploades, en attente review
   | 'complete_in_progress' // Complete en cours
   | 'completed'          // Terminee
 
@@ -36,6 +38,8 @@ export interface Evaluation {
   user_id: string
   siren: string
   entreprise_nom?: string
+  archetype_id?: string
+  diagnostic_data?: Record<string, unknown>
   type: EvaluationType
   status: EvaluationStatus
   questions_count: number
@@ -59,12 +63,6 @@ export interface EvaluationAccess {
   needsPayment: boolean
   evaluation?: Evaluation
 }
-
-// ============================================
-// CONSTANTES
-// ============================================
-
-export const FLASH_QUESTIONS_LIMIT = 8
 
 // ============================================
 // FONCTIONS PRINCIPALES
@@ -158,15 +156,14 @@ export async function checkEvaluationAccess(
     }
   }
 
-  // Cas 1: Evaluation Flash en cours (utilisateur gratuit)
-  // Limite stricte côté serveur à FLASH_QUESTIONS_LIMIT questions
-  if (evaluation.status === 'in_progress' && evaluation.type === 'flash') {
+  // Cas 1: Evaluation en cours (utilisateur gratuit, pas encore payé)
+  if (evaluation.status === 'in_progress') {
     return {
-      canContinue: evaluation.questions_count < FLASH_QUESTIONS_LIMIT,
+      canContinue: false,
       canUploadDocuments: false,
       canDownloadPDF: false,
-      questionsRemaining: Math.max(0, FLASH_QUESTIONS_LIMIT - evaluation.questions_count),
-      needsPayment: evaluation.questions_count >= FLASH_QUESTIONS_LIMIT,
+      questionsRemaining: 0,
+      needsPayment: true,
       evaluation,
     }
   }
@@ -183,7 +180,19 @@ export async function checkEvaluationAccess(
     }
   }
 
-  // Cas 3: Paye ou en cours de complete -> acces complet
+  // Cas 3a: En attente upload ou review -> accès documents, pas de chat
+  if (evaluation.status === 'pending_upload' || evaluation.status === 'pending_review') {
+    return {
+      canContinue: false,
+      canUploadDocuments: true,
+      canDownloadPDF: false,
+      questionsRemaining: null,
+      needsPayment: false,
+      evaluation,
+    }
+  }
+
+  // Cas 3b: Paye ou en cours de complete -> acces complet
   if (evaluation.status === 'paid' || evaluation.status === 'complete_in_progress') {
     return {
       canContinue: true,
@@ -207,13 +216,13 @@ export async function checkEvaluationAccess(
     }
   }
 
-  // Par defaut: Flash limits
+  // Par defaut: pas d'acces
   return {
-    canContinue: evaluation.questions_count < FLASH_QUESTIONS_LIMIT,
+    canContinue: false,
     canUploadDocuments: false,
     canDownloadPDF: false,
-    questionsRemaining: Math.max(0, FLASH_QUESTIONS_LIMIT - evaluation.questions_count),
-    needsPayment: evaluation.questions_count >= FLASH_QUESTIONS_LIMIT,
+    questionsRemaining: 0,
+    needsPayment: true,
     evaluation,
   }
 }
@@ -333,7 +342,7 @@ export async function markEvaluationAsPaid(
     .from('evaluations')
     .update({
       type: 'complete',
-      status: 'paid',
+      status: 'pending_upload',
       stripe_payment_id: stripePaymentId,
       amount_paid: amountPaid,
       paid_at: new Date().toISOString(),
@@ -526,4 +535,23 @@ export async function confirmPurchase(
   if (purchase?.evaluation_id) {
     await markEvaluationAsPaid(purchase.evaluation_id, stripePaymentIntentId, 7900)
   }
+}
+
+/**
+ * Stocke les donnees du diagnostic et l'archetype dans l'evaluation
+ */
+export async function updateEvaluationDiagnosticData(
+  evaluationId: string,
+  archetypeId: string,
+  diagnosticData: Record<string, unknown>
+): Promise<void> {
+  const supabase = getSupabaseAdmin()
+
+  await supabase
+    .from('evaluations')
+    .update({
+      archetype_id: archetypeId,
+      diagnostic_data: diagnosticData,
+    })
+    .eq('id', evaluationId)
 }

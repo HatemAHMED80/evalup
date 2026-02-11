@@ -64,10 +64,9 @@ interface ChatLayoutProps {
   }
   initialContext: ConversationContext
   bentoGridData?: BentoGridData
-  upgradeSuccess?: boolean
 }
 
-export function ChatLayout({ entreprise, initialContext, bentoGridData, upgradeSuccess }: ChatLayoutProps) {
+export function ChatLayout({ entreprise, initialContext, bentoGridData }: ChatLayoutProps) {
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false) // Mobile
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false) // Desktop
@@ -178,7 +177,6 @@ export function ChatLayout({ entreprise, initialContext, bentoGridData, upgradeS
             initialContext={initialContext}
             onStepChange={handleStepChange}
             bentoGridData={bentoGridData}
-            upgradeSuccess={upgradeSuccess}
           />
         </main>
       </div>

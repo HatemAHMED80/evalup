@@ -11,7 +11,7 @@ export default function AbonnementPage() {
     name: 'Flash (Gratuit)',
     status: 'active',
     features: [
-      '8 questions par evaluation',
+      'Diagnostic gratuit',
       'Donnees Pappers incluses',
       'Valorisation indicative',
     ],

@@ -18,6 +18,144 @@ import {
 import { CompanyPresentation, MarketAnalysis, FinancialAnalysis, RatioDashboard } from './professional-report-pages'
 
 // ============================================
+// PAGE: PROFIL D'ENTREPRISE (ARCHÉTYPE)
+// ============================================
+
+const ArchetypeProfilePage = ({ data }: { data: ProfessionalReportData }) => {
+  if (!data.archetypeId) return null
+
+  const name = data.archetypeName || data.archetypeId
+  const color = data.archetypeColor || COLORS.primary
+  const primaryMethod = data.archetypePrimaryMethod || 'Multiple d\'EBITDA'
+  const secondaryMethod = data.archetypeSecondaryMethod
+  const whyThisMethod = data.archetypeWhyThisMethod
+  const mistakes = data.archetypeCommonMistakes || []
+  const keyFactors = data.archetypeKeyFactors || []
+
+  return (
+    <Page size="A4" style={styles.page}>
+      <Header title="Votre profil d'entreprise" />
+
+      {/* Archetype identity */}
+      <View style={[styles.card, { backgroundColor: color + '15', borderLeftWidth: 5, borderLeftColor: color, padding: 20, marginBottom: 20 }]}>
+        <Text style={{ fontSize: 20, fontWeight: 'bold', color: color, marginBottom: 6 }}>
+          {cleanText(name)}
+        </Text>
+        <Text style={{ fontSize: 11, color: COLORS.gray700, lineHeight: 1.5 }}>
+          Methode de valorisation principale : {cleanText(primaryMethod)}
+          {secondaryMethod ? `\nMethode secondaire : ${cleanText(secondaryMethod)}` : ''}
+        </Text>
+      </View>
+
+      {/* Why this method */}
+      {whyThisMethod && (
+        <View style={[styles.card, styles.cardPrimary, { marginBottom: 15 }]}>
+          <Text style={styles.cardTitle}>Pourquoi cette methode ?</Text>
+          <Text style={styles.paragraph}>{cleanText(whyThisMethod)}</Text>
+        </View>
+      )}
+
+      {/* Common mistakes */}
+      {mistakes.length > 0 && (
+        <>
+          <Text style={styles.sectionSubtitle}>3 erreurs frequentes a eviter</Text>
+          {mistakes.slice(0, 3).map((m, i) => (
+            <View key={i} style={[styles.card, styles.cardDanger, { marginBottom: 8 }]}>
+              <Text style={{ fontSize: 10, fontWeight: 'bold', color: COLORS.danger, marginBottom: 4 }}>
+                {cleanText(m.mistake)}
+              </Text>
+              <Text style={{ fontSize: 9, color: COLORS.gray700 }}>
+                Impact : {cleanText(m.impact)}
+              </Text>
+            </View>
+          ))}
+        </>
+      )}
+
+      {/* Key factors */}
+      {keyFactors.length > 0 && (
+        <>
+          <Text style={styles.sectionSubtitle}>Facteurs cles de valorisation</Text>
+          <View style={styles.row}>
+            <View style={styles.col2}>
+              <View style={[styles.card, styles.cardSuccess]}>
+                <Text style={styles.cardTitle}>Facteurs de prime</Text>
+                {keyFactors.filter(f => f.direction === 'up').slice(0, 4).map((f, i) => (
+                  <View key={i} style={styles.bulletPoint}>
+                    <Text style={[styles.bullet, { color: COLORS.success }]}>+</Text>
+                    <Text style={styles.bulletText}>{cleanText(f.factor)}: {cleanText(f.impact)}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+            <View style={styles.col2}>
+              <View style={[styles.card, styles.cardWarning]}>
+                <Text style={styles.cardTitle}>Facteurs de decote</Text>
+                {keyFactors.filter(f => f.direction === 'down').slice(0, 4).map((f, i) => (
+                  <View key={i} style={styles.bulletPoint}>
+                    <Text style={[styles.bullet, { color: COLORS.warning }]}>-</Text>
+                    <Text style={styles.bulletText}>{cleanText(f.factor)}: {cleanText(f.impact)}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </View>
+        </>
+      )}
+
+      <Footer company={data.entreprise.nom} pageNum={3} totalPages={34} />
+    </Page>
+  )
+}
+
+// ============================================
+// BENCHMARKS DAMODARAN
+// ============================================
+
+const DamodaranBenchmarks = ({ data }: { data: ProfessionalReportData }) => {
+  if (!data.damodaranMultiples) return null
+
+  const dm = data.damodaranMultiples
+
+  return (
+    <View style={{ marginBottom: 15 }}>
+      <Text style={styles.sectionSubtitle}>Benchmarks Damodaran (NYU Stern)</Text>
+
+      <View style={styles.table}>
+        <View style={styles.tableHeader}>
+          <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Multiple</Text>
+          <Text style={[styles.tableHeaderCell, { flex: 1, textAlign: 'center' }]}>Bas</Text>
+          <Text style={[styles.tableHeaderCell, { flex: 1, textAlign: 'center' }]}>Mediane</Text>
+          <Text style={[styles.tableHeaderCell, { flex: 1, textAlign: 'center' }]}>Haut</Text>
+        </View>
+        <View style={[styles.tableRow, styles.tableRowAlt]}>
+          <Text style={[styles.tableCellBold, { flex: 2 }]}>Multiple de {dm.primaryMultiple.metric}</Text>
+          <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>{dm.primaryMultiple.low}x</Text>
+          <Text style={[styles.tableCellBold, { flex: 1, textAlign: 'center', color: COLORS.primary }]}>{dm.primaryMultiple.median}x</Text>
+          <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>{dm.primaryMultiple.high}x</Text>
+        </View>
+        {dm.secondaryMultiple.median > 0 && (
+          <View style={styles.tableRow}>
+            <Text style={[styles.tableCellBold, { flex: 2 }]}>Multiple de {dm.secondaryMultiple.metric}</Text>
+            <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>{dm.secondaryMultiple.low}x</Text>
+            <Text style={[styles.tableCellBold, { flex: 1, textAlign: 'center', color: COLORS.primary }]}>{dm.secondaryMultiple.median}x</Text>
+            <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>{dm.secondaryMultiple.high}x</Text>
+          </View>
+        )}
+      </View>
+
+      <View style={[styles.disclaimer, { marginTop: 8, padding: 10 }]}>
+        <Text style={{ fontSize: 8, color: COLORS.gray500, lineHeight: 1.4 }}>
+          Secteur Damodaran : {dm.damodaranSector}{'\n'}
+          Source : {dm.source}{'\n'}
+          Donnees : Damodaran, NYU Stern, janvier 2026. Multiples US ajustes France (-20 a -30%).
+        </Text>
+      </View>
+    </View>
+  )
+}
+
+// ============================================
 // PAGES 16-18: DIAGNOSTIC FINANCIER
 // ============================================
 
@@ -341,8 +479,8 @@ const ValuationSection = ({ data }: { data: ProfessionalReportData }) => {
     <>
       <Page size="A4" style={styles.page}>
         <Header title="Valorisation" />
-        <Text style={styles.sectionTitle}>7. Valorisation</Text>
-        <Text style={styles.sectionSubtitle}>7.1 Methodes utilisees</Text>
+        <Text style={styles.sectionTitle}>7. Valorisation{data.archetypeName ? ` — ${cleanText(data.archetypeName)}` : ''}</Text>
+        <Text style={styles.sectionSubtitle}>7.1 Methodes utilisees{data.archetypePrimaryMethod ? ` (${cleanText(data.archetypePrimaryMethod)})` : ''}</Text>
 
         {data.methodes.map((m, i) => (
           <View key={i} style={[styles.card, { marginBottom: 12 }]}>
@@ -379,6 +517,8 @@ const ValuationSection = ({ data }: { data: ProfessionalReportData }) => {
 
       <Page size="A4" style={styles.page}>
         <Header title="Valorisation" />
+
+        <DamodaranBenchmarks data={data} />
 
         <Text style={styles.sectionSubtitle}>Synthese des valorisations</Text>
         <View style={styles.table}>
@@ -892,6 +1032,7 @@ const Appendices = ({ data }: { data: ProfessionalReportData }) => (
 const ProfessionalReport = ({ data }: { data: ProfessionalReportData }) => (
   <Document>
     <CoverPage data={data} />
+    {data.archetypeId && <ArchetypeProfilePage data={data} />}
     <TableOfContents data={data} />
     <ExecutiveSummary data={data} />
     <CompanyPresentation data={data} />

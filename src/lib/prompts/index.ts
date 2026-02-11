@@ -1,76 +1,10 @@
-// Sélecteur de prompt basé sur le code NAF et le parcours utilisateur
+// Sélecteur de prompt basé sur le parcours utilisateur
+// Tous les prompts passent désormais par le système d'archétypes (buildArchetypePrompt)
 
 import { BASE_SYSTEM_PROMPT, EVALUATION_FINALE_PROMPT } from './base'
-import { FLASH_SYSTEM_PROMPT } from './flash'
-import { TRANSPORT_PROMPT } from './secteurs/transport'
-import { SAAS_PROMPT } from './secteurs/saas'
-import { RESTAURANT_PROMPT } from './secteurs/restaurant'
-import { COMMERCE_PROMPT } from './secteurs/commerce'
-import { SERVICES_PROMPT } from './secteurs/services'
 import { SYSTEM_PROMPTS, PEDAGOGY_PROMPTS, type UserParcours, type PedagogyLevel } from './parcours'
 import type { ConversationContext } from '../anthropic'
 import { detecterSecteurEvaluation, SECTEURS } from '../evaluation/secteurs'
-import type { ConfigSecteur } from '../evaluation/types'
-
-// Type d'évaluation
-export type EvaluationType = 'flash' | 'complete'
-
-// Prompts spécialisés écrits manuellement (benchmarks détaillés)
-// Pour les secteurs sans prompt dédié, on génère automatiquement depuis ConfigSecteur
-const SECTEUR_PROMPTS_MANUELS: Record<string, string> = {
-  transport: TRANSPORT_PROMPT,
-  saas: SAAS_PROMPT,
-  restaurant: RESTAURANT_PROMPT,
-  commerce: COMMERCE_PROMPT,
-  services: SERVICES_PROMPT,
-}
-
-/**
- * Génère un prompt sectoriel à partir d'une ConfigSecteur
- * Utilisé pour les secteurs sans prompt manuel dédié
- */
-function genererPromptSectoriel(config: ConfigSecteur): string {
-  const questionsStr = config.questions.map(q => `- ${q}`).join('\n')
-
-  const primesStr = config.facteursPrime.map(f =>
-    `- **${f.description}** (${f.impact})\n  Question à poser : "${f.question}"`
-  ).join('\n')
-
-  const decotesStr = config.facteursDecote.map(f =>
-    `- **${f.description}** (${f.impact})\n  Question à poser : "${f.question}"`
-  ).join('\n')
-
-  const methodesStr = config.methodes.map(m =>
-    `- **${m.nom}** (poids ${m.poids}%)`
-  ).join('\n')
-
-  const multiplesStr = Object.entries(config.multiples)
-    .filter(([, v]) => v)
-    .map(([k, v]) => `- Multiple ${k.toUpperCase()} : ${v!.min}x — ${v!.max}x`)
-    .join('\n')
-
-  return `
-## Expertise : ${config.nom}
-
-${config.explicationSecteur}
-
-### Méthodes d'évaluation
-${methodesStr}
-
-${multiplesStr}
-
-${config.explicationMethodes}
-
-### Questions spécifiques à poser pour ce secteur
-${questionsStr}
-
-### Facteurs de prime (ce qui augmente la valeur)
-${primesStr}
-
-### Facteurs de décote (ce qui diminue la valeur)
-${decotesStr}
-`
-}
 
 /**
  * Détecte le secteur depuis un code NAF.
@@ -91,80 +25,33 @@ export function getNomSecteur(secteurCode: string): string {
 }
 
 /**
- * Retourne le prompt sectoriel approprié pour un code secteur.
- * Priorité : prompt manuel > prompt généré depuis ConfigSecteur
+ * Construit le prompt système pour l'évaluation.
+ * Note : dans le nouveau flow, buildArchetypePrompt() est utilisé en priorité.
+ * Cette fonction reste disponible comme fallback.
  */
-function getPromptSectoriel(codeNaf: string | undefined): string {
-  const config = detecterSecteurEvaluation(codeNaf || '')
-  // Prompt manuel si disponible (benchmarks détaillés écrits à la main)
-  if (SECTEUR_PROMPTS_MANUELS[config.code]) {
-    return SECTEUR_PROMPTS_MANUELS[config.code]
-  }
-  // Sinon, générer depuis la config sectorielle
-  return genererPromptSectoriel(config)
-}
-
 export function getSystemPrompt(
   codeNaf: string | undefined,
   context: ConversationContext,
   parcours?: UserParcours,
   pedagogyLevel?: PedagogyLevel,
-  evaluationType: EvaluationType = 'flash'  // Par défaut Flash
 ): string {
-  // Calculer l'année de référence (dernière année complète ou année en cours)
   const now = new Date()
   const currentYear = now.getFullYear()
-  // Si on est après juin, on peut demander les données de l'année en cours
-  // Sinon on demande l'année précédente (car les bilans ne sont pas encore disponibles)
   const anneeReference = now.getMonth() >= 5 ? currentYear : currentYear - 1
 
-  // Choisir le prompt de base selon le type d'évaluation
-  const basePrompt = evaluationType === 'flash' ? FLASH_SYSTEM_PROMPT : BASE_SYSTEM_PROMPT
-  const basePromptWithYear = basePrompt.replace(/\{\{ANNEE_REFERENCE\}\}/g, String(anneeReference))
+  const basePromptWithYear = BASE_SYSTEM_PROMPT.replace(/\{\{ANNEE_REFERENCE\}\}/g, String(anneeReference))
 
-  // Pour Flash, on n'utilise pas les prompts de parcours/pédagogie complexes
-  const parcoursPrompt = evaluationType === 'complete' && parcours ? SYSTEM_PROMPTS[parcours] : ''
-  const pedagogyPrompt = evaluationType === 'complete' && pedagogyLevel ? PEDAGOGY_PROMPTS[pedagogyLevel] : ''
+  const parcoursPrompt = parcours ? SYSTEM_PROMPTS[parcours] : ''
+  const pedagogyPrompt = pedagogyLevel ? PEDAGOGY_PROMPTS[pedagogyLevel] : ''
 
-  // Valeurs par défaut pour éviter les crashes sur null/undefined
   const entreprise = context?.entreprise || {}
   const financials = context?.financials || { bilans: [], ratios: null, anomaliesDetectees: [] }
   const documents = context?.documents || []
   const responses = context?.responses || {}
   const evaluationProgress = context?.evaluationProgress || { step: 1, completedTopics: [], pendingTopics: [] }
 
-  // Pour Flash, on a un contexte simplifié
-  if (evaluationType === 'flash') {
-    return `
-${basePromptWithYear}
-
-## Contexte de cette entreprise
-
-**Date du jour : ${now.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}**
-**Année de référence : ${anneeReference}**
-
-**Entreprise :**
-- Nom : ${entreprise.nom || 'Non renseigné'}
-- SIREN : ${entreprise.siren || 'Non renseigné'}
-- Secteur : ${entreprise.secteur || 'Non déterminé'}
-- Création : ${entreprise.dateCreation || 'Non renseigné'}
-- Effectif : ${entreprise.effectif || 'Non renseigné'}
-
-**Ce que tu sais déjà :**
-${formatResponses(responses)}
-
-**RAPPEL : Dès que tu as assez d'informations (CA, résultat, contexte), donne la valorisation Flash.**
-`
-  }
-
-  // Prompt sectoriel (manuel ou généré) — couvre les 15 secteurs
-  const secteurPrompt = getPromptSectoriel(codeNaf)
-
-  // Pour Complete, on garde le prompt complet existant
   return `
 ${parcoursPrompt ? `## PROFIL UTILISATEUR\n\n${parcoursPrompt}\n\n---\n\n` : ''}${pedagogyPrompt ? `${pedagogyPrompt}\n\n---\n\n` : ''}${basePromptWithYear}
-
-${secteurPrompt}
 
 ## Contexte de cette entreprise
 

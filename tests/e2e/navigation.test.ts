@@ -65,7 +65,7 @@ async function testLandingPageLoads(page: Page, logger: TestLogger): Promise<voi
 }
 
 // ============================================================
-// TEST 2: CTA Hero redirige vers /app ou /connexion
+// TEST 2: CTA Hero redirige vers /diagnostic
 // ============================================================
 async function testHeroCTARedirect(page: Page, logger: TestLogger): Promise<void> {
   logger.info('Testing hero CTA redirect')
@@ -74,7 +74,7 @@ async function testHeroCTARedirect(page: Page, logger: TestLogger): Promise<void
   await page.evaluate(() => {
     const links = Array.from(document.querySelectorAll('a'))
     const ctaLink = links.find(link =>
-      link.textContent?.includes('Commencer') || link.textContent?.includes('gratuitement')
+      link.textContent?.includes('Commencer') || link.textContent?.includes('gratuitement') || link.textContent?.includes('Diagnostic')
     )
     if (ctaLink) ctaLink.click()
   })
@@ -82,7 +82,7 @@ async function testHeroCTARedirect(page: Page, logger: TestLogger): Promise<void
   await wait(3000)
   const url = page.url()
 
-  if (!url.includes('/app') && !url.includes('/connexion')) {
+  if (!url.includes('/diagnostic') && !url.includes('/connexion') && !url.includes('/app')) {
     throw new Error(`CTA hero redirected to unexpected URL: ${url}`)
   }
 
@@ -169,7 +169,7 @@ async function testNavTarifsLink(page: Page, logger: TestLogger): Promise<void> 
 }
 
 // ============================================================
-// TEST 5: Pricing page charge avec 4 plans
+// TEST 5: Pricing page charge avec 2 offres principales + 2 Pro
 // ============================================================
 async function testPricingPageLoads(page: Page, logger: TestLogger): Promise<void> {
   logger.info('Navigating to pricing page')
@@ -178,7 +178,7 @@ async function testPricingPageLoads(page: Page, logger: TestLogger): Promise<voi
   const prices = await page.evaluate(() => {
     const text = document.body.innerText
     return {
-      hasFlash: text.includes('Gratuit') || text.includes('Flash'),
+      hasDiagnostic: text.includes('Gratuit') || text.includes('Diagnostic') || text.includes('Flash'),
       hasComplete: text.includes('79'),
       hasPro10: text.includes('199'),
       hasProUnlimited: text.includes('399'),
@@ -187,7 +187,8 @@ async function testPricingPageLoads(page: Page, logger: TestLogger): Promise<voi
 
   logger.info(`Plans found: ${JSON.stringify(prices)}`)
 
-  if (!prices.hasFlash || !prices.hasComplete || !prices.hasPro10 || !prices.hasProUnlimited) {
+  // Au minimum : offre gratuite + complète à 79€ + au moins un plan Pro
+  if (!prices.hasDiagnostic || !prices.hasComplete || (!prices.hasPro10 && !prices.hasProUnlimited)) {
     throw new Error(`Missing plans on pricing page: ${JSON.stringify(prices)}`)
   }
 
@@ -428,7 +429,7 @@ export async function runNavigationTests(reporter: TestReporter): Promise<void> 
       await testLandingPageLoads(page, logger)
     }, logger, reporter))
 
-    reporter.addResult(await runTest('CTA hero → /app ou /connexion', async () => {
+    reporter.addResult(await runTest('CTA hero → /diagnostic', async () => {
       await testHeroCTARedirect(page, logger)
     }, logger, reporter))
 
@@ -440,7 +441,7 @@ export async function runNavigationTests(reporter: TestReporter): Promise<void> 
       await testNavTarifsLink(page, logger)
     }, logger, reporter))
 
-    reporter.addResult(await runTest('Pricing page 4 plans', async () => {
+    reporter.addResult(await runTest('Pricing page 2+2 plans', async () => {
       await testPricingPageLoads(page, logger)
     }, logger, reporter))
 

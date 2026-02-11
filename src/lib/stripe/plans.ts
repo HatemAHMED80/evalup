@@ -17,8 +17,8 @@ export const PLANS = {
       evalsPerMonth: null, // Illimite mais basique
     },
     features: [
+      'Diagnostic gratuit',
       'Valorisation indicative (fourchette large)',
-      '8 questions essentielles',
       'Donnees Pappers incluses',
     ],
     limitations: [
@@ -230,5 +230,5 @@ export function getTokenLimit(planId: string | null | undefined): number {
   // Les nouveaux plans n'utilisent plus les tokens comme limite
   // On garde cette fonction pour la compatibilite
   if (isPro(planId)) return 1_000_000 // Pratiquement illimite
-  return 50_000 // Flash: suffisant pour 8 questions
+  return 50_000 // Gratuit
 }

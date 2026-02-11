@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>Vernimmen | finance d'entreprise | 404</title>
+		<!--[if lt IE 9]>
+		<script src="//html5shim.googlecode.com/svn/trunk/html5.js"></script>
+		<![endif]-->
+		<link rel="stylesheet" href="https://www.vernimmen.net/rsrc/css/styles.css?20221216" type="text/css">
+	    <link rel="stylesheet" href="https://www.vernimmen.net/rsrc/css/jquery-ui.css" type="text/css" media="all">        
+    		<link rel="stylesheet" href="https://www.vernimmen.net/rsrc/css/style_hover_navbar.css?20221218" type="text/css">
+    <script src="https://code.jquery.com/jquery-latest.js"></script> 
+    <script src="https://www.vernimmen.net/rsrc/js/jquery-ui-1.10.3.custom.min.js"></script>
+    <script src="https://www.vernimmen.net/rsrc/js/jquery.ui.datepicker-fr.js"></script>
+                                                                                              
+                  
+    <script type="text/javascript" src="https://www.vernimmen.net/rsrc/js/fancybox/lib/jquery.mousewheel-3.0.6.pack.js"></script>
+		  
+    <link rel="stylesheet" href="https://www.vernimmen.net/rsrc/js/fancybox/source/jquery.fancybox.css?v=2.1.4" type="text/css"  media="screen">  
+    <script src="https://www.vernimmen.net/rsrc/js/fancybox/source/jquery.fancybox.js?v=2.1.4" type="text/javascript" charset="UTF-8"></script>
+
+	<!-- Add Button helper (this is optional) -->
+	<link rel="stylesheet" type="text/css" href="https://www.vernimmen.net/rsrc/js/fancybox/source/helpers/jquery.fancybox-buttons.css?v=1.0.5" />
+	<script type="text/javascript" src="https://www.vernimmen.net/rsrc/js/fancybox/source/helpers/jquery.fancybox-buttons.js?v=1.0.5"></script>
+
+	<!-- Add Thumbnail helper (this is optional) -->
+	<link rel="stylesheet" type="text/css" href="https://www.vernimmen.net/rsrc/js/fancybox/source/helpers/jquery.fancybox-thumbs.css?v=1.0.7" />
+	<script type="text/javascript" src="https://www.vernimmen.net/rsrc/js/fancybox/source/helpers/jquery.fancybox-thumbs.js?v=1.0.7"></script>
+
+	<!-- Add Media helper (this is optional) -->
+	<script type="text/javascript" src="https://www.vernimmen.net/rsrc/js/fancybox/source/helpers/jquery.fancybox-media.js?v=1.0.5"></script>
+    
+		<script type="text/javascript" src="https://www.vernimmen.net/rsrc/js/swfobject.js"></script>   
+    <script type="text/javascript" src="https://www.vernimmen.net/rsrc/js/setFlash.js"></script> 
+    
+    <script src="https://www.vernimmen.net/rsrc/js/script.js?20221021" type="text/javascript" charset="UTF-8"></script>
+
+            
+<!-- Latest compiled and minified CSS -->
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+
+<!-- Optional theme -->
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+
+<!-- Latest compiled and minified JavaScript -->
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+		<script type="text/javascript">
+      $(document).ready(function() {
+          $('.navbar a.dropdown-toggle').on('click', function(e) {
+              var $el = $(this);
+              var $parent = $(this).offsetParent(".dropdown-menu");
+              $(this).parent("li").toggleClass('open');
+      
+              if(!$parent.parent().hasClass('nav')) {
+                  $el.next().css({"top": $el[0].offsetTop, "left": $parent.outerWidth() - 4});
+              }
+      
+              $('.nav li.open').not($(this).parents("li")).removeClass("open");
+      
+              return false;
+          });
+	    $('li[class="footerDownMenu"]').hover(function() {
+			  $(this).children("a").removeClass('beforeplus');
+			  $(this).children("a").addClass('beforemoins');
+			  $(this).children('ul').css("display","inline");
+		  },function() {
+			  $(this).children("a").removeClass('beforemoins');
+			  $(this).children("a").addClass('beforeplus');
+			 $(this).children('ul').css("display","none");
+		  });
+      });     
+		</script> 
+		<link rel="icon" href="https://www.vernimmen.net/images/favicone_vernimmen.ico">	
+<!-- css additionnel-->
+		<link rel="preconnect" href="https://fonts.googleapis.com">
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+		<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto:ital,wght@0,400;0,900;1,400&display=swap" rel="stylesheet">
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-00NVTE1B9C"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-00NVTE1B9C');
+</script>
+	</head>
+	<body>
+
+    <!-- modif css nav bg -->
+		<nav class="navbar navbar-default navbar-fixed-top" id="navTop">
+				<div class="container-fluid" style="background-color:#2E2E2E;">
+					<div class="header" style="background-color:#e1d3ce;">
+						<div class="container">
+							<div class="row" >	
+								<header class="col-md-12 col-lg-12" >
+									<hgroup class="col-md-8 col-sm-12 col-xs-12">
+<!-- modif css lien -->
+										<h1 ><a href="https://www.vernimmen.net/" class="mainLogo mainColor">Vernimmen.net</a></h1>
+										<h2 style="color:#77676a; font-weight: 900;">La référence pour les professionnels et les étudiants de la finance</h2>
+									</hgroup>
+								</header>
+							</div>	
+						</div>	
+					</div>	
+					<!-- Brand and toggle get grouped for better mobile display -->
+					<div class="navbar-header">
+					  <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1" aria-expanded="false">
+						<span class="sr-only">Toggle navigation</span>
+						<span class="icon-bar"></span>
+						<span class="icon-bar"></span>
+						<span class="icon-bar"></span>
+					  </button>
+<!-- css marque -->
+					  <a class="navbar-brand" href="https://www.vernimmen.net/" style="font-family:'Bebas Neue', sans-serif; color:#fff !important;  letter-spacing: 1px; margin-left:20px; text-shadow: none;">Vernimmen.net</a>
+					</div>
+					<div class=" container_6">
+					<!-- Collect the nav links, forms, and other content for toggling -->
+						<div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+							<ul class="nav navbar-nav" > 	
+								<li class="dropdown" >
+							  		<a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false" style="min-height: 35px;font-family:'Roboto', sans-serif; text-transform: none; color:#9C9C9C !important; text-shadow: none; font-size:18px;">
+									Le Vernimmen 
+									<span class="caret"></span></a>
+							  		<ul class="dropdown-menu" style="font-family:'Roboto', sans-serif;  color:#9C9C9C !important; text-shadow: none; ">
+										<li class="fleche">&nbsp;
+											<svg version="1.1" 
+												xmlns="https://www.w3.org/2000/svg" 
+												xmlns:xlink="https://www.w3.org/1999/xlink" 
+												x="0px" 
+												y="0px" 
+												viewBox="0 0 11.3 5.2" 
+												style="enable-background:new 0 0 11.3 5.2; max-width:35px; margin-left: 5px;" 
+												xml:space="preserve">
+											 <polygon class="st0" points="5.7,5.2 11.3,0 0,0 " />
+											 </svg>
+								  		</li>  
+										<li><a href="https://www.vernimmen.net/Vernimmen/Qu_est_ce_que_le_vernimmen.php" style="color:#9C9C9C !important;">Qu'est-ce que le <em>Vernimmen</em>?</a></li>
+										<li><a href="https://www.vernimmen.net/Vernimmen/Le_Vernimmen_presente_par_ses_auteurs.php" style="color:#9C9C9C !important;">Le Vernimmen présenté par ses auteurs</a></li>
+										<li><a href="https://www.vernimmen.net/Vernimmen/Versions_numeriques.php" style="color:#9C9C9C !important;">Versions numériques</a></li>
+										<li><a href="https://www.vernimmen.net/Vernimmen/Leurs_avis_sur_le_Vernimmen.php" style="color:#9C9C9C !important;">Leurs avis sur le Vernimmen</a></li>
+										<li><a href="https://www.vernimmen.net/Vernimmen/Auteurs.php" style="color:#9C9C9C !important;">Les auteurs du Vernimmen</a></li>                 
+										<li><a href="https://www.vernimmen.net/Vernimmen/L_epopee_du_Vernimmen.php" style="color:#9C9C9C !important;">L’épopée du Vernimmen vue par Les Échos</a></li>    
+										<li><a href="https://www.vernimmen.net/Vernimmen/Le_Vernimmen_1209.php" style="color:#9C9C9C !important;">Le premier Vernimmen remonte à 1209</a> </li>
+										<li><a href="https://www.vernimmen.net/Vernimmen/Ou_acheter_le_Vernimmen.php" style="color:#9C9C9C !important;">Où acheter le Vernimmen&nbsp;?</a></li>  
+							  		</ul>
+								</li>
+								<li class="dropdown" >
+							  		<a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false" style="min-height: 35px;font-family:'Roboto', sans-serif; text-transform: none; color:#9C9C9C !important; text-shadow: none; font-size:18px;">
+									Édition 2026 
+									<span class="caret"></span></a>
+							  		<ul class="dropdown-menu" style="font-family:'Roboto', sans-serif;  color:#9C9C9C !important; text-shadow: none; ">
+										<li class="fleche">&nbsp;
+											<svg version="1.1" 
+												xmlns="https://www.w3.org/2000/svg" 
+												xmlns:xlink="https://www.w3.org/1999/xlink" 
+												x="0px" 
+												y="0px" 
+												viewBox="0 0 11.3 5.2" 
+												style="enable-background:new 0 0 11.3 5.2; max-width:35px; margin-left: 5px;" 
+												xml:space="preserve">
+											 <polygon class="st0" points="5.7,5.2 11.3,0 0,0 " />
+											 </svg>
+								  		</li>  
+										<li><a href="https://www.vernimmen.net/Vernimmen/Edition_2026.php" style="color:#9C9C9C !important;" >Édition 2026</a> </li>
+										<li><a href="https://www.vernimmen.net/Vernimmen/Plan_du_livre.php" style="color:#9C9C9C !important;">Plan de l’ouvrage</a></li>
+										<li><a href="https://www.vernimmen.net/Vernimmen/Resumes_des_chapitres.php" style="color:#9C9C9C !important;">Résumés des chapitres</a></li>					  
+										<li><a href="https://www.vernimmen.net/Vernimmen/Chapitres.php" style="color:#9C9C9C !important;">Chapitres</a></li> <li><a href="https://www.vernimmen.net/Vernimmen/Graphiques_du_Vernimmen.php" style="color:#9C9C9C !important;">Les graphiques du Vernimmen</a></li>
+										<li><a href="https://www.vernimmen.net/Vernimmen/Corriges_exercices.php" style="color:#9C9C9C !important;">Corrigés des exercices</a></li>  
+										<li><a href="https://www.vernimmen.net/Vernimmen/Rapports_ArcelorMittal.php" style="color:#9C9C9C !important;">Rapports Arcelor Mittal</a></li>
+										<li><a href="https://www.vernimmen.net/Vernimmen/Rapports_Latecoere.php" style="color:#9C9C9C !important;">Rapports Latécoère</a></li>    
+										<li><a href="https://www.vernimmen.net/Vernimmen/Rapports_Indesit.php" style="color:#9C9C9C !important;">Rapports Indesit</a></li>
+										<li><a href="https://www.vernimmen.net/Vernimmen/Rapports_MrBricolage.php"  style="color:#9C9C9C !important;">Rapports Mr.Bricolage</a></li>  
+							  		</ul>
+								</li>
+								<li class="dropdown"> 		
+							  		<a href="#" class="dropdown-toggle" data-toggle="dropdown" style="min-height: 35px;font-family:'Roboto', sans-serif; text-transform: none; color:#9C9C9C !important; text-shadow: none; font-size:18px;">Lire<span class="caret"></span></a>
+							  		<ul class="dropdown-menu">
+<!-- modif triangle nav bar -->
+										<li class="fleche">&nbsp;
+											<svg version="1.1" 
+												 xmlns="https://www.w3.org/2000/svg" 
+												 xmlns:xlink="https://www.w3.org/1999/xlink" 
+												 x="0px" 
+												 y="0px"
+												 viewBox="0 0 11.3 5.2" 
+												 style="enable-background:new 0 0 11.3 5.2; max-width:35px; margin-left: 5px;" 
+												 xml:space="preserve">
+													<polygon class="st0" points="5.7,5.2 11.3,0 0,0 " />
+											</svg> 
+										</li>
+										<li><a href="https://www.vernimmen.net/Lire/Lettre_Vernimmen.php" style="color:#9C9C9C !important;">La Lettre Vernimmen</a></li>
+										<li><a href="https://www.vernimmen.net/Lire/Posts.php" style="color:#9C9C9C !important;">Posts sur LinkedIn et Facebook</a></li>
+										<li><a href="https://www.vernimmen.net/Lire/Articles_de_sujets_financiers.php" style="color:#9C9C9C !important;">Articles et interviews</a></li>
+										<li><a href="https://www.vernimmen.net/Lire/Conferences.php" style="color:#9C9C9C !important;">Conférences</a></li>
+										<li><a href="https://www.vernimmen.net/Lire/Memoires_de_recherche.php" style="color:#9C9C9C !important;">Mémoires de recherche</a></li>
+										<li><a href="https://www.vernimmen.net/Lire/Bibliotheque_ideale.php" style="color:#9C9C9C !important;">Bibliothèque idéale</a></li>
+										<li><a href="https://www.vernimmen.net/Lire/Sondages.php" style="color:#9C9C9C !important;">Sondages</a></li>
+										<li><a href="https://www.vernimmen.net/Lire/Notes_operations_financieres.php" style="color:#9C9C9C !important;">Notes d’opérations financières</a></li>   
+										<li><a href="https://www.vernimmen.net/Lire/Sites_favoris.php" style="color:#9C9C9C !important;">Sites favoris</a></li>
+                						<li><a href="#" class="dropdown-toggle" data-toggle="dropdown" style="color:#ce4737 !important; background-color:#D5D5D5;">8 mars IWD<span class="caret"></span></a>
+        									<ul class="dropdown-menu" style=" border-color:#ce4737; border-radius:0px;">  
+							  					<li><a href="https://www.vernimmen.net/Lire/8_mars_journee_des_droits_des_femmes_2017.php" style="color:#9C9C9C !important;">8 mars 2017</a> </li>
+							  					<li><a href="https://www.vernimmen.net/Lire/8_mars_journee_des_droits_des_femmes_2018.php" style="color:#9C9C9C !important;">8 mars 2018</a></li>  
+							  					<li><a href="https://www.vernimmen.net/Lire/8_mars_journee_des_droits_des_femmes_2019.php" style="color:#9C9C9C !important;">8 mars 2019</a></li>
+							  					<li><a href="https://www.vernimmen.net/Lire/8_mars_journee_des_droits_des_femmes_2020.php" style="color:#9C9C9C !important;">8 mars 2020</a></li> 
+							  					<li><a href="https://www.vernimmen.net/Lire/8_mars_journee_des_droits_des_femmes_2021.php" style="color:#9C9C9C !important;">8 mars 2021</a></li> 
+							  					<li><a href="https://www.vernimmen.net/Lire/8_mars_journee_des_droits_des_femmes_2022.php" style="color:#9C9C9C !important;">8 mars 2022</a></li> 
+							  					<li><a href="https://www.vernimmen.net/Lire/8_mars_journee_des_droits_des_femmes_2023.php" style="color:#9C9C9C !important;">8 mars 2023</a></li> 
+												<li><a href="https://www.vernimmen.net/Lire/8_mars_journee_des_droits_des_femmes_2024.php" style="color:#9C9C9C !important;">8 mars 2024</a></li> 
+												<li><a href="https://www.vernimmen.net/Lire/8_mars_journee_des_droits_des_femmes_2025.php" style="color:#9C9C9C !important;">8 mars 2025</a></li> 
+        									</ul>
+                						</li>
+							  		</ul>            
+								</li>
+								<li class="dropdown">
+							  		<a href="#" class="dropdown-toggle" data-toggle="dropdown" style="min-height: 35px;font-family:'Roboto', sans-serif; text-transform: none; color:#9C9C9C !important; text-shadow: none; font-size:18px;">S’entraîner<span class="caret"></span></a>
+							  		<ul class="dropdown-menu">
+<!-- modif triangle nav bar -->
+										<li class="fleche">&nbsp;
+											<svg version="1.1" 
+												 xmlns="http://www.w3.org/2000/svg" 
+												 xmlns:xlink="http://www.w3.org/1999/xlink" 
+												 x="0px" 
+												 y="0px"
+												 viewBox="0 0 11.3 5.2" 
+												 style="enable-background:new 0 0 11.3 5.2; max-width:35px; margin-left: 5px;" 
+												 xml:space="preserve">
+													<polygon class="st0" points="5.7,5.2 11.3,0 0,0 " />
+											</svg>
+								  		</li>	
+										<li><a href="https://www.vernimmen.net/Entrainement/Sujets_de_memoires.php" style="color:#9C9C9C !important;">Sujets de mémoire ou de thèses</a></li>
+										<li>
+											<a href="#" class="dropdown-toggle" data-toggle="dropdown" style="color:#ce4737 !important; background-color:#D5D5D5;">Podcasts <span class="caret"></span></a>
+											<ul class="dropdown-menu" style=" border-color:#ce4737; border-radius:0px;">    
+												<li><a href="https://www.vernimmen.net/Entrainement/Podcasts.php" style="color:#9C9C9C !important;">Podcasts</a></li>
+												<li><a href="https://www.vernimmen.net/Entrainement/Analyse_Financiere.php" style="color:#9C9C9C !important;">Cours d’analyse financière à HEC</a></li>
+											</ul>
+										</li>
+										<li><a href="https://www.vernimmen.net/Entrainement/Quizz.php"  style="color:#9C9C9C !important;">Quizz</a></li>
+										<li><a href="https://www.vernimmen.net/Entrainement/Cas/" style="color:#9C9C9C !important;">Études de cas</a></li> 
+										<li><a href="https://www.vernimmen.net/Entrainement/Qui_est_qui.php" style="color:#9C9C9C !important;">Qui est qui ?</a></li> 
+										<li><a href="https://www.vernimmen.net/Entrainement/Les_mots_de_la_finance_fleches.php" style="color:#9C9C9C !important;">Les mots (de la finance) fléchés </a></li> 
+										<li><a href="https://www.vernimmen.net/Entrainement/Formations.php" style="color:#9C9C9C !important;">Formations</a></li>
+                						<li><a href="https://www.vernimmen.net/Vernimmen/Corriges_exercices.php" style="color:#9C9C9C !important;">Corrigés des exercices</a></li>  
+                						<li><a href="https://www.vernimmen.net/Entrainement/Examen_intermediaire_HEC.php" style="color:#9C9C9C !important;">Examen intermédiaire à HEC</a></li>
+							  		</ul>            
+								</li>                    
+								<li class="dropdown">
+							  		<a href="#" class="dropdown-toggle" data-toggle="dropdown" style="min-height: 35px;font-family:'Roboto', sans-serif; text-transform: none; color:#9C9C9C !important; text-shadow: none; font-size:18px; ">Pratiquer<span class="caret"></span></a>
+							  		<ul class="dropdown-menu">   
+<!-- modif triangle nav bar -->
+										<li class="fleche">&nbsp;
+											<svg version="1.1" 
+												 xmlns="http://www.w3.org/2000/svg" 
+												 xmlns:xlink="http://www.w3.org/1999/xlink" 
+												 x="0px" 
+												 y="0px"
+												 viewBox="0 0 11.3 5.2" 
+												 style="enable-background:new 0 0 11.3 5.2; max-width:35px; margin-left: 5px;" 
+												 xml:space="preserve">
+													<polygon class="st0" points="5.7,5.2 11.3,0 0,0 " />
+											</svg>
+										</li>     
+										<li><a href="https://www.vernimmen.net/Pratiquer/Formules_et_tableaux.php" style="color:#9C9C9C !important;">Formules & tableaux</a></li>
+										<li><a href="https://www.vernimmen.net/Pratiquer/Questions_et_reponses.php" style="color:#9C9C9C !important;">Questions & réponses</a></li>
+										<li><a href="https://www.vernimmen.net/Pratiquer/Lexique.php" style="color:#9C9C9C !important;">Lexique</a></li>        
+										<li><a href="https://www.vernimmen.net/Pratiquer/Glossaire.php" style="color:#9C9C9C !important;">Glossaire</a></li>
+										<li><a href="https://www.vernimmen.net/Pratiquer/Decouvrir_metiers_finance.php" style="color:#9C9C9C !important;">Découvrir les métiers de la finance</a></li>
+							  		</ul>            
+								</li>
+								<li class=" dropdown">
+							  		<a href="#" class="dropdown-toggle" data-toggle="dropdown" style="min-height: 35px;font-family:'Roboto', sans-serif; text-transform: none; color:#9C9C9C !important; text-shadow: none; font-size:20px; ">Enseigner<span class="caret"></span></a>
+							  		<ul class=" dropdown-menu">  
+<!-- modif triangle nav bar -->
+										<li class="fleche">&nbsp;
+											<svg version="1.1" 
+												 xmlns="http://www.w3.org/2000/svg" 
+												 xmlns:xlink="http://www.w3.org/1999/xlink" 
+												 x="0px" 
+												 y="0px"
+												 viewBox="0 0 11.3 5.2" 
+												 style="enable-background:new 0 0 11.3 5.2; max-width:35px; margin-left: 5px;" 
+												 xml:space="preserve">
+													<polygon class="st0" points="5.7,5.2 11.3,0 0,0 " />
+											</svg>
+										</li>                    
+										<li><a href="https://www.vernimmen.net/Enseigner/" style="color:#9C9C9C !important;">Enseignants</a></li>
+										<li><a href="https://www.vernimmen.net/Enseigner/Inscription.php" style="color:#9C9C9C !important;">S’inscrire</a></li>
+										<li><a href="https://www.vernimmen.net/Enseigner/Enseignants.php" style="color:#9C9C9C !important;">Se connecter</a></li>
+							 		</ul>  
+								</li>
+							</ul>
+						</div>
+					</div><!-- /.navbar-collapse -->
+				</div><!-- /.container-fluid -->
+		</nav>
+<!-- fin nav -->  <div class="position">&nbsp;</div>	
+<section role="main" class="container">
+<br />
+  <!-- PUB //-->
+<div class="row">
+	<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 main" id="pubHorizon" style="text-align:center;">
+				<a href="	
+					https://www.vernimmen.net/banStat.php?id=CVVER7301
+				 " target="_BLANK">
+		  
+			<img src="https://www.vernimmen.net/images/bannieres/default/banniere_vernimmen_edition_2026_728x90.jpg" border="0" style="width:100%;max-width:728px">
+				 </a>
+		  
+  </div>
+   </div>
+  <br clear="all" />
+  <!-- /PUB //--> 
+   <div class="row">
+	<div class="col-lg-10 col-md-10 col-sm-12 col-xs-12 main">
+  
+  
+  <p class="breadcrumbs">     
+ // 404  
+</p><h1>404</h1>
+<div>     
+  <p class="allContent">
+  La page que vous demandez ne peut être trouvée.<br>
+  Vous pourriez utiliser l'outil de recherche intégré pour trouver le contenu désiré?
+  </p>
+</div>
+				
+						 
+	  	
+	
+					<!-- social + Newsletter -->
+					<div class="row social&NL">	
+							<div class="col-lg-12 LetterAlignCenter socialPictos">
+								<!-- pictos social-->
+								<p class="share">
+								<!--facebook-->
+									<a href="#" 
+									onclick="
+									window.open(
+									'https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(location.href), 
+									'facebook-share-dialog', 
+									'width=626,height=436'); 
+									return false;">
+									<!--img src="https://www.vernimmen.net/rsrc/m/facebook.png"-->
+										<img src="https://www.vernimmen.net/rsrc/m/picto_facebook.png" border="0" title="Partager sur Facebook." alt="Partager sur Facebook." style="margin-bottom:10px;">
+									</a>
+								<!-- linkedIn--><!--img src="https://www.vernimmen.net/images/ico/linkedin.png"-->
+									<a target="_blank" href="https://www.linkedin.com/company/vernimmen-net/ "><img src="https://www.vernimmen.net/rsrc/m/picto_linkedIn.png" alt="LinkedIn." title="LinkedIn." style="margin-bottom:10px;"></a>
+								<!--twitter : faire en sorte qu'il n'y ait plus que le picto rond oiseau twitter et y rattacher le script par souci d'homogénéité -->
+								<!--<a target="_blank" href="https://twitter.com/intent/tweet?text=404&url=http%3A%2F%2Fwww.vernimmen.net%2F404.php&hashtags=Vernimmen,finance,quiry&via=vernimmen" class="twitter-share-button" data-url="" data-counturl="www.vernimmen.net" data-via="Vernimmen" data-lang="fr"><img src="https://www.vernimmen.net/rsrc/m/picto_twitter.png" border="0" title="Partager sur Twitter." alt="Partager sur Twitter." style="margin-bottom:10px;"></a>-->
+									
+								</p>
+							</div>
+							<!-- fin pictos social-->
+												</div>
+					<!-- fin social + Newsletter -->
+
+					<!-- script carousel      
+					<script type="text/javascript" src="https://www.vernimmen.net/rsrc/js/jquery.bxslider.js"></script>
+					<link rel="stylesheet" href="https://www.vernimmen.net/rsrc/css/jquery.bxslider.css" type="text/css">-->
+
+				</div><!-- /.main -->
+			</div> <!-- /.row //-->
+		
+		<!-- footer -->
+			<div class="footer">
+    		<!--<div class="hadGrid" >-->
+				<div>
+					<footer class="container">
+						<div class="row">
+							<ul class="col-lg-2 col-md-2 col-sm-2 hidden-xs">
+								<li><h3>Le Vernimmen</h3></li>
+					<!-- couleur css menu déroulant -->
+								<li class="footerDownMenu"><a href="https://www.vernimmen.net/Vernimmen/Edition_2026.php"  class="beforeplus" style="color:#ce4737;">Édition 2026</a> 
+									<ul>
+										  <li><a href="https://www.vernimmen.net/Vernimmen/Edition_2026.php">Édition 2026</a> </li>
+										  <li><a href="https://www.vernimmen.net/Vernimmen/Plan_du_livre.php">Plan de l'ouvrage</a></li>
+										  <li><a href="https://www.vernimmen.net/Vernimmen/Resumes_des_chapitres.php">Résumés des chapitres</a></li>										  
+										  <li><a href="https://www.vernimmen.net/Vernimmen/Chapitres.php">Chapitres</a></li>            
+										  <li><a href="https://www.vernimmen.net/Vernimmen/Graphiques_du_Vernimmen.php">Les graphiques du Vernimmen</a></li>
+										  <li><a href="https://www.vernimmen.net/Vernimmen/Corriges_exercices.php">Corrigés des exercices</a></li>
+										  <li><a href="https://www.vernimmen.net/Vernimmen/Rapports_ArcelorMittal.php">Rapports Arcelor Mittal</a></li>
+										  <li><a href="https://www.vernimmen.net/Vernimmen/Rapports_Latecoere.php">Rapports Latécoère</a></li>   
+										  <li><a href="https://www.vernimmen.net/Vernimmen/Rapports_Indesit.php">Rapports Indesit</a></li>  
+										  <li><a href="https://www.vernimmen.net/Vernimmen/Rapports_MrBricolage.php">Rapports Mr.Bricolage</a></li>  
+									</ul>
+								</li>         
+								<li><a href="https://www.vernimmen.net/Vernimmen/Qu_est_ce_que_le_vernimmen.php" style="color:#9C9C9C !important;">Qu'est-ce que le <em>Vernimmen</em>?</a></li>
+								<li><a href="https://www.vernimmen.net/Vernimmen/Le_Vernimmen_presente_par_ses_auteurs.php">Le Vernimmen présenté par ses auteurs</a></li>
+								<li><a href="https://www.vernimmen.net/Vernimmen/Versions_numeriques.php">Versions numériques</a></li>
+								<li><a href="https://www.vernimmen.net/Vernimmen/Leurs_avis_sur_le_Vernimmen.php">Leurs avis sur le Vernimmen</a></li>
+								<li><a href="https://www.vernimmen.net/Vernimmen/Auteurs.php">Les auteurs du Vernimmen</a></li> 
+								<li><a href="https://www.vernimmen.net/Vernimmen/L_epopee_du_Vernimmen.php" style="color:#9C9C9C !important;">L’épopée du Vernimmen vue par Les Échos</a></li>    
+								<li><a href="https://www.vernimmen.net/Vernimmen/Le_Vernimmen_1209.php">Le premier Vernimmen remonte à 1209</a> </li>   
+								<li><a href="https://www.vernimmen.net/Vernimmen/Ou_acheter_le_Vernimmen.php">Où acheter le Vernimmen&nbsp;?</a></li>   
+							</ul>
+							<ul class="col-lg-2 col-md-2 col-sm-2 hidden-xs">
+								<li><h3>Lire</h3></li>
+								<li><a href="https://www.vernimmen.net/Lire/Lettre_Vernimmen.php">La Lettre Vernimmen</a></li>
+								<li><a href="https://www.vernimmen.net/Lire/Posts.php">Posts sur LinkedIn et Facebook</a></li>
+								<li><a href="https://www.vernimmen.net/Lire/Articles_de_sujets_financiers.php">Articles et interviews</a></li>
+								<li><a href="https://www.vernimmen.net/Lire/Conferences.php">Conférences</a></li>
+								<li><a href="https://www.vernimmen.net/Lire/Memoires_de_recherche.php">Mémoires de recherche</a></li> 
+								<li><a href="https://www.vernimmen.net/Lire/Bibliotheque_ideale.php">Bibliothèque idéale</a></li>
+								<li><a href="https://www.vernimmen.net/Lire/Sondages.php">Sondages</a></li>
+								<li><a href="https://www.vernimmen.net/Lire/Notes_operations_financieres.php">Notes d’opérations financières</a></li>  
+    							<li><a href="https://www.vernimmen.net/Lire/Sites_favoris.php">Sites favoris</a></li>
+					<!-- couleur css menu déroulant Attention merdouille dans la présentation du titre par rapport aux autres cf. Podcasts ci-dessous-->
+								<li class="footerDownMenu"><a href="#" class="beforeplus" style="color:#ce4737;">8 mars IWD</a> 
+									<ul>
+					 					<li><a href="https://www.vernimmen.net/Lire/8_mars_journee_des_droits_des_femmes_2017.php">8 mars 2017</a> </li>
+					  					<li><a href="https://www.vernimmen.net/Lire/8_mars_journee_des_droits_des_femmes_2018.php">8 mars 2018</a></li>  
+					  					<li><a href="https://www.vernimmen.net/Lire/8_mars_journee_des_droits_des_femmes_2019.php">8 mars 2019</a></li> 
+					  					<li><a href="https://www.vernimmen.net/Lire/8_mars_journee_des_droits_des_femmes_2020.php">8 mars 2020</a></li> 
+					 					<li><a href="https://www.vernimmen.net/Lire/8_mars_journee_des_droits_des_femmes_2021.php">8 mars 2021</a></li> 
+					  					<li><a href="https://www.vernimmen.net/Lire/8_mars_journee_des_droits_des_femmes_2022.php">8 mars 2022</a></li> 
+										<li><a href="https://www.vernimmen.net/Lire/8_mars_journee_des_droits_des_femmes_2023.php">8 mars 2023</a></li> 
+										<li><a href="https://www.vernimmen.net/Lire/8_mars_journee_des_droits_des_femmes_2024.php">8 mars 2024</a></li> 
+										<li><a href="https://www.vernimmen.net/Lire/8_mars_journee_des_droits_des_femmes_2025.php">8 mars 2025</a></li> 
+									</ul>
+                    			</li>
+							</ul>
+							<ul class="col-lg-2 col-md-2 col-sm-2 hidden-xs">
+								<li><h3>S’entraîner</h3></li>
+								<li><a href="https://www.vernimmen.net/Entrainement/Sujets_de_memoires.php">Sujets de mémoire ou de thèses</a></li>
+					<!-- couleur css menu déroulant -->
+								<li class="footerDownMenu"><a href="https://www.vernimmen.net/Entrainement/Podcasts.php" style="color:#ce4737;" class="beforeplus">Podcasts</a>
+									<ul>    
+										<li><a href="https://www.vernimmen.net/Entrainement/Podcasts.php">Podcasts</a></li>
+										<li><a href="https://www.vernimmen.net/Entrainement/Analyse_Financiere.php">Cours d’analyse financière à HEC</a></li>
+									</ul>
+								</li>
+								<li><a href="https://www.vernimmen.net/Entrainement/Quizz.php">Quizz</a></li>
+								<li><a href="https://www.vernimmen.net/Entrainement/Cas/">Études de cas</a></li>  
+								<li><a href="https://www.vernimmen.net/Entrainement/Qui_est_qui.php">Qui est qui&nbsp;?</a></li>    
+								<li><a href="https://www.vernimmen.net/Entrainement/Les_mots_de_la_finance_fleches.php">Les mots (de la finance) fléchés </a></li>
+								<li><a href="https://www.vernimmen.net/Entrainement/Formations.php">Formations</a></li> 
+				  				<li><a href="https://www.vernimmen.net/Vernimmen/Corriges_exercices.php">Corrigés des exercices</a></li>  
+          						<li><a href="https://www.vernimmen.net/Entrainement/Examen_intermediaire_HEC.php">Examen intermédiaire à HEC</a></li>
+							</ul>
+							<ul class="col-lg-2 col-md-2 col-sm-2 hidden-xs">
+								<li><h3>Pratiquer</h3></li> 
+								<li><a href="https://www.vernimmen.net/Pratiquer/Glossaire.php">Glossaire</a></li>
+								<li><a href="https://www.vernimmen.net/Pratiquer/Formules_et_tableaux.php">Formules &amp; tableaux</a></li>
+								<li><a href="https://www.vernimmen.net/Pratiquer/Questions_et_reponses.php">Questions &amp; réponses</a></li>
+								<li><a href="https://www.vernimmen.net/Pratiquer/Lexique.php">Lexique</a></li>
+								<li><a href="https://www.vernimmen.net/Pratiquer/Decouvrir_metiers_finance.php">Découvrir les métiers de la finance</a></li>
+							</ul>
+							<ul class="col-lg-2 col-md-2 col-sm-2 hidden-xs">
+								<li><h3 >S’abonner</h3></li>
+								<li><a href="https://www.vernimmen.net/Lire/Inscription.php?iframe=true" class="iframe">Newsletter</a></li>
+								<li>&nbsp;</li>
+          <!--
+					<li><a href="#">Facebook</a></li>
+					<li><a href="#">Itunes</a></li>
+					<li><a href="#">LinkedIn</a></li>
+          //-->
+							</ul>
+							<ul class="col-lg-2 col-md-2 col-sm-2 col-xs-12 ">
+								<li class="noForSmallDevice"><h3>Enseigner</h3></li>
+								<li class="noForSmallDevice"><a href="https://www.vernimmen.net/Enseigner/">Enseignants</a></li>
+								<li class="noForSmallDevice"><a href="https://www.vernimmen.net/Enseigner/Inscription.php">S’inscrire</a></li>
+								<li class="noForSmallDevice"><a href="https://www.vernimmen.net/Enseigner/Enseignants.php">Se connecter</a></li>
+								<li class="noForSmallDevice">&nbsp;</li>
+ 				    			<li class="noForSmallDevice">&nbsp;</li>
+								<li class="noForSmallDevice">&nbsp;<br><br></li>
+								<li class="liInline col-xs-4 col-lg-12 col-md-12 col-sm-12"><a href="https://www.vernimmen.net/Contact.php">Contact</a></li>
+								<li class="liInline col-xs-4 col-lg-12 col-md-12 col-sm-12"><a href="https://www.vernimmen.net/Plan_du_site.php">Plan du site</a></li>
+								<li class="liInline col-xs-4 col-lg-12 col-md-12 col-sm-12"><a href="https://www.vernimmen.net/Mentions_legales.php">Mentions légales</a></li>
+							</ul>   
+      					</div>
+					</footer>
+				</div>    
+				<!-- /.container -->
+			</div>  <!-- /.container fluid all-->  
+   
+      
+	</body>
+</html>    

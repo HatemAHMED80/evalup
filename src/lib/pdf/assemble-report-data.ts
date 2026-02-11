@@ -4,7 +4,7 @@
 import type { ConversationContext } from '@/lib/anthropic'
 import type { BilanAnnuel as BilanV2, DonneesEvaluationV2 } from '@/lib/evaluation/types'
 import type { ProfessionalReportData } from './professional-report'
-import { evaluerEntrepriseV2 } from '@/lib/evaluation/calculateur-v2'
+import { evaluerEntrepriseV2 } from '@/lib/evaluation/calculateur'
 import { genererDiagnostic } from '@/lib/analyse/diagnostic'
 import { calculerRatios } from '@/lib/analyse/ratios'
 import { getSectorFromNaf, BENCHMARKS } from './sector-benchmarks'
