@@ -47,22 +47,16 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Routes protegees - rediriger vers connexion si pas authentifie
-  const protectedRoutes = ['/diagnostic/result', '/compte', '/api/user']
+  // Note: /diagnostic/result gère son propre auth gate côté client
+  const protectedRoutes = ['/compte', '/api/user']
   const isProtectedRoute = protectedRoutes.some(route =>
     request.nextUrl.pathname.startsWith(route)
   )
 
   if (isProtectedRoute && !user) {
     const url = request.nextUrl.clone()
-    // Pour /diagnostic/result, rediriger vers la signup diagnostic
-    if (request.nextUrl.pathname.startsWith('/diagnostic/result')) {
-      url.pathname = '/diagnostic/signup'
-      const archetype = request.nextUrl.searchParams.get('archetype')
-      if (archetype) url.searchParams.set('archetype', archetype)
-    } else {
-      url.pathname = '/connexion'
-      url.searchParams.set('redirect', request.nextUrl.pathname)
-    }
+    url.pathname = '/connexion'
+    url.searchParams.set('redirect', request.nextUrl.pathname)
     return NextResponse.redirect(url)
   }
 
