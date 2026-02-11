@@ -5,7 +5,13 @@
 
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
-    const { validateEnv } = await import('@/lib/env')
-    validateEnv()
+    try {
+      const { validateEnv } = await import('@/lib/env')
+      validateEnv()
+    } catch (err) {
+      // Ne pas crasher le serveur entier — les routes qui n'ont pas besoin
+      // de ces variables continueront de fonctionner
+      console.error('[Instrumentation]', err instanceof Error ? err.message : err)
+    }
   }
 }
