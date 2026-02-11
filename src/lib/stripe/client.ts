@@ -5,12 +5,15 @@ let _stripe: Stripe | null = null
 
 export function getStripeClient(): Stripe {
   if (!_stripe) {
-    if (!process.env.STRIPE_SECRET_KEY) {
+    const key = process.env.STRIPE_SECRET_KEY?.replace(/[\s"'\\n]+$/g, '').replace(/^["']+/, '')
+    if (!key) {
       throw new Error('STRIPE_SECRET_KEY is not set')
     }
-    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+    _stripe = new Stripe(key, {
       apiVersion: '2025-12-15.clover',
       typescript: true,
+      maxNetworkRetries: 3,
+      timeout: 30000,
     })
   }
   return _stripe

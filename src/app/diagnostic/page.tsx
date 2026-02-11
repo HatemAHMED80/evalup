@@ -209,6 +209,8 @@ export default function DiagnosticPage() {
       }))
       setSirenFound(true)
       trackConversion('sirene_entered', { siren: digits, sector_naf: json.entreprise?.codeNaf || '' })
+      // Auto-advance after a brief pause to show the company card
+      setTimeout(goNext, 800)
     } catch (err) {
       setSirenError(err instanceof Error ? err.message : 'Erreur de recherche')
       setSirenFound(false)
@@ -659,25 +661,27 @@ export default function DiagnosticPage() {
           )}
         </div>
 
-        {/* Navigation buttons */}
-        <div className="flex items-center justify-between gap-4 mt-8">
-          {currentActiveIndex > 0 ? (
-            <Button type="button" variant="ghost" onClick={goBack}>
-              ← Retour
+        {/* Navigation buttons (hidden on SIREN step — auto-advances on lookup) */}
+        {step !== 0 && (
+          <div className="flex items-center justify-between gap-4 mt-8">
+            {currentActiveIndex > 0 ? (
+              <Button type="button" variant="ghost" onClick={goBack}>
+                ← Retour
+              </Button>
+            ) : (
+              <div />
+            )}
+            <Button
+              type="button"
+              variant="primary"
+              size="lg"
+              onClick={goNext}
+              disabled={!canProceed()}
+            >
+              {isLastStep ? 'Voir mon diagnostic' : 'Continuer'} →
             </Button>
-          ) : (
-            <div />
-          )}
-          <Button
-            type="button"
-            variant="primary"
-            size="lg"
-            onClick={goNext}
-            disabled={!canProceed()}
-          >
-            {isLastStep ? 'Voir mon diagnostic' : 'Continuer'} →
-          </Button>
-        </div>
+          </div>
+        )}
       </div>
     </div>
   )

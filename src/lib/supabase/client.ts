@@ -13,7 +13,16 @@ export function createClient(): SupabaseClient<Database> {
 
   supabaseClient = createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: {
+        // No-op lock pour éviter les AbortError de navigator.locks lors des navigations
+        lock: async <R>(_name: string, _acquireTimeout: number, fn: () => Promise<R>): Promise<R> => {
+          return fn()
+        },
+        persistSession: true,
+      },
+    }
   )
 
   return supabaseClient

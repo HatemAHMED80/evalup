@@ -73,6 +73,16 @@ export async function POST(request: NextRequest) {
       customerId = profile?.stripe_customer_id || null
     }
 
+    // Vérifier que le customer existe encore chez Stripe
+    if (customerId) {
+      try {
+        await stripe.customers.retrieve(customerId)
+      } catch {
+        console.warn('[Checkout] Customer Stripe invalide, recréation:', customerId)
+        customerId = null
+      }
+    }
+
     // Creer un customer Stripe si necessaire
     if (!customerId) {
       const customer = await stripe.customers.create({
@@ -235,9 +245,22 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ url: session.url })
   } catch (error) {
-    console.error('Erreur checkout:', error)
+    const errMsg = error instanceof Error ? error.message : String(error)
+    console.error('Erreur checkout:', errMsg, error)
+
+    let message = 'Erreur lors de la creation de la session'
+    if (errMsg.includes('No such price')) {
+      message = 'Configuration Stripe incomplète : prix non trouvé. Vérifiez STRIPE_PRICE_EVAL_COMPLETE.'
+    } else if (errMsg.includes('Invalid API Key')) {
+      message = 'Clé Stripe invalide. Vérifiez STRIPE_SECRET_KEY.'
+    } else if (errMsg.includes('STRIPE_SECRET_KEY')) {
+      message = 'Clé Stripe manquante. Configurez STRIPE_SECRET_KEY.'
+    } else {
+      message = `Erreur paiement : ${errMsg}`
+    }
+
     return NextResponse.json(
-      { error: 'Erreur lors de la creation de la session' },
+      { error: message },
       { status: 500 }
     )
   }

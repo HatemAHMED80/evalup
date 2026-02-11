@@ -61,8 +61,11 @@ export default function DiagnosticLoadingPage() {
     }
 
     let cancelled = false
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 15000)
+    const timeout = setTimeout(() => {
+      if (!cancelled) {
+        setError('Le diagnostic prend trop de temps. Veuillez réessayer.')
+      }
+    }, 20000)
 
     const callApi = async () => {
       try {
@@ -70,7 +73,6 @@ export default function DiagnosticLoadingPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(formData),
-          signal: controller.signal,
         })
 
         clearTimeout(timeout)
@@ -97,11 +99,7 @@ export default function DiagnosticLoadingPage() {
         router.push(`/diagnostic/signup?archetype=${result.archetypeId}`)
       } catch (err) {
         if (cancelled) return
-        if (err instanceof DOMException && err.name === 'AbortError') {
-          setError('Le diagnostic prend trop de temps. Veuillez réessayer.')
-        } else {
-          setError(err instanceof Error ? err.message : 'Erreur inattendue')
-        }
+        setError(err instanceof Error ? err.message : 'Erreur inattendue')
       }
     }
 
@@ -111,7 +109,6 @@ export default function DiagnosticLoadingPage() {
     return () => {
       cancelled = true
       clearTimeout(timeout)
-      controller.abort()
     }
   }, [router])
 

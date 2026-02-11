@@ -24,6 +24,7 @@ import { runMobileTests } from './e2e/mobile.test'
 import { runAIQualityTests } from './e2e/ai-quality.test'
 import { runAuthTests } from './e2e/auth.test'
 import { runDiagnosticTests } from './e2e/diagnostic.test'
+import { runCheckoutTests } from './e2e/checkout.test'
 
 // Définition des modules disponibles
 const AVAILABLE_MODULES: Record<string, (reporter: TestReporter) => Promise<void>> = {
@@ -31,6 +32,7 @@ const AVAILABLE_MODULES: Record<string, (reporter: TestReporter) => Promise<void
   'access-control': runAccessControlTests,
   auth: runAuthTests,
   diagnostic: runDiagnosticTests,
+  checkout: runCheckoutTests,
   mobile: runMobileTests,
   chat: runChatTests,
   payment: runPaymentTests,
