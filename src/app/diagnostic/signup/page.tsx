@@ -26,6 +26,7 @@ function SignupForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [emailSent, setEmailSent] = useState(false)
+  const [hasSession, setHasSession] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -40,11 +41,11 @@ function SignupForm() {
 
     try {
       const supabase = createClient()
-      const { error: authError } = await supabase.auth.signUp({
+      const { data: signUpData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/api/auth/callback?next=${encodeURIComponent('/app')}`,
+          emailRedirectTo: `${window.location.origin}/api/auth/callback?next=${encodeURIComponent(resultUrl)}`,
         },
       })
 
@@ -57,15 +58,34 @@ function SignupForm() {
         return
       }
 
-      // Account created (pending email confirmation).
-      // Show brief confirmation then redirect to results.
       const formRaw = sessionStorage.getItem('diagnostic_data')
       const hasSiren = formRaw ? JSON.parse(formRaw).siren?.replace(/\D/g, '').length === 9 : false
       trackConversion('signup_completed', { archetype_id: archetypeId, has_siren: hasSiren })
+
+      // If signUp returned a session, user is already authenticated
+      if (signUpData?.session) {
+        setHasSession(true)
+        setEmailSent(true)
+        setTimeout(() => router.push(resultUrl), 1500)
+        return
+      }
+
+      // No session from signUp — try signInWithPassword
+      // (Supabase may allow login before email confirmation depending on project settings)
+      const { data: signInData } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (signInData?.session) {
+        setHasSession(true)
+        setEmailSent(true)
+        setTimeout(() => router.push(resultUrl), 1500)
+        return
+      }
+
+      // No session at all — email confirmation is required before login
       setEmailSent(true)
-      setTimeout(() => {
-        router.push(resultUrl)
-      }, 2000)
     } catch {
       setError('Une erreur est survenue. Réessayez.')
     } finally {
@@ -78,7 +98,7 @@ function SignupForm() {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/api/auth/callback?next=${encodeURIComponent('/app')}`,
+        redirectTo: `${window.location.origin}/api/auth/callback?next=${encodeURIComponent(resultUrl)}`,
       },
     })
   }
@@ -105,14 +125,30 @@ function SignupForm() {
           <h2 className="text-[20px] font-bold text-[var(--text-primary)]">
             Compte créé !
           </h2>
-          <p className="text-[var(--text-secondary)] text-[14px]">
-            Un email de confirmation a été envoyé à <strong>{email}</strong>.
-            <br />
-            Redirection vers votre diagnostic…
-          </p>
-          <div className="pt-2">
-            <div className="w-6 h-6 mx-auto border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
-          </div>
+          {hasSession ? (
+            <>
+              <p className="text-[var(--text-secondary)] text-[14px]">
+                Redirection vers votre diagnostic…
+              </p>
+              <div className="pt-2">
+                <div className="w-6 h-6 mx-auto border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-[var(--text-secondary)] text-[14px]">
+                Un email de confirmation a été envoyé à <strong>{email}</strong>.
+                <br />
+                Cliquez sur le lien dans l'email pour accéder à votre diagnostic.
+              </p>
+              <button
+                onClick={() => router.push(resultUrl)}
+                className="text-[var(--accent)] hover:underline text-[14px] font-medium"
+              >
+                Voir un aperçu du diagnostic →
+              </button>
+            </>
+          )}
         </div>
       </div>
     )

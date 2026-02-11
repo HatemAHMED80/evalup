@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 // Chemins autorisés pour la redirection post-auth
-const ALLOWED_REDIRECT_PREFIXES = ['/app', '/compte', '/chat/', '/tarifs', '/aide']
+const ALLOWED_REDIRECT_PREFIXES = ['/app', '/compte', '/chat/', '/tarifs', '/aide', '/checkout', '/diagnostic', '/evaluation']
 
 function isValidRedirect(path: string): boolean {
   if (!path.startsWith('/')) return false
