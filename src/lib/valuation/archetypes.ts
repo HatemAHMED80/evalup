@@ -949,7 +949,7 @@ function isSectorIndustrie(s: string): boolean {
  * Détecte l'archétype de valorisation adapté selon les règles de priorité P1→P6.
  * Source : /docs/ARCHETYPES.xlsx (onglet "Routing Automatique")
  *
- * Retourne l'id de l'archétype (clé de ARCHETYPES) ou 'atypique' si aucun match.
+ * Retourne l'id de l'archétype (clé de ARCHETYPES). Fallback: 'conseil'.
  */
 export function detectArchetype(data: DiagnosticInput): string {
   const {
@@ -1063,6 +1063,12 @@ export function detectArchetype(data: DiagnosticInput): string {
     return 'industrie'
   }
 
+  // Règle 17 : Services non-capturés → #7
+  // L'utilisateur a choisi "Services récurrents" dans le formulaire
+  if (s === 'services') {
+    return 'services_recurrents'
+  }
+
   // ── P6 — Fallback ────────────────────────────────────────────────────────
-  return 'atypique'
+  return 'conseil'
 }

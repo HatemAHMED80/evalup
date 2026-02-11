@@ -488,8 +488,8 @@ test('Masse salariale 60 exactement ne déclenche pas P3', () => {
     masseSalariale: 60,
   })
   // 60 n'est pas > 60, donc pas masse_salariale_lourde
-  // Tombe en P5/P6
-  assertEqual(result, 'atypique', 'masse=60 ne devrait pas matcher (>60 requis)')
+  // Sector 'services' → services_recurrents
+  assertEqual(result, 'services_recurrents', 'masse=60 ne devrait pas matcher (>60 requis)')
 })
 
 test('Masse salariale 61 déclenche P3', () => {
@@ -525,8 +525,8 @@ test('CA = 300000 ne déclenche pas micro', () => {
     recurring: 20,
     masseSalariale: 10,
   })
-  // 300K n'est pas < 300K, tombe en P5/P6
-  assertEqual(result, 'atypique', 'CA=300K ne devrait pas être micro (< 300K requis)')
+  // 300K n'est pas < 300K, sector 'services' → services_recurrents
+  assertEqual(result, 'services_recurrents', 'CA=300K ne devrait pas être micro (< 300K requis)')
 })
 
 test('Secteur "e-commerce" (avec tiret) → ecommerce', () => {
@@ -589,7 +589,7 @@ test('Secteur "SCI" → patrimoine (case-insensitive)', () => {
   assertEqual(result, 'patrimoine', 'SCI devrait router vers patrimoine')
 })
 
-test('Fallback : secteur inconnu sans métriques distinctives → atypique', () => {
+test('Fallback : secteur inconnu sans métriques distinctives → conseil', () => {
   const result = detectArchetype({
     sector: 'autre',
     revenue: 1_000_000,
@@ -598,7 +598,7 @@ test('Fallback : secteur inconnu sans métriques distinctives → atypique', () 
     recurring: 20,
     masseSalariale: 40,
   })
-  assertEqual(result, 'atypique', 'Secteur inconnu devrait tomber en fallback')
+  assertEqual(result, 'conseil', 'Secteur inconnu devrait tomber en fallback conseil')
 })
 
 // -----------------------------------------------------------------------------
