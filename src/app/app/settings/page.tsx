@@ -45,7 +45,7 @@ export default function SettingsPage() {
                 <label className="flex items-center justify-between cursor-pointer">
                   <div>
                     <p className="text-[14px] font-medium text-[var(--text-primary)]">
-                      Evaluation terminee
+                      Évaluation terminée
                     </p>
                     <p className="text-[13px] text-[var(--text-secondary)]">
                       Etre notifie quand une evaluation est terminee
@@ -65,7 +65,7 @@ export default function SettingsPage() {
                       Rapport hebdomadaire
                     </p>
                     <p className="text-[13px] text-[var(--text-secondary)]">
-                      Recevoir un resume de vos evaluations chaque semaine
+                      Recevoir un résumé de vos évaluations chaque semaine
                     </p>
                   </div>
                   <input
@@ -156,7 +156,7 @@ export default function SettingsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-[14px] font-medium text-[var(--text-primary)]">
-                      Supprimer toutes les evaluations
+                      Supprimer toutes les évaluations
                     </p>
                     <p className="text-[13px] text-[var(--text-secondary)]">
                       Cette action est irreversible
@@ -173,7 +173,7 @@ export default function SettingsPage() {
                       Supprimer mon compte
                     </p>
                     <p className="text-[13px] text-[var(--text-secondary)]">
-                      Toutes vos donnees seront supprimees
+                      Toutes vos données seront supprimées
                     </p>
                   </div>
                   <Button variant="outline" size="sm" className="text-[var(--danger)] border-[var(--danger)]/30 hover:bg-[var(--danger)]/10">

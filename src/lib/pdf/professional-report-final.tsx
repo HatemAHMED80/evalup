@@ -449,22 +449,22 @@ const EBITDARestatements = ({ data }: { data: ProfessionalReportData }) => (
 function genererJustificationDefaut(nomMethode: string, poids: number): string {
   const nom = nomMethode.toLowerCase()
   if (nom.includes('ebitda') && poids >= 40)
-    return 'Methode de reference pour les PME avec un EBITDA positif. Poids eleve car c\'est la methode la plus utilisee dans les transactions M&A de ce type.'
+    return 'Méthode de référence pour les PME avec un EBITDA positif. Poids élevé car c\'est la méthode la plus utilisée dans les transactions M&A de ce type.'
   if (nom.includes('ebitda'))
-    return 'Methode basee sur la rentabilite operationnelle. Poids ajuste pour refleter la fiabilite de l\'EBITDA comme indicateur de performance.'
+    return 'Méthode basée sur la rentabilité opérationnelle. Poids ajusté pour refléter la fiabilité de l\'EBITDA comme indicateur de performance.'
   if (nom.includes('ca') || nom.includes('chiffre'))
-    return 'Methode complementaire utile pour valider la coherence. Poids modere car ne tient pas compte de la rentabilite.'
+    return 'Méthode complémentaire utile pour valider la cohérence. Poids modéré car ne tient pas compte de la rentabilité.'
   if (nom.includes('patrimoine') || nom.includes('actif') || nom.includes('anc'))
-    return 'Methode patrimoniale servant de plancher de valorisation. Poids ajuste selon l\'intensite capitalistique du secteur.'
+    return 'Méthode patrimoniale servant de plancher de valorisation. Poids ajusté selon l\'intensité capitalistique du secteur.'
   if (nom.includes('dcf') || nom.includes('flux'))
-    return 'Methode intrinsèque basee sur les flux futurs actualises. Poids ajuste selon la qualite des projections disponibles.'
+    return 'Methode intrinsèque basee sur les flux futurs actualises. Poids ajusté selon la qualité des projections disponibles.'
   if (nom.includes('praticien'))
-    return 'Methode mixte combinant approche patrimoniale et rendement. Offre un equilibre entre valeur d\'actif et rentabilite.'
+    return 'Méthode mixte combinant approche patrimoniale et rendement. Offre un équilibre entre valeur d\'actif et rentabilité.'
   if (nom.includes('goodwill'))
-    return 'Methode evaluant le surprofit genere au-dela de la rentabilite normale des actifs.'
+    return 'Méthode évaluant le surprofit généré au-delà de la rentabilité normale des actifs.'
   if (nom.includes('flotte') || nom.includes('materiel'))
-    return 'Methode sectorielle basee sur la valeur des actifs d\'exploitation specifiques au secteur.'
-  return `Poids de ${poids}% attribue en fonction de la pertinence de cette methode pour le profil de l'entreprise et son secteur d'activite.`
+    return 'Méthode sectorielle basée sur la valeur des actifs d\'exploitation spécifiques au secteur.'
+  return `Poids de ${poids}% attribué en fonction de la pertinence de cette méthode pour le profil de l'entreprise et son secteur d'activité.`
 }
 
 // ============================================
@@ -660,16 +660,16 @@ const ValuationSection = ({ data }: { data: ProfessionalReportData }) => {
                   color: data.niveauConfiance === 'elevee' ? COLORS.success :
                          data.niveauConfiance === 'moyenne' ? COLORS.warning : COLORS.danger,
                 }}>
-                  {data.niveauConfiance === 'elevee' ? 'Fiabilite haute' :
-                   data.niveauConfiance === 'moyenne' ? 'Fiabilite moderee' : 'Fiabilite limitee'}
+                  {data.niveauConfiance === 'elevee' ? 'Fiabilité haute' :
+                   data.niveauConfiance === 'moyenne' ? 'Fiabilité modérée' : 'Fiabilité limitée'}
                 </Text>
               </View>
               <Text style={{ fontSize: 9, color: COLORS.gray700, marginBottom: 6 }}>
                 {data.niveauConfiance === 'elevee'
-                  ? 'Les donnees disponibles sont suffisantes et coherentes pour une evaluation fiable.'
+                  ? 'Les données disponibles sont suffisantes et cohérentes pour une évaluation fiable.'
                   : data.niveauConfiance === 'moyenne'
-                  ? 'L\'evaluation repose sur des donnees partielles. Les resultats sont indicatifs.'
-                  : 'Donnees limitees ou peu coherentes. Les resultats doivent etre interpretes avec prudence.'}
+                  ? 'L\'evaluation repose sur des données partielles. Les résultats sont indicatifs.'
+                  : 'Données limitées ou peu cohérentes. Les résultats doivent être interprétés avec prudence.'}
               </Text>
               {data.facteursIncertitude && data.facteursIncertitude.length > 0 && (
                 <>

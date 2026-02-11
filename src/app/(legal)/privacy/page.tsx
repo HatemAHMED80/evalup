@@ -1,18 +1,18 @@
 import { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Politique de confidentialite - EvalUp',
-  description: 'Politique de confidentialite et RGPD du service EvalUp',
+  title: 'Politique de confidentialité - EvalUp',
+  description: 'Politique de confidentialité et RGPD du service EvalUp',
 }
 
 export default function PrivacyPage() {
   return (
     <article>
       <h1 className="text-[32px] font-bold text-[var(--text-primary)] mb-4">
-        Politique de confidentialite
+        Politique de confidentialité
       </h1>
       <p className="text-[var(--text-muted)] mb-8">
-        Derniere mise a jour : Janvier 2025
+        Dernière mise à jour : Janvier 2025
       </p>
 
       <div className="space-y-8">
@@ -21,42 +21,42 @@ export default function PrivacyPage() {
             1. Responsable du traitement
           </h2>
           <p className="text-[var(--text-secondary)] leading-relaxed">
-            Le responsable du traitement des donnees personnelles est :
+            Le responsable du traitement des données personnelles est :
           </p>
           <ul className="text-[var(--text-secondary)] space-y-2 mt-4 list-disc list-inside">
             <li><strong className="text-[var(--text-primary)]">POSSE</strong></li>
-            <li>22 RUE DU PRESIDENT WILSON, 78230 LE PECQ</li>
+            <li>22 RUE DU PRÉSIDENT WILSON, 78230 LE PECQ</li>
             <li>Email : contact@evalup.fr</li>
           </ul>
         </section>
 
         <section>
           <h2 className="text-[20px] font-semibold text-[var(--text-primary)] mb-4">
-            2. Donnees collectees
+            2. Données collectées
           </h2>
           <p className="text-[var(--text-secondary)] leading-relaxed">
-            Nous collectons les donnees suivantes :
+            Nous collectons les données suivantes :
           </p>
           <ul className="text-[var(--text-secondary)] space-y-2 mt-4 list-disc list-inside">
-            <li><strong className="text-[var(--text-primary)]">Donnees d'identification :</strong> nom, prenom, email</li>
-            <li><strong className="text-[var(--text-primary)]">Donnees de connexion :</strong> identifiants, logs de connexion</li>
-            <li><strong className="text-[var(--text-primary)]">Donnees d'utilisation :</strong> evaluations realisees, historique</li>
-            <li><strong className="text-[var(--text-primary)]">Donnees de paiement :</strong> traitees par Stripe (nous ne stockons pas vos donnees bancaires)</li>
+            <li><strong className="text-[var(--text-primary)]">Données d'identification :</strong> nom, prénom, email</li>
+            <li><strong className="text-[var(--text-primary)]">Données de connexion :</strong> identifiants, logs de connexion</li>
+            <li><strong className="text-[var(--text-primary)]">Données d'utilisation :</strong> évaluations réalisées, historique</li>
+            <li><strong className="text-[var(--text-primary)]">Données de paiement :</strong> traitées par Stripe (nous ne stockons pas vos données bancaires)</li>
           </ul>
         </section>
 
         <section>
           <h2 className="text-[20px] font-semibold text-[var(--text-primary)] mb-4">
-            3. Finalites du traitement
+            3. Finalités du traitement
           </h2>
           <p className="text-[var(--text-secondary)] leading-relaxed">
-            Vos donnees sont traitees pour les finalites suivantes :
+            Vos données sont traitées pour les finalités suivantes :
           </p>
           <ul className="text-[var(--text-secondary)] space-y-2 mt-4 list-disc list-inside">
             <li>Fourniture et gestion du service EvalUp</li>
             <li>Gestion des comptes utilisateurs</li>
             <li>Gestion des abonnements et facturation</li>
-            <li>Amelioration du service</li>
+            <li>Amélioration du service</li>
           </ul>
         </section>
 
@@ -65,16 +65,16 @@ export default function PrivacyPage() {
             4. Vos droits
           </h2>
           <p className="text-[var(--text-secondary)] leading-relaxed">
-            Conformement au RGPD, vous disposez des droits suivants :
+            Conformément au RGPD, vous disposez des droits suivants :
           </p>
           <ul className="text-[var(--text-secondary)] space-y-2 mt-4 list-disc list-inside">
-            <li><strong className="text-[var(--text-primary)]">Droit d'acces :</strong> obtenir une copie de vos donnees</li>
-            <li><strong className="text-[var(--text-primary)]">Droit de rectification :</strong> corriger vos donnees inexactes</li>
-            <li><strong className="text-[var(--text-primary)]">Droit a l'effacement :</strong> demander la suppression de vos donnees</li>
-            <li><strong className="text-[var(--text-primary)]">Droit a la portabilite :</strong> recevoir vos donnees dans un format structure</li>
+            <li><strong className="text-[var(--text-primary)]">Droit d'accès :</strong> obtenir une copie de vos données</li>
+            <li><strong className="text-[var(--text-primary)]">Droit de rectification :</strong> corriger vos données inexactes</li>
+            <li><strong className="text-[var(--text-primary)]">Droit à l'effacement :</strong> demander la suppression de vos données</li>
+            <li><strong className="text-[var(--text-primary)]">Droit à la portabilité :</strong> recevoir vos données dans un format structuré</li>
           </ul>
           <p className="text-[var(--text-secondary)] leading-relaxed mt-4">
-            Pour exercer ces droits, contactez-nous a :{' '}
+            Pour exercer ces droits, contactez-nous à :{' '}
             <a href="mailto:contact@evalup.fr" className="text-[var(--accent)] hover:underline">
               contact@evalup.fr
             </a>
@@ -83,12 +83,12 @@ export default function PrivacyPage() {
 
         <section>
           <h2 className="text-[20px] font-semibold text-[var(--text-primary)] mb-4">
-            5. Securite
+            5. Sécurité
           </h2>
           <p className="text-[var(--text-secondary)] leading-relaxed">
-            Nous mettons en oeuvre des mesures techniques et organisationnelles appropriees
-            pour proteger vos donnees : chiffrement HTTPS, acces restreints, sauvegardes
-            regulieres.
+            Nous mettons en œuvre des mesures techniques et organisationnelles appropriées
+            pour protéger vos données : chiffrement HTTPS, accès restreints, sauvegardes
+            régulières.
           </p>
         </section>
 
@@ -97,14 +97,14 @@ export default function PrivacyPage() {
             6. Contact
           </h2>
           <p className="text-[var(--text-secondary)] leading-relaxed">
-            Pour toute question relative a cette politique :{' '}
+            Pour toute question relative à cette politique :{' '}
             <a href="mailto:contact@evalup.fr" className="text-[var(--accent)] hover:underline">
               contact@evalup.fr
             </a>
           </p>
           <p className="text-[var(--text-secondary)] leading-relaxed mt-4">
-            Si vous estimez que vos droits ne sont pas respectes, vous pouvez introduire
-            une reclamation aupres de la CNIL (cnil.fr).
+            Si vous estimez que vos droits ne sont pas respectés, vous pouvez introduire
+            une réclamation auprès de la CNIL (cnil.fr).
           </p>
         </section>
       </div>

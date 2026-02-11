@@ -110,7 +110,7 @@ export default function ChatPage() {
           dataQuality: data.dataQuality,
         })
 
-        // Creer le contexte initial
+        // Créer le contexte initial
         const initialContext: ConversationContext = {
           entreprise: {
             siren: entrepriseData.siren,

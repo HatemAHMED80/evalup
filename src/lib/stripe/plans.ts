@@ -1,25 +1,25 @@
-// Configuration des plans et tarifs - Nouveau modele v2
+// Configuration des plans et tarifs - Nouveau modèle v2
 // Flash gratuit -> Achat unique 79€ -> Abonnements Pro
 
 export const PLANS = {
   // ============================================
-  // TIER GRATUIT : Evaluation Flash
+  // TIER GRATUIT : Évaluation Flash
   // ============================================
   flash: {
     id: 'flash',
     name: 'Flash',
-    description: 'Evaluation indicative gratuite',
+    description: 'Évaluation indicative gratuite',
     price: 0,
     type: 'free' as const,
     limits: {
       questionsMax: 8,
       documentsMax: 0,
-      evalsPerMonth: null, // Illimite mais basique
+      evalsPerMonth: null, // Illimité mais basique
     },
     features: [
       'Diagnostic gratuit',
       'Valorisation indicative (fourchette large)',
-      'Donnees Pappers incluses',
+      'Données Pappers incluses',
     ],
     limitations: [
       'Pas d\'upload de documents',
@@ -30,12 +30,12 @@ export const PLANS = {
   },
 
   // ============================================
-  // ACHAT UNIQUE : Evaluation Complete
+  // ACHAT UNIQUE : Évaluation Complète
   // ============================================
   eval_complete: {
     id: 'eval_complete',
-    name: 'Evaluation Complete',
-    description: 'Valorisation precise avec rapport PDF',
+    name: 'Évaluation Complète',
+    description: 'Valorisation précise avec rapport PDF',
     price: 79,
     priceId: process.env.STRIPE_PRICE_EVAL_COMPLETE || 'price_eval_complete',
     type: 'one_time' as const,
@@ -45,12 +45,12 @@ export const PLANS = {
       evalsPerMonth: 1, // Achat unitaire
     },
     features: [
-      'Valorisation precise (fourchette serree)',
-      'Questions illimitees',
-      'Upload documents illimite',
+      'Valorisation précise (fourchette serrée)',
+      'Questions illimitées',
+      'Upload documents illimité',
       'Retraitements EBITDA complets',
-      'Analyse des risques et decotes',
-      '5 methodes de valorisation',
+      'Analyse des risques et décotes',
+      '5 méthodes de valorisation',
       'Rapport PDF professionnel',
     ],
     limitations: [],
@@ -72,9 +72,9 @@ export const PLANS = {
       evalsPerMonth: 10,
     },
     features: [
-      '10 evaluations completes/mois',
+      '10 évaluations complètes/mois',
       'Tout inclus (docs, PDF, etc.)',
-      'Historique illimite',
+      'Historique illimité',
       'Support prioritaire',
     ],
     limitations: [],
@@ -85,7 +85,7 @@ export const PLANS = {
   // ============================================
   pro_unlimited: {
     id: 'pro_unlimited',
-    name: 'Pro Illimite',
+    name: 'Pro Illimité',
     description: 'Pour les cabinets et M&A',
     price: 399,
     priceId: process.env.STRIPE_PRICE_PRO_UNLIMITED || 'price_pro_unlimited',
@@ -96,17 +96,17 @@ export const PLANS = {
       evalsPerMonth: null, // Illimite
     },
     features: [
-      'Evaluations illimitees',
+      'Évaluations illimitées',
       'Tout inclus (docs, PDF, etc.)',
-      'Historique illimite',
+      'Historique illimité',
       'Support prioritaire',
-      'API access (bientot)',
+      'API access (bientôt)',
     ],
     limitations: [],
   },
 
   // ============================================
-  // LEGACY : Anciens plans (pour compatibilite)
+  // LEGACY : Anciens plans (pour compatibilité)
   // ============================================
   free: {
     id: 'free',
@@ -166,7 +166,7 @@ export function getPlan(planId: string) {
 }
 
 /**
- * Verifie si l'utilisateur a un plan Pro (abonnement actif)
+ * Vérifie si l'utilisateur a un plan Pro (abonnement actif)
  */
 export function isPro(planId: string | null | undefined): boolean {
   if (!planId) return false
@@ -175,7 +175,7 @@ export function isPro(planId: string | null | undefined): boolean {
 }
 
 /**
- * Verifie si l'utilisateur peut faire une evaluation complete
+ * Vérifie si l'utilisateur peut faire une évaluation complète
  * (soit achat unique, soit abonnement)
  */
 export function canDoCompleteEval(planId: string | null | undefined): boolean {
@@ -201,7 +201,7 @@ export function getDocumentsLimit(planId: string | null | undefined): number | n
 }
 
 /**
- * Retourne la limite d'evaluations par mois pour un plan
+ * Retourne la limite d'évaluations par mois pour un plan
  */
 export function getEvalsPerMonthLimit(planId: string | null | undefined): number | null {
   const plan = getPlan(planId || 'flash')
@@ -209,7 +209,7 @@ export function getEvalsPerMonthLimit(planId: string | null | undefined): number
 }
 
 /**
- * Verifie si le plan permet l'upload de documents
+ * Vérifie si le plan permet l'upload de documents
  */
 export function canUploadDocuments(planId: string | null | undefined): boolean {
   const limit = getDocumentsLimit(planId)
@@ -217,7 +217,7 @@ export function canUploadDocuments(planId: string | null | undefined): boolean {
 }
 
 /**
- * Verifie si le plan permet le telechargement du rapport PDF
+ * Vérifie si le plan permet le téléchargement du rapport PDF
  */
 export function canDownloadPDF(planId: string | null | undefined): boolean {
   if (!planId) return false
@@ -225,10 +225,10 @@ export function canDownloadPDF(planId: string | null | undefined): boolean {
   return plan?.type === 'one_time' || plan?.type === 'subscription'
 }
 
-// Legacy: pour compatibilite avec l'ancien code
+// Legacy: pour compatibilité avec l'ancien code
 export function getTokenLimit(planId: string | null | undefined): number {
   // Les nouveaux plans n'utilisent plus les tokens comme limite
-  // On garde cette fonction pour la compatibilite
-  if (isPro(planId)) return 1_000_000 // Pratiquement illimite
+  // On garde cette fonction pour la compatibilité
+  if (isPro(planId)) return 1_000_000 // Pratiquement illimité
   return 50_000 // Gratuit
 }

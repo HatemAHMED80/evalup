@@ -32,7 +32,7 @@ function InscriptionForm() {
     }
 
     if (password.length < 8) {
-      setError('Le mot de passe doit contenir au moins 8 caracteres')
+      setError('Le mot de passe doit contenir au moins 8 caractères')
       setIsLoading(false)
       return
     }
@@ -49,7 +49,7 @@ function InscriptionForm() {
 
       if (authError) {
         if (authError.message.includes('already registered')) {
-          setError('Cet email est deja utilise')
+          setError('Cet email est déjà utilisé')
         } else {
           setError(authError.message)
         }
@@ -85,14 +85,14 @@ function InscriptionForm() {
             </svg>
           </div>
           <h2 className="text-[24px] font-bold text-[var(--text-primary)] mb-2">
-            Verifiez votre email
+            Vérifiez votre email
           </h2>
           <p className="text-[var(--text-secondary)] mb-6">
-            Un email de confirmation a ete envoye a <strong>{email}</strong>. Cliquez sur le lien pour activer votre compte.
+            Un email de confirmation a été envoyé à <strong>{email}</strong>. Cliquez sur le lien pour activer votre compte.
           </p>
           <Link href="/connexion">
             <Button variant="outline" className="w-full">
-              Retour a la connexion
+              Retour à la connexion
             </Button>
           </Link>
         </div>
@@ -118,13 +118,13 @@ function InscriptionForm() {
               Commencez gratuitement
             </h1>
             <p className="text-white/70 text-lg max-w-md">
-              Creez votre compte en quelques secondes et obtenez votre premiere evaluation gratuite.
+              Créez votre compte en quelques secondes et obtenez votre première évaluation gratuite.
             </p>
 
             <div className="mt-8 space-y-4">
               {[
-                'Evaluation Flash gratuite',
-                'Donnees securisees',
+                'Évaluation Flash gratuite',
+                'Données sécurisées',
                 'Rapport PDF professionnel',
               ].map((feature, i) => (
                 <div key={i} className="flex items-center gap-3">
@@ -140,7 +140,7 @@ function InscriptionForm() {
           </div>
 
           <p className="text-white/50 text-sm">
-            2024 POSSE. Tous droits reserves.
+            2024 POSSE. Tous droits réservés.
           </p>
         </div>
 
@@ -167,10 +167,10 @@ function InscriptionForm() {
           <div className="bg-[var(--bg-primary)] rounded-[var(--radius-2xl)] shadow-[var(--shadow-lg)] border border-[var(--border)] p-8">
             <div className="text-center mb-8">
               <h2 className="text-[24px] font-bold text-[var(--text-primary)] mb-2">
-                Creer un compte
+                Créer un compte
               </h2>
               <p className="text-[var(--text-secondary)]">
-                Inscrivez-vous pour commencer votre evaluation
+                Inscrivez-vous pour commencer votre évaluation
               </p>
             </div>
 
@@ -196,7 +196,7 @@ function InscriptionForm() {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                hint="8 caracteres minimum"
+                hint="8 caractères minimum"
                 required
               />
 
@@ -217,7 +217,7 @@ function InscriptionForm() {
                     J'accepte les{' '}
                     <Link href="/cgu" className="text-[var(--accent)] hover:underline">CGU</Link>
                     {' '}et la{' '}
-                    <Link href="/privacy" className="text-[var(--accent)] hover:underline">politique de confidentialite</Link>
+                    <Link href="/privacy" className="text-[var(--accent)] hover:underline">politique de confidentialité</Link>
                   </span>
                 </label>
               </div>
@@ -228,7 +228,7 @@ function InscriptionForm() {
                 className="w-full"
                 isLoading={isLoading}
               >
-                Creer mon compte
+                Créer mon compte
               </Button>
             </form>
 
@@ -254,7 +254,7 @@ function InscriptionForm() {
             </Button>
 
             <p className="text-center text-[var(--text-secondary)] text-sm mt-6">
-              Deja un compte ?{' '}
+              Déjà un compte ?{' '}
               <Link href="/connexion" className="text-[var(--accent)] font-medium hover:underline">
                 Se connecter
               </Link>

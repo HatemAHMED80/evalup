@@ -14,25 +14,25 @@ const FAQ_CATEGORIES = [
     questions: [
       {
         q: 'Comment fonctionne EvalUp ?',
-        a: 'EvalUp utilise l\'intelligence artificielle pour analyser les donnees financieres de votre entreprise et vous fournir une estimation de sa valeur. Entrez le SIREN de l\'entreprise, et notre IA recuperera automatiquement les donnees publiques disponibles.',
+        a: 'EvalUp utilise l\'intelligence artificielle pour analyser les données financières de votre entreprise et vous fournir une estimation de sa valeur. Entrez le SIREN de l\'entreprise, et notre IA récupérera automatiquement les données publiques disponibles.',
       },
       {
-        q: 'Quelles entreprises peuvent etre evaluees ?',
-        a: 'EvalUp peut evaluer toute entreprise francaise dont les donnees financieres sont publiquement disponibles (societes commerciales ayant depose leurs comptes au greffe).',
+        q: 'Quelles entreprises peuvent être évaluées ?',
+        a: 'EvalUp peut évaluer toute entreprise française dont les données financières sont publiquement disponibles (sociétés commerciales ayant déposé leurs comptes au greffe).',
       },
     ],
   },
   {
-    title: 'Evaluations',
+    title: 'Évaluations',
     icon: '📊',
     questions: [
       {
-        q: 'Quelle est la difference entre Flash et Complete ?',
-        a: 'L\'evaluation Flash est gratuite et donne une fourchette indicative. L\'evaluation Complete (79€) analyse vos documents, identifie les risques et genere un rapport PDF professionnel.',
+        q: 'Quelle est la différence entre Flash et Complète ?',
+        a: 'L\'evaluation Flash est gratuite et donne une fourchette indicative. L\'evaluation Complete (79€) analyse vos documents, identifie les risques et génère un rapport PDF professionnel.',
       },
       {
         q: 'Comment l\'evaluation est-elle calculee ?',
-        a: 'L\'evaluation combine plusieurs methodes : multiples de marche (EV/EBITDA), DCF simplifie, et comparaison avec des transactions similaires dans le secteur.',
+        a: 'L\'evaluation combine plusieurs methodes : multiples de marche (EV/EBITDA), DCF simplifié, et comparaison avec des transactions similaires dans le secteur.',
       },
     ],
   },
@@ -42,25 +42,25 @@ const FAQ_CATEGORIES = [
     questions: [
       {
         q: 'Quels moyens de paiement acceptez-vous ?',
-        a: 'Nous acceptons les cartes bancaires (Visa, Mastercard, American Express) via Stripe, notre partenaire de paiement securise.',
+        a: 'Nous acceptons les cartes bancaires (Visa, Mastercard, American Express) via Stripe, notre partenaire de paiement sécurisé.',
       },
       {
         q: 'Puis-je obtenir une facture ?',
-        a: 'Oui, une facture est automatiquement generee apres chaque paiement. Vous pouvez la telecharger depuis votre espace Compte > Factures.',
+        a: 'Oui, une facture est automatiquement générée après chaque paiement. Vous pouvez la télécharger depuis votre espace Compte > Factures.',
       },
     ],
   },
   {
-    title: 'Compte et securite',
+    title: 'Compte et sécurité',
     icon: '🔐',
     questions: [
       {
-        q: 'Mes donnees sont-elles securisees ?',
-        a: 'Oui, nous utilisons le chiffrement HTTPS, l\'authentification securisee, et nous ne stockons pas vos donnees bancaires (gerees par Stripe).',
+        q: 'Mes données sont-elles sécurisées ?',
+        a: 'Oui, nous utilisons le chiffrement HTTPS, l\'authentification securisee, et nous ne stockons pas vos données bancaires (gérées par Stripe).',
       },
       {
         q: 'Comment supprimer mon compte ?',
-        a: 'Rendez-vous dans Compte > Profil et cliquez sur "Supprimer mon compte" en bas de page. Cette action est irreversible.',
+        a: 'Rendez-vous dans Compte > Profil et cliquez sur "Supprimer mon compte" en bas de page. Cette action est irréversible.',
       },
     ],
   },
@@ -152,7 +152,7 @@ export default function AidePage() {
 
             {search && filteredCategories.length === 0 && (
               <p className="text-center text-[var(--text-muted)] py-8">
-                Aucun resultat pour "{search}"
+                Aucun résultat pour "{search}"
               </p>
             )}
           </div>
@@ -162,10 +162,10 @@ export default function AidePage() {
         <section className="py-12 bg-[var(--bg-secondary)]">
           <div className="max-w-xl mx-auto px-8 text-center">
             <h2 className="text-[20px] font-bold text-[var(--text-primary)] mb-2">
-              Vous n'avez pas trouve votre reponse ?
+              Vous n'avez pas trouvé votre réponse ?
             </h2>
             <p className="text-[var(--text-secondary)] mb-6">
-              Notre equipe est disponible pour vous aider.
+              Notre équipe est disponible pour vous aider.
             </p>
             <Link
               href="mailto:contact@evalup.fr"

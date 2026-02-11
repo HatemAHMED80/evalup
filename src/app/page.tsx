@@ -80,14 +80,14 @@ export default function LandingPage() {
                   <div className="flex gap-3">
                     <div className="w-7 h-7 rounded-full bg-[var(--accent)] text-white text-[10px] font-bold flex items-center justify-center shrink-0">E</div>
                     <div className="text-[13px] text-[var(--text-secondary)]">
-                      J'ai trouve <strong className="text-[var(--text-primary)]">WEBCRAFT AGENCY</strong> via Pappers. Voici les donnees financieres :
+                      J'ai trouvé <strong className="text-[var(--text-primary)]">WEBCRAFT AGENCY</strong> via Pappers. Voici les données financières :
                     </div>
                   </div>
 
                   {/* Data card */}
                   <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded-[var(--radius-lg)] p-4 ml-10">
                     <div className="flex justify-between items-center mb-3">
-                      <span className="text-[12px] font-bold text-[var(--text-primary)]">Donnees financieres 2024</span>
+                      <span className="text-[12px] font-bold text-[var(--text-primary)]">Données financières 2024</span>
                       <span className="text-[10px] font-semibold text-[var(--accent)] bg-[var(--accent-light)] px-2 py-0.5 rounded-full">Via Pappers</span>
                     </div>
                     <div className="grid grid-cols-3 gap-4">
@@ -155,7 +155,7 @@ export default function LandingPage() {
       <section className="py-12 border-b border-[var(--border)]">
         <div className="max-w-[var(--content-max-width)] mx-auto px-8 text-center">
           <p className="text-[12px] font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-6">
-            Sources de donnees fiables
+            Sources de données fiables
           </p>
           <div className="flex items-center justify-center gap-12 flex-wrap opacity-50">
             {['Pappers', 'INSEE', 'Infogreffe', 'Banque de France', 'BODACC'].map((name) => (
@@ -183,7 +183,7 @@ export default function LandingPage() {
               {
                 step: '01',
                 title: 'Identifiez votre entreprise',
-                description: 'Entrez simplement votre numero SIREN. Nous recuperons automatiquement les donnees publiques disponibles.',
+                description: 'Entrez simplement votre numéro SIREN. Nous récupérons automatiquement les données publiques disponibles.',
                 tag: 'Automatique',
               },
               {
@@ -233,7 +233,7 @@ export default function LandingPage() {
             </Badge>
             <h2 className="section-title">Tout ce dont vous avez besoin</h2>
             <p className="section-desc mx-auto">
-              Des outils professionnels accessibles a tous pour une valorisation precise et fiable.
+              Des outils professionnels accessibles à tous pour une valorisation précise et fiable.
             </p>
           </div>
 
@@ -245,15 +245,15 @@ export default function LandingPage() {
                 &#128202;
               </div>
               <h3 className="text-[18px] font-bold text-[var(--text-primary)] mb-2">
-                3 methodes de valorisation
+                3 méthodes de valorisation
               </h3>
               <p className="text-[14px] text-[var(--text-secondary)] mb-6">
-                DCF, multiples sectoriels et approche patrimoniale. Chaque methode est ponderee pour une fourchette realiste.
+                DCF, multiples sectoriels et approche patrimoniale. Chaque méthode est pondérée pour une fourchette réaliste.
               </p>
               <div className="bg-gradient-to-br from-[#1A2E4F] to-[var(--accent)] rounded-[var(--radius-lg)] p-6 text-center text-white">
-                <p className="text-[11px] uppercase tracking-wide opacity-70">Valorisation estimee</p>
+                <p className="text-[11px] uppercase tracking-wide opacity-70">Valorisation estimée</p>
                 <p className="font-mono text-[28px] font-bold my-2">380 K&#8364; - 520 K&#8364;</p>
-                <p className="text-[12px] opacity-60">Fourchette basee sur 3 methodes</p>
+                <p className="text-[12px] opacity-60">Fourchette basée sur 3 méthodes</p>
               </div>
             </div>
 
@@ -263,10 +263,10 @@ export default function LandingPage() {
                 &#9889;
               </div>
               <h3 className="text-[18px] font-bold text-[var(--text-primary)] mb-2">
-                Donnees en temps reel
+                Données en temps réel
               </h3>
               <p className="text-[14px] text-[var(--text-secondary)] mb-5">
-                Connexion directe aux bases officielles. Bilans et comptes de resultat importes automatiquement.
+                Connexion directe aux bases officielles. Bilans et comptes de résultat importés automatiquement.
               </p>
               <div className="flex flex-wrap gap-2">
                 {[
@@ -420,7 +420,7 @@ export default function LandingPage() {
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
-            Vos donnees sont securisees et ne sont jamais partagees
+            Vos données sont sécurisées et ne sont jamais partagées
           </p>
         </div>
       </section>

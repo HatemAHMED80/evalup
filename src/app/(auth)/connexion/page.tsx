@@ -38,7 +38,7 @@ function ConnexionForm() {
         return
       }
 
-      // Redirection apres connexion reussie
+      // Redirection après connexion réussie
       router.push(redirectUrl)
       router.refresh()
     } catch (err) {
@@ -82,7 +82,7 @@ function ConnexionForm() {
           </div>
 
           <p className="text-white/50 text-sm">
-            2024 POSSE. Tous droits reserves.
+            2024 POSSE. Tous droits réservés.
           </p>
         </div>
 
@@ -112,7 +112,7 @@ function ConnexionForm() {
                 Connexion
               </h2>
               <p className="text-[var(--text-secondary)]">
-                Connectez-vous pour acceder a vos evaluations
+                Connectez-vous pour accéder à vos évaluations
               </p>
             </div>
 
@@ -147,7 +147,7 @@ function ConnexionForm() {
                   <span className="text-[var(--text-secondary)]">Se souvenir de moi</span>
                 </label>
                 <Link href="/mot-de-passe-oublie" className="text-[var(--accent)] hover:underline">
-                  Mot de passe oublie ?
+                  Mot de passe oublié ?
                 </Link>
               </div>
 

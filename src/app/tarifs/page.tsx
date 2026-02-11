@@ -13,15 +13,15 @@ const PRIMARY_PLANS = [
   {
     id: 'diagnostic',
     name: 'Diagnostic gratuit',
-    description: 'Decouvrez votre profil de valorisation',
+    description: 'Découvrez votre profil de valorisation',
     price: 'Gratuit',
     priceDetail: null,
     features: [
       'Diagnostic en 2 minutes',
-      'Detection de votre archetype',
-      'Methode de valorisation recommandee',
-      'Erreurs courantes a eviter',
-      'Facteurs cles identifies',
+      'Détection de votre archétype',
+      'Méthode de valorisation recommandée',
+      'Erreurs courantes à éviter',
+      'Facteurs clés identifiés',
     ],
     limitations: [
       'Pas de chiffre de valorisation',
@@ -35,12 +35,12 @@ const PRIMARY_PLANS = [
   {
     id: 'eval_complete',
     name: 'Rapport complet',
-    description: 'Valorisation precise par IA + rapport PDF',
+    description: 'Valorisation précise par IA + rapport PDF',
     price: '79\u20AC',
-    priceDetail: 'par evaluation',
+    priceDetail: 'par évaluation',
     features: [
       'Analyse IA conversationnelle',
-      'Methode adaptee a votre profil',
+      'Méthode adaptée à votre profil',
       'Multiples Damodaran 2026',
       'Retraitements EBITDA',
       'Analyse des risques',
@@ -62,9 +62,9 @@ const PRO_PLANS = [
     price: '199\u20AC',
     priceDetail: '/mois',
     features: [
-      '10 evaluations completes/mois',
+      '10 évaluations complètes/mois',
       'Tout inclus',
-      'Historique illimite',
+      'Historique illimité',
       'Support prioritaire',
     ],
     limitations: [],
@@ -75,16 +75,16 @@ const PRO_PLANS = [
   },
   {
     id: 'pro_unlimited',
-    name: 'Pro Illimite',
+    name: 'Pro Illimité',
     description: 'Pour les cabinets M&A',
     price: '399\u20AC',
     priceDetail: '/mois',
     features: [
-      'Evaluations illimitees',
+      'Évaluations illimitées',
       'Tout inclus',
-      'Historique illimite',
+      'Historique illimité',
       'Support prioritaire',
-      'API (bientot)',
+      'API (bientôt)',
     ],
     limitations: [],
     cta: 'S\'abonner',
@@ -101,7 +101,7 @@ export default function TarifsPage() {
   const handleSubscribe = async (planId: string) => {
     setIsLoading(planId)
 
-    // Verifier si l'utilisateur est connecte
+    // Vérifier si l'utilisateur est connecté
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
@@ -111,7 +111,7 @@ export default function TarifsPage() {
       return
     }
 
-    // Creer la session checkout
+    // Créer la session checkout
     try {
       const response = await fetch('/api/stripe/checkout', {
         method: 'POST',
@@ -124,7 +124,7 @@ export default function TarifsPage() {
       if (data.url) {
         window.location.href = data.url
       } else {
-        alert(data.error || 'Erreur lors de la creation du paiement')
+        alert(data.error || 'Erreur lors de la création du paiement')
       }
     } catch (err) {
       console.error('Erreur:', err)
@@ -147,7 +147,7 @@ export default function TarifsPage() {
               Des tarifs simples et transparents
             </h1>
             <p className="text-[var(--text-secondary)] text-lg max-w-2xl mx-auto">
-              Commencez gratuitement avec l'evaluation Flash, puis passez a l'evaluation Complete pour une valorisation precise.
+              Commencez gratuitement avec l'évaluation Flash, puis passez à l'évaluation Complète pour une valorisation précise.
             </p>
           </div>
         </section>
@@ -171,7 +171,7 @@ export default function TarifsPage() {
                 >
                   {plan.popular && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                      <Badge variant="accent">Recommande</Badge>
+                      <Badge variant="accent">Recommandé</Badge>
                     </div>
                   )}
 
@@ -292,21 +292,21 @@ export default function TarifsPage() {
         <section className="py-16 bg-[var(--bg-secondary)]">
           <div className="max-w-3xl mx-auto px-8">
             <h2 className="text-[28px] font-bold text-[var(--text-primary)] text-center mb-10">
-              Questions frequentes
+              Questions fréquentes
             </h2>
             <div className="space-y-4">
               {[
                 {
-                  q: 'Quelle est la difference entre Flash et Complete ?',
-                  a: 'L\'evaluation Flash donne une fourchette indicative basee sur les donnees publiques. L\'evaluation Complete analyse vos documents, identifie les risques et genere un rapport PDF professionnel.',
+                  q: 'Quelle est la différence entre Flash et Complète ?',
+                  a: 'L\'évaluation Flash donne une fourchette indicative basée sur les données publiques. L\'évaluation Complète analyse vos documents, identifie les risques et génère un rapport PDF professionnel.',
                 },
                 {
-                  q: 'Puis-je passer de Flash a Complete ?',
-                  a: 'Oui ! Apres votre evaluation Flash, vous pouvez payer 79€ pour passer a l\'evaluation Complete et obtenir une valorisation plus precise.',
+                  q: 'Puis-je passer de Flash à Complète ?',
+                  a: 'Oui ! Après votre évaluation Flash, vous pouvez payer 79€ pour passer à l\'évaluation Complète et obtenir une valorisation plus précise.',
                 },
                 {
                   q: 'Les abonnements sont-ils sans engagement ?',
-                  a: 'Oui, vous pouvez annuler votre abonnement a tout moment. Vous conservez l\'acces jusqu\'a la fin de la periode payee.',
+                  a: 'Oui, vous pouvez annuler votre abonnement à tout moment. Vous conservez l\'accès jusqu\'à la fin de la période payée.',
                 },
               ].map((faq, i) => (
                 <details key={i} className="bg-[var(--bg-primary)] border border-[var(--border)] rounded-[var(--radius-lg)] p-5 group">

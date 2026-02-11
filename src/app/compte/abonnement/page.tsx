@@ -12,7 +12,7 @@ export default function AbonnementPage() {
     status: 'active',
     features: [
       'Diagnostic gratuit',
-      'Donnees Pappers incluses',
+      'Données Pappers incluses',
       'Valorisation indicative',
     ],
     limitations: [
@@ -96,14 +96,14 @@ export default function AbonnementPage() {
                 Evaluations
               </p>
               <p className="text-[28px] font-bold text-[var(--text-primary)] mt-1">3</p>
-              <p className="text-[13px] text-[var(--text-secondary)]">evaluations Flash</p>
+              <p className="text-[13px] text-[var(--text-secondary)]">évaluations Flash</p>
             </div>
             <div>
               <p className="text-[12px] font-medium text-[var(--text-muted)] uppercase tracking-wide">
                 Questions posees
               </p>
               <p className="text-[28px] font-bold text-[var(--text-primary)] mt-1">24</p>
-              <p className="text-[13px] text-[var(--text-secondary)]">sur 3 evaluations</p>
+              <p className="text-[13px] text-[var(--text-secondary)]">sur 3 évaluations</p>
             </div>
             <div>
               <p className="text-[12px] font-medium text-[var(--text-muted)] uppercase tracking-wide">

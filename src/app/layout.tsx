@@ -12,8 +12,8 @@ export const metadata: Metadata = {
     default: 'EvalUp - Valorisation d\'entreprise par IA',
     template: '%s | EvalUp',
   },
-  description: 'Obtenez une estimation fiable de la valeur de votre entreprise en quelques minutes grace a l\'intelligence artificielle. Rapport professionnel de 32 pages, 5 methodes de valorisation.',
-  keywords: ['valorisation entreprise', 'estimation entreprise', 'cession entreprise', 'transmission entreprise', 'valorisation IA', 'rapport valorisation', 'evaluer entreprise', 'prix de vente entreprise', 'multiple EBITDA', 'evaluation PME'],
+  description: 'Obtenez une estimation fiable de la valeur de votre entreprise en quelques minutes grâce à l\'intelligence artificielle. Rapport professionnel de 32 pages, 5 méthodes de valorisation.',
+  keywords: ['valorisation entreprise', 'estimation entreprise', 'cession entreprise', 'transmission entreprise', 'valorisation IA', 'rapport valorisation', 'évaluer entreprise', 'prix de vente entreprise', 'multiple EBITDA', 'évaluation PME'],
   authors: [{ name: 'POSSE' }],
   metadataBase: new URL(siteUrl),
   alternates: {
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'EvalUp - Valorisation d\'entreprise par IA',
-    description: 'Estimez la valeur de votre entreprise en quelques minutes. Rapport professionnel PDF, 5 methodes de valorisation, analyse financiere complete.',
+    description: 'Estimez la valeur de votre entreprise en quelques minutes. Rapport professionnel PDF, 5 méthodes de valorisation, analyse financière complète.',
     type: 'website',
     locale: 'fr_FR',
     url: siteUrl,
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'EvalUp - Valorisation d\'entreprise par IA',
-    description: 'Estimez la valeur de votre entreprise en quelques minutes grace a l\'IA.',
+    description: 'Estimez la valeur de votre entreprise en quelques minutes grâce à l\'IA.',
     images: ['/og-image.png'],
   },
   icons: {
@@ -107,22 +107,22 @@ export default function RootLayout({
               name: 'EvalUp',
               applicationCategory: 'BusinessApplication',
               operatingSystem: 'Web',
-              description: 'Valorisation d\'entreprise par intelligence artificielle. Rapport professionnel de 32 pages avec 5 methodes de valorisation.',
+              description: 'Valorisation d\'entreprise par intelligence artificielle. Rapport professionnel de 32 pages avec 5 méthodes de valorisation.',
               url: siteUrl,
               offers: [
                 {
                   '@type': 'Offer',
-                  name: 'Evaluation Flash',
+                  name: 'Évaluation Flash',
                   price: '0',
                   priceCurrency: 'EUR',
                   description: 'Estimation indicative gratuite',
                 },
                 {
                   '@type': 'Offer',
-                  name: 'Evaluation Complete',
+                  name: 'Évaluation Complète',
                   price: '79',
                   priceCurrency: 'EUR',
-                  description: 'Valorisation precise avec rapport PDF professionnel de 32 pages',
+                  description: 'Valorisation précise avec rapport PDF professionnel de 32 pages',
                 },
               ],
               aggregateRating: {

@@ -104,9 +104,9 @@ export function CompanyBentoGrid({
               <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
             </svg>
             <div>
-              <p className="text-orange-200 font-medium">Aucune donnee financiere disponible</p>
+              <p className="text-orange-200 font-medium">Aucune donnée financière disponible</p>
               <p className="text-orange-200/70 text-sm mt-1">
-                Cette entreprise n&apos;a pas publie de bilans accessibles. Vous pourrez fournir vos documents financiers lors de l&apos;evaluation pour obtenir une valorisation precise.
+                Cette entreprise n&apos;a pas publié de bilans accessibles. Vous pourrez fournir vos documents financiers lors de l&apos;évaluation pour obtenir une valorisation précise.
               </p>
             </div>
           </div>
@@ -115,7 +115,7 @@ export function CompanyBentoGrid({
 
       {/* Bento Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        {/* Card 1: Infos generales - large */}
+        {/* Card 1: Infos générales - large */}
         <div className="col-span-2 bg-white/5 border border-white/10 rounded-2xl p-4">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-12 h-12 rounded-xl bg-[#c9a227]/20 flex items-center justify-center">
@@ -179,7 +179,7 @@ export function CompanyBentoGrid({
             </div>
             <div className="text-center mb-3">
               <p className="text-3xl font-bold text-white/30">N/A</p>
-              <p className="text-white/30 text-sm">Donnees insuffisantes</p>
+              <p className="text-white/30 text-sm">Données insuffisantes</p>
             </div>
           </div>
         )}
@@ -295,7 +295,7 @@ export function CompanyBentoGrid({
                 <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
               </svg>
               <p className="text-orange-200/90 text-sm">
-                <strong>Donnees de {dataQuality.dataYear}</strong> ({dataQuality.dataAge} ans).
+                <strong>Données de {dataQuality.dataYear}</strong> ({dataQuality.dataAge} ans).
                 Fournissez vos bilans recents pour une valorisation fiable.
               </p>
             </div>
