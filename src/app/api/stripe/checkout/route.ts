@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
           },
         ],
         success_url: `${process.env.NEXT_PUBLIC_APP_URL}/evaluation/${evalId}/upload?payment=success`,
-        cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/diagnostic/result?canceled=true`,
+        cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/diagnostic?canceled=true`,
         metadata: {
           supabase_user_id: user.id,
           plan_id: planId,
