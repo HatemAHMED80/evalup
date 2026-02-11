@@ -250,7 +250,7 @@ export default function DiagnosticPage() {
   // Check if current step can proceed
   const canProceed = (): boolean => {
     switch (step) {
-      case 0: return true // SIREN is optional
+      case 0: return sirenFound // SIREN is mandatory
       case 1: return data.activityType !== ''
       case 2: return data.revenue !== null && data.revenue >= 0
       case 3: return data.ebitda !== null
@@ -276,7 +276,7 @@ export default function DiagnosticPage() {
   const animKey = `step-${step}-${direction}`
 
   return (
-    <div className="min-h-[calc(100vh-var(--nav-height))] bg-[var(--bg-primary)] flex flex-col">
+    <div className="min-h-[calc(100vh-var(--nav-height))] bg-[var(--bg-primary)] flex flex-col items-center justify-center px-6 py-8">
       {/* Progress bar */}
       <div className="fixed top-[var(--nav-height)] left-0 right-0 z-40 h-1 bg-[var(--border)]">
         <div
@@ -285,18 +285,18 @@ export default function DiagnosticPage() {
         />
       </div>
 
-      {/* Header */}
-      <div className="pt-8 pb-4 px-6 text-center">
-        <p className="text-[13px] text-[var(--text-muted)]">
-          Étape {currentActiveIndex + 1} sur {totalSteps}
-        </p>
-      </div>
+      {/* Centered content block */}
+      <div className="w-full max-w-lg">
+        {/* Step counter */}
+        <div className="pb-4 text-center">
+          <p className="text-[13px] text-[var(--text-muted)]">
+            Étape {currentActiveIndex + 1} sur {totalSteps}
+          </p>
+        </div>
 
-      {/* Content */}
-      <div className="flex-1 flex items-start justify-center px-6 pb-32">
         <div
           key={animKey}
-          className="w-full max-w-lg animate-fade-up"
+          className="animate-fade-up"
         >
           {/* Step 1: SIREN */}
           {step === 0 && (
@@ -359,16 +359,6 @@ export default function DiagnosticPage() {
                   </div>
                 </div>
               )}
-
-              <button
-                onClick={() => {
-                  trackConversion('sirene_skipped')
-                  goNext()
-                }}
-                className="w-full text-center text-[var(--text-muted)] hover:text-[var(--accent)] text-[14px] transition-colors"
-              >
-                Je n'ai pas de SIREN →
-              </button>
             </div>
           )}
 
@@ -387,7 +377,10 @@ export default function DiagnosticPage() {
                 {ACTIVITY_TYPES.map((type, i) => (
                   <button
                     key={type.id}
-                    onClick={() => setData((d) => ({ ...d, activityType: type.id }))}
+                    onClick={() => {
+                      setData((d) => ({ ...d, activityType: type.id }))
+                      setTimeout(goNext, 200)
+                    }}
                     className={`
                       flex items-center gap-3 p-4
                       rounded-[var(--radius-lg)]
@@ -567,7 +560,10 @@ export default function DiagnosticPage() {
                 {EFFECTIF_OPTIONS.map((opt) => (
                   <button
                     key={opt.id}
-                    onClick={() => setData((d) => ({ ...d, effectif: opt.id }))}
+                    onClick={() => {
+                      setData((d) => ({ ...d, effectif: opt.id }))
+                      setTimeout(goNext, 200)
+                    }}
                     className={`
                       px-6 py-3
                       rounded-[var(--radius-full)]
@@ -606,7 +602,10 @@ export default function DiagnosticPage() {
                 ].map((opt) => (
                   <button
                     key={String(opt.value)}
-                    onClick={() => setData((d) => ({ ...d, hasPatrimoine: opt.value }))}
+                    onClick={() => {
+                      setData((d) => ({ ...d, hasPatrimoine: opt.value }))
+                      setTimeout(goNext, 200)
+                    }}
                     className={`
                       px-10 py-4
                       rounded-[var(--radius-lg)]
@@ -659,11 +658,9 @@ export default function DiagnosticPage() {
             </div>
           )}
         </div>
-      </div>
 
-      {/* Bottom navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-[var(--bg-primary)] border-t border-[var(--border)] px-6 py-4">
-        <div className="max-w-lg mx-auto flex items-center justify-between gap-4">
+        {/* Navigation buttons */}
+        <div className="flex items-center justify-between gap-4 mt-8">
           {currentActiveIndex > 0 ? (
             <Button type="button" variant="ghost" onClick={goBack}>
               ← Retour
@@ -671,32 +668,15 @@ export default function DiagnosticPage() {
           ) : (
             <div />
           )}
-          {step === 0 ? (
-            <Button
-              type="button"
-              variant="primary"
-              size="lg"
-              onClick={() => {
-                if (data.siren.replace(/\D/g, '').length === 9 && !sirenFound) {
-                  lookupSiren().then(goNext)
-                } else {
-                  goNext()
-                }
-              }}
-            >
-              {sirenFound ? 'Continuer' : 'Passer cette étape'} →
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              variant="primary"
-              size="lg"
-              onClick={goNext}
-              disabled={!canProceed()}
-            >
-              {isLastStep ? 'Voir mon diagnostic' : 'Continuer'} →
-            </Button>
-          )}
+          <Button
+            type="button"
+            variant="primary"
+            size="lg"
+            onClick={goNext}
+            disabled={!canProceed()}
+          >
+            {isLastStep ? 'Voir mon diagnostic' : 'Continuer'} →
+          </Button>
         </div>
       </div>
     </div>

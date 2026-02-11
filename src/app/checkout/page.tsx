@@ -10,10 +10,22 @@ function CheckoutContent() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const siren = searchParams.get('siren')
+  const sirenParam = searchParams.get('siren')
   const evalId = searchParams.get('eval')
   const planId = searchParams.get('plan') || 'eval_complete'
   const archetypeId = searchParams.get('archetype')
+
+  // Fallback: read SIREN from sessionStorage if not in URL
+  const siren = sirenParam || (() => {
+    try {
+      const raw = sessionStorage.getItem('diagnostic_data')
+      if (raw) {
+        const d = JSON.parse(raw)
+        return (d.siren || '').replace(/\D/g, '') || null
+      }
+    } catch { /* ignore */ }
+    return null
+  })()
 
   useEffect(() => {
     async function initiateCheckout() {

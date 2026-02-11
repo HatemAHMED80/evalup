@@ -78,6 +78,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (session?.user?.id) {
           await loadSubscription(session.user.id)
         }
+      } catch (err) {
+        // Ignorer les AbortError causés par la navigation (bug connu Supabase SSR)
+        if (err instanceof DOMException && err.name === 'AbortError') return
+        console.error('Auth session error:', err)
       } finally {
         if (mounted) {
           setIsLoading(false)
@@ -90,19 +94,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Ecouter les changements d'auth
     const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
       async (_event: AuthChangeEvent, session: Session | null) => {
-        if (!mounted) return
+        try {
+          if (!mounted) return
 
-        setSession(session)
-        setUser(session?.user ?? null)
+          setSession(session)
+          setUser(session?.user ?? null)
 
-        // Recharger l'abonnement si connecte
-        if (session?.user?.id) {
-          await loadSubscription(session.user.id)
-        } else {
-          setSubscription(null)
+          // Recharger l'abonnement si connecte
+          if (session?.user?.id) {
+            await loadSubscription(session.user.id)
+          } else {
+            setSubscription(null)
+          }
+
+          setIsLoading(false)
+        } catch (err) {
+          // Ignorer les AbortError causés par la navigation
+          if (err instanceof DOMException && err.name === 'AbortError') return
+          console.error('Auth state change error:', err)
         }
-
-        setIsLoading(false)
       }
     )
 

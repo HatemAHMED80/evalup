@@ -20,10 +20,10 @@ const securityHeaders: Record<string, string> = {
   // En production, idéalement utiliser des nonces
   'Content-Security-Policy': [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' https://js.stripe.com",
-    "style-src 'self' 'unsafe-inline'",
+    "script-src 'self' 'unsafe-inline' https://js.stripe.com https://www.googletagmanager.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: https: blob:",
-    "font-src 'self'",
+    "font-src 'self' https://fonts.gstatic.com",
     `connect-src 'self' https://api.anthropic.com https://*.supabase.co https://api.stripe.com https://api.pappers.fr wss://*.supabase.co`,
     "frame-src https://js.stripe.com https://hooks.stripe.com",
     "object-src 'none'",

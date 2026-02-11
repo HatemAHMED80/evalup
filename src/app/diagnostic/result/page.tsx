@@ -127,7 +127,18 @@ function DiagnosticResult() {
 
   // ── Checkout URL ─────────────────────────────────────────────────────────
 
-  const siren = company?.siren || ''
+  // Read SIREN from company state, or fallback to sessionStorage diagnostic_data
+  const siren = (() => {
+    if (company?.siren) return company.siren
+    try {
+      const raw = sessionStorage.getItem('diagnostic_data')
+      if (raw) {
+        const d = JSON.parse(raw)
+        return (d.siren || '').replace(/\D/g, '')
+      }
+    } catch { /* ignore */ }
+    return ''
+  })()
   const checkoutParams = new URLSearchParams({ plan: 'eval_complete', archetype: archetypeId })
   if (siren) checkoutParams.set('siren', siren)
   const checkoutUrl = `/checkout?${checkoutParams.toString()}`

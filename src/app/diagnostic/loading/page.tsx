@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { trackConversion } from '@/lib/analytics'
 
@@ -23,7 +23,6 @@ export default function DiagnosticLoadingPage() {
   const [messageIndex, setMessageIndex] = useState(0)
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
-  const hasFetched = useRef(false)
 
   // Rotate messages
   useEffect(() => {
@@ -35,10 +34,9 @@ export default function DiagnosticLoadingPage() {
 
   // Animate progress bar (visual only, runs independently of API)
   useEffect(() => {
-    // Quick ramp to 70%, then slow down waiting for API
     const timer = setInterval(() => {
       setProgress((prev) => {
-        if (prev >= 90) return prev // stall at 90 until API returns
+        if (prev >= 90) return prev
         if (prev < 60) return prev + 3
         return prev + 0.5
       })
@@ -46,11 +44,8 @@ export default function DiagnosticLoadingPage() {
     return () => clearInterval(timer)
   }, [])
 
-  // Call API
+  // Call API (compatible React strict mode — no useRef guard)
   useEffect(() => {
-    if (hasFetched.current) return
-    hasFetched.current = true
-
     const raw = sessionStorage.getItem('diagnostic_data')
     if (!raw) {
       setError('Données manquantes. Veuillez recommencer le diagnostic.')
@@ -65,11 +60,12 @@ export default function DiagnosticLoadingPage() {
       return
     }
 
+    let cancelled = false
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 15000)
+
     const callApi = async () => {
       try {
-        const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), 15000)
-
         const res = await fetch('/api/diagnostic', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -78,6 +74,7 @@ export default function DiagnosticLoadingPage() {
         })
 
         clearTimeout(timeout)
+        if (cancelled) return
 
         if (!res.ok) {
           const body = await res.json().catch(() => ({}))
@@ -85,19 +82,21 @@ export default function DiagnosticLoadingPage() {
         }
 
         const result = await res.json()
+        if (cancelled) return
 
-        // Store result for the signup/result page
         sessionStorage.setItem('diagnostic_result', JSON.stringify(result))
         trackConversion('archetype_detected', {
           archetype_id: result.archetypeId,
           archetype_name: result.archetype?.name || '',
         })
 
-        // Complete progress bar then redirect
         setProgress(100)
         await new Promise((r) => setTimeout(r, 600))
+        if (cancelled) return
+
         router.push(`/diagnostic/signup?archetype=${result.archetypeId}`)
       } catch (err) {
+        if (cancelled) return
         if (err instanceof DOMException && err.name === 'AbortError') {
           setError('Le diagnostic prend trop de temps. Veuillez réessayer.')
         } else {
@@ -106,9 +105,14 @@ export default function DiagnosticLoadingPage() {
       }
     }
 
-    // Add minimum delay so the loading animation is visible
     const minDelay = new Promise((r) => setTimeout(r, 3000))
     Promise.all([callApi(), minDelay])
+
+    return () => {
+      cancelled = true
+      clearTimeout(timeout)
+      controller.abort()
+    }
   }, [router])
 
   // ── Error state ──────────────────────────────────────────────────────────
