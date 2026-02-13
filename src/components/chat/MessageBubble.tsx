@@ -15,11 +15,18 @@ interface MessageBubbleProps {
 }
 
 // Types pour le parsing
+interface NumericField {
+  label: string
+  unit: string
+  optional: boolean
+}
+
 interface ParsedContent {
   mainContent: string
   context: string | null
   question: string | null
   suggestions: string[]
+  numericFields: NumericField[]
 }
 
 // Parser pour extraire les différentes sections du contenu
@@ -28,11 +35,16 @@ function parseContent(content: string): ParsedContent {
   let context: string | null = null
   let question: string | null = null
   let suggestions: string[] = []
+  let numericFields: NumericField[] = []
 
   // Nettoyer le contenu des code blocks qui contiennent les suggestions
   // Le modèle met parfois les suggestions dans un bloc ```
   mainContent = mainContent.replace(/```\s*\n?\[SUGGESTIONS\]/g, '[SUGGESTIONS]')
   mainContent = mainContent.replace(/\[\/SUGGESTIONS\]\s*\n?```/g, '[/SUGGESTIONS]')
+
+  // Même nettoyage pour [NUMERIC_FIELDS]
+  mainContent = mainContent.replace(/```\s*\n?\[NUMERIC_FIELDS\]/g, '[NUMERIC_FIELDS]')
+  mainContent = mainContent.replace(/\[\/NUMERIC_FIELDS\]\s*\n?```/g, '[/NUMERIC_FIELDS]')
 
   // Extraire les suggestions (plusieurs formats possibles)
   // Format 1: [SUGGESTIONS]opt1|opt2|opt3[/SUGGESTIONS]
@@ -65,6 +77,33 @@ function parseContent(content: string): ParsedContent {
     mainContent = mainContent.replace(/\n{3,}/g, '\n\n').trim()
   }
 
+  // Extraire les champs numériques [NUMERIC_FIELDS]
+  const numericMatch = mainContent.match(
+    /\[NUMERIC_FIELDS\]\s*\n?([\s\S]+?)\n?\s*\[\/NUMERIC_FIELDS\]/i
+  )
+
+  if (numericMatch) {
+    const rawBlock = numericMatch[1].trim()
+    numericFields = rawBlock
+      .split('\n')
+      .map(line => line.trim())
+      .filter(Boolean)
+      .map(line => {
+        const parts = line.split('|').map(p => p.trim())
+        return {
+          label: parts[0] || '',
+          unit: parts[1] || '',
+          optional: parts[2] === '?',
+        }
+      })
+      .filter(f => f.label.length > 0)
+
+    // Supprimer le bloc du contenu affiché
+    mainContent = mainContent
+      .replace(/\[NUMERIC_FIELDS\]\s*\n?[\s\S]+?\n?\s*\[\/NUMERIC_FIELDS\]/i, '')
+      .trim()
+  }
+
   // Extraire le contexte
   const contextMatch = mainContent.match(/\[CONTEXT\]([\s\S]*?)\[\/CONTEXT\]/m)
   if (contextMatch) {
@@ -79,7 +118,7 @@ function parseContent(content: string): ParsedContent {
     mainContent = mainContent.replace(/\[QUESTION\][\s\S]*?\[\/QUESTION\]/m, '').trim()
   }
 
-  return { mainContent, context, question, suggestions }
+  return { mainContent, context, question, suggestions, numericFields }
 }
 
 export function MessageBubble({
@@ -89,10 +128,11 @@ export function MessageBubble({
 }: MessageBubbleProps) {
   const isUser = message.role === 'user'
   const [selectedSuggestions, setSelectedSuggestions] = useState<string[]>([])
+  const [numericValues, setNumericValues] = useState<Record<string, string>>({})
 
   // Extraire les différentes sections du contenu
-  const { mainContent, context, question, suggestions } = isUser
-    ? { mainContent: message.content, context: null, question: null, suggestions: [] }
+  const { mainContent, context, question, suggestions, numericFields } = isUser
+    ? { mainContent: message.content, context: null, question: null, suggestions: [], numericFields: [] }
     : parseContent(message.content.replace('[EVALUATION_COMPLETE]', '').replace(/\[DATA_UPDATE\][\s\S]*?\[\/DATA_UPDATE\]/gi, ''))
 
   // Toggle une suggestion
@@ -111,6 +151,42 @@ export function MessageBubble({
       setSelectedSuggestions([])
     }
   }
+
+  // Champs numériques — mise à jour
+  const handleNumericChange = (label: string, value: string) => {
+    // Garder digits, espaces, virgules, points (format FR)
+    const cleaned = value.replace(/[^\d\s.,]/g, '')
+    setNumericValues(prev => ({ ...prev, [label]: cleaned }))
+  }
+
+  // Champs numériques — envoi
+  const submitNumericFields = () => {
+    const lines = numericFields
+      .filter(f => {
+        const val = numericValues[f.label]?.trim()
+        return val && val.length > 0
+      })
+      .map(f => {
+        const rawVal = numericValues[f.label].trim()
+        // Parser et formater en FR
+        const num = parseFloat(rawVal.replace(/\s/g, '').replace(',', '.'))
+        const formatted = !isNaN(num)
+          ? new Intl.NumberFormat('fr-FR').format(num)
+          : rawVal
+        return `• ${f.label} : ${formatted} ${f.unit}`.trim()
+      })
+
+    if (lines.length > 0 && onSuggestionClick) {
+      onSuggestionClick(lines.join('\n'))
+      setNumericValues({})
+    }
+  }
+
+  // Au moins un champ requis rempli
+  const canSubmitNumeric = numericFields.length > 0 && numericFields.some(f => {
+    const val = numericValues[f.label]?.trim()
+    return val && val.length > 0
+  })
 
   if (isUser) {
     // Style utilisateur - bulle alignée à droite
@@ -238,6 +314,56 @@ export function MessageBubble({
                 </svg>
               </button>
             )}
+          </div>
+        )}
+
+        {/* Champs numériques structurés */}
+        {numericFields.length > 0 && !isStreaming && (
+          <div className="mt-4 space-y-2.5">
+            {numericFields.map((field, index) => (
+              <div
+                key={index}
+                className="flex items-center gap-3 bg-[var(--bg-secondary)] border border-[var(--border)] rounded-[var(--radius-lg)] px-4 py-3 focus-within:border-[var(--accent)] focus-within:ring-2 focus-within:ring-[var(--accent)]/20 transition-all"
+              >
+                <label className="text-sm text-[var(--text-primary)] font-medium whitespace-nowrap flex-shrink-0">
+                  {field.label}
+                  {field.optional && (
+                    <span className="text-[var(--text-tertiary)] font-normal ml-1 text-xs">(optionnel)</span>
+                  )}
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={numericValues[field.label] || ''}
+                  onChange={(e) => handleNumericChange(field.label, e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && canSubmitNumeric) {
+                      e.preventDefault()
+                      submitNumericFields()
+                    }
+                  }}
+                  placeholder="0"
+                  className="flex-1 min-w-0 bg-transparent text-right text-[var(--text-primary)] text-sm font-medium outline-none placeholder:text-[var(--text-tertiary)]"
+                />
+                {field.unit && (
+                  <span className="text-sm text-[var(--text-secondary)] whitespace-nowrap flex-shrink-0">
+                    {field.unit}
+                  </span>
+                )}
+              </div>
+            ))}
+
+            {/* Bouton envoyer */}
+            <button
+              onClick={submitNumericFields}
+              disabled={!canSubmitNumeric}
+              className="mt-1 px-5 py-2.5 bg-[var(--accent)] text-white rounded-[var(--radius-full)] text-sm font-medium hover:bg-[var(--accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+            >
+              Envoyer
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" />
+              </svg>
+            </button>
           </div>
         )}
       </div>

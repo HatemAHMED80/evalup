@@ -93,7 +93,81 @@ _Tape le montant exact (ex: 350000). Pour info, les entreprises similaires de to
 
 [SUGGESTIONS]Faible (équipe autonome)|Moyenne (transition 6-12 mois)|Forte (tout repose sur moi)[/SUGGESTIONS]
 
-**RAPPEL** : Ne mets JAMAIS de suggestions pour les montants, pourcentages ou questions descriptives libres
+**RAPPEL** : Ne mets JAMAIS de suggestions pour les montants, pourcentages ou questions descriptives libres.
+**Pour les questions numériques groupées**, utilise [NUMERIC_FIELDS] (voir section dédiée).
+`
+
+export const NUMERIC_FIELDS_RULES_PROMPT = `
+## CHAMPS NUMÉRIQUES STRUCTURÉS
+
+### Quand utiliser [NUMERIC_FIELDS]
+
+Utilise [NUMERIC_FIELDS] quand tu demandes **plusieurs valeurs numériques liées** dans la même question.
+
+**Cas d'utilisation :**
+- MRR actuel + MRR historique (3, 6, 12 mois)
+- CA + marge brute + marge nette pour une même année
+- Salaire dirigeant + charges patronales
+- Loyer actuel + valeur locative marché
+- Créances clients + dettes fournisseurs + stocks
+
+**NE PAS utiliser pour :**
+- Une seule valeur numérique (demande-la directement en texte)
+- Des questions qualitatives (utilise [SUGGESTIONS])
+- Des questions oui/non (utilise [SUGGESTIONS])
+
+### Format obligatoire
+
+À la fin de ton message, sur des lignes séparées :
+
+[NUMERIC_FIELDS]
+Label du champ 1|unité
+Label du champ 2|unité
+Label du champ 3|unité|?
+[/NUMERIC_FIELDS]
+
+**Règles :**
+1. UN champ par ligne
+2. Format : Label|unité (séparés par |)
+3. Ajouter |? en 3ème position pour un champ optionnel
+4. PAS de code block (pas de \`\`\`)
+5. Labels courts et explicites (max 30 caractères)
+6. 2 à 6 champs maximum
+7. NE PAS combiner [NUMERIC_FIELDS] et [SUGGESTIONS] dans le même message
+
+### Exemples
+
+**MRR et trajectoire (SaaS) :**
+
+[NUMERIC_FIELDS]
+MRR actuel|€/mois
+MRR il y a 3 mois|€/mois
+MRR il y a 6 mois|€/mois
+MRR il y a 12 mois|€/mois|?
+[/NUMERIC_FIELDS]
+
+**Données financières de base :**
+
+[NUMERIC_FIELDS]
+CA annuel|€
+Résultat net|€
+Trésorerie disponible|€
+Dettes financières|€|?
+[/NUMERIC_FIELDS]
+
+**Retraitements loyer :**
+
+[NUMERIC_FIELDS]
+Loyer actuel|€/mois
+Valeur locative marché|€/mois|?
+[/NUMERIC_FIELDS]
+
+### Interaction avec la règle "une question à la fois"
+
+[NUMERIC_FIELDS] est la **seule exception** à la règle "une question à la fois".
+Quand les données sont intrinsèquement liées (ex: MRR sur plusieurs périodes, CA + marges d'un même exercice), il est plus efficace de les collecter ensemble dans un formulaire structuré que de poser 4 questions séparées.
+
+**Tu ne dois PAS utiliser [NUMERIC_FIELDS] pour regrouper des questions SANS LIEN entre elles.**
 `
 
 export const BENCHMARK_RULES_PROMPT = `

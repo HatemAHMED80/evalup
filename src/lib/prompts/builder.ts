@@ -13,6 +13,7 @@ import { DECOTES_PROMPT, RISQUES_PROMPT, FONDS_COMMERCE_PROMPT } from './modules
 import {
   CONVERSATION_RULES_PROMPT,
   SUGGESTIONS_RULES_PROMPT,
+  NUMERIC_FIELDS_RULES_PROMPT,
   BENCHMARK_RULES_PROMPT,
   DOCUMENT_RULES_PROMPT,
   NO_REPEAT_RULES_PROMPT,
@@ -450,6 +451,7 @@ export function buildArchetypePrompt(options: BuildPromptOptions): string {
   // Modules communs
   sections.push(CONVERSATION_RULES_PROMPT)
   sections.push(SUGGESTIONS_RULES_PROMPT)
+  sections.push(NUMERIC_FIELDS_RULES_PROMPT)
   sections.push(BENCHMARK_RULES_PROMPT)
   sections.push(DOCUMENT_RULES_PROMPT)
   sections.push(NO_REPEAT_RULES_PROMPT)
