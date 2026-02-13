@@ -64,7 +64,7 @@ export function Sidebar({
       {/* Sidebar */}
       <aside
         className={`
-          fixed lg:static inset-y-0 left-0 z-50
+          relative fixed lg:static inset-y-0 left-0 z-50
           bg-[var(--bg-secondary)] text-[var(--text-primary)]
           border-r border-[var(--border)]
           transform transition-all duration-300 ease-in-out

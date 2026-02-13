@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { trackConversion } from '@/lib/analytics'
+import { createClient } from '@/lib/supabase/client'
 
 // ---------------------------------------------------------------------------
 // Rotating messages
@@ -96,7 +97,15 @@ export default function DiagnosticLoadingPage() {
         await new Promise((r) => setTimeout(r, 600))
         if (cancelled) return
 
-        router.push(`/diagnostic/signup?archetype=${result.archetypeId}`)
+        // Si l'utilisateur est déjà connecté, skip signup → résultat direct
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+
+        if (user) {
+          router.push(`/diagnostic/result?archetype=${result.archetypeId}`)
+        } else {
+          router.push(`/diagnostic/signup?archetype=${result.archetypeId}`)
+        }
       } catch (err) {
         if (cancelled) return
         setError(err instanceof Error ? err.message : 'Erreur inattendue')
