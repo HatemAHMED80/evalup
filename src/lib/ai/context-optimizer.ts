@@ -1,5 +1,6 @@
 // Optimiseur de contexte pour réduire la taille des prompts
-// Compresse l'historique et extrait les informations essentielles
+// Compresse l'historique en gardant les données utilisateur intactes
+// et en condensant les réponses verbose de l'assistant
 
 // Type simplifié pour les messages (sans id/timestamp pour l'optimisation)
 export interface SimpleMessage {
@@ -48,11 +49,78 @@ export function estimerTokens(text: string): number {
 }
 
 /**
- * Compresse l'historique des messages pour réduire les tokens
+ * Compresse un message assistant en gardant :
+ * - La question posée (texte en gras ou dernière phrase interrogative)
+ * - Les données structurées ([DATA_UPDATE], montants, anomalies ⚠️)
+ * - Le marqueur d'étape (📍 Étape X/6)
+ * Supprime :
+ * - Les explications verbose, benchmarks, paragraphes d'introduction
+ * - Les tags [SUGGESTIONS]...[/SUGGESTIONS]
+ */
+function compresserMessageAssistant(content: string): string {
+  const parts: string[] = []
+
+  // 1. Garder le marqueur d'étape
+  const stepMatch = content.match(/📍\s*\*?\*?Étape\s*\d+\/\d+.*$/m)
+  if (stepMatch) {
+    parts.push(stepMatch[0].trim())
+  }
+
+  // 2. Extraire toutes les questions en gras
+  const boldQuestions = content.match(/\*\*[^*]*\?\*\*/g)
+  if (boldQuestions) {
+    for (const q of boldQuestions) {
+      parts.push(q)
+    }
+  } else {
+    // Fallback : dernière phrase interrogative
+    const questions = content.match(/[^.!?\n]*\?/g)
+    if (questions && questions.length > 0) {
+      const lastQ = questions[questions.length - 1].trim()
+      if (lastQ.length > 10) {
+        parts.push(`**${lastQ}**`)
+      }
+    }
+  }
+
+  // 3. Garder les anomalies (⚠️)
+  const anomalies = content.match(/⚠️[^\n]*/g)
+  if (anomalies) {
+    parts.push(...anomalies)
+  }
+
+  // 4. Garder les [DATA_UPDATE] blocs
+  const dataUpdate = content.match(/\[DATA_UPDATE\][\s\S]*?\[\/DATA_UPDATE\]/i)
+  if (dataUpdate) {
+    parts.push(dataUpdate[0])
+  }
+
+  // 5. Garder les montants/ratios mentionnés dans le contexte d'analyse
+  // (ex: "Ta marge nette de 3% est en dessous de la moyenne...")
+  const analyses = content.match(/(?:marge|ratio|taux|rentabilité|croissance|dette)[^.]*\d+[^.]*\./gi)
+  if (analyses) {
+    // Garder max 2 analyses courtes
+    parts.push(...analyses.slice(0, 2).map(a => a.trim()))
+  }
+
+  if (parts.length === 0) {
+    // Si rien n'a été extrait, garder les 150 premiers caractères
+    return content.slice(0, 150).trim() + '...'
+  }
+
+  return parts.join('\n')
+}
+
+/**
+ * Compresse l'historique des messages de manière intelligente :
+ * - Messages utilisateur : TOUJOURS gardés intacts (contiennent les données réelles)
+ * - Messages assistant anciens : compressés (question + données clés seulement)
+ * - Messages récents (derniers 6) : gardés intacts
+ * - Premier message : gardé intact
  */
 export function compresserHistorique(
   messages: SimpleMessage[],
-  maxTokens: number = 30000
+  maxTokens: number = 20000
 ): SimpleMessage[] {
   const totalTokens = messages.reduce(
     (sum, m) => sum + estimerTokens(m.content),
@@ -64,38 +132,67 @@ export function compresserHistorique(
     return messages
   }
 
+  // Nombre de messages récents à garder intacts (3 paires Q/R)
+  const recentCount = Math.min(6, messages.length)
+  const recentMessages = messages.slice(-recentCount)
+  const olderMessages = messages.slice(0, -recentCount)
+
+  if (olderMessages.length === 0) {
+    return messages // Pas assez de messages pour compresser
+  }
+
   const compressedMessages: SimpleMessage[] = []
   let currentTokens = 0
 
-  // Garder le premier message (contexte initial) et les derniers messages
-  const firstMessage = messages[0]
-  const recentMessages = messages.slice(-8) // 8 derniers échanges (4 paires Q/R)
-
-  // Ajouter le premier message
-  if (firstMessage) {
-    compressedMessages.push(firstMessage)
-    currentTokens += estimerTokens(firstMessage.content)
-  }
-
-  // Résumer les messages intermédiaires
-  const middleMessages = messages.slice(1, -8)
-  if (middleMessages.length > 0) {
-    const summary = resumerMessages(middleMessages)
-    const summaryMessage: SimpleMessage = {
-      role: 'assistant',
-      content: `[Résumé des échanges précédents]\n${summary}`,
-    }
-    compressedMessages.push(summaryMessage)
-    currentTokens += estimerTokens(summaryMessage.content)
-  }
-
-  // Ajouter les messages récents
-  for (const msg of recentMessages) {
-    const msgTokens = estimerTokens(msg.content)
-    if (currentTokens + msgTokens <= maxTokens) {
+  // Traiter les messages anciens : garder user intacts, compresser assistant
+  for (const msg of olderMessages) {
+    if (msg.role === 'user') {
+      // Messages utilisateur : TOUJOURS garder intacts
       compressedMessages.push(msg)
-      currentTokens += msgTokens
+      currentTokens += estimerTokens(msg.content)
+    } else {
+      // Messages assistant : compresser
+      const compressed = compresserMessageAssistant(msg.content)
+      compressedMessages.push({ role: 'assistant', content: compressed })
+      currentTokens += estimerTokens(compressed)
     }
+  }
+
+  // Ajouter les messages récents intacts
+  for (const msg of recentMessages) {
+    compressedMessages.push(msg)
+    currentTokens += estimerTokens(msg.content)
+  }
+
+  // Si toujours trop gros après compression individuelle,
+  // réduire davantage les anciens messages assistant
+  if (currentTokens > maxTokens && olderMessages.length > 4) {
+    // Remplacer les plus vieux messages par un résumé Q/R condensé
+    const veryOld = olderMessages.slice(0, -4)
+    const keepOld = olderMessages.slice(-4)
+
+    const qrSummary = extraireQuestionsReponses(veryOld)
+    const summaryContent = qrSummary.length > 0
+      ? `[Résumé des premiers échanges]\n${qrSummary.map(qr => `• ${qr}`).join('\n')}`
+      : '[Début de conversation — données Pappers déjà présentées]'
+
+    const result: SimpleMessage[] = [
+      { role: 'assistant', content: summaryContent },
+    ]
+
+    // Ajouter les messages anciens gardés (compressés)
+    for (const msg of keepOld) {
+      if (msg.role === 'user') {
+        result.push(msg)
+      } else {
+        result.push({ role: 'assistant', content: compresserMessageAssistant(msg.content) })
+      }
+    }
+
+    // Ajouter les messages récents
+    result.push(...recentMessages)
+
+    return result
   }
 
   return compressedMessages
@@ -115,18 +212,18 @@ function extraireQuestionsReponses(messages: SimpleMessage[]): string[] {
     // Si c'est un message assistant suivi d'un message user, c'est une paire Q/R
     if (msg.role === 'assistant' && nextMsg.role === 'user') {
       // Extraire la question (texte en gras ou la dernière phrase interrogative)
-      const questionMatch = msg.content.match(/\*\*([^*]+\?)\*\*/g) ||
-                           msg.content.match(/[^.!?]*\?/g)
+      const boldMatch = msg.content.match(/\*\*([^*]+\?)\*\*/g)
+      const questionMatch = boldMatch || msg.content.match(/[^.!?\n]*\?/g)
 
       if (questionMatch && questionMatch.length > 0) {
         // Prendre la dernière question trouvée
         const question = questionMatch[questionMatch.length - 1]
           .replace(/\*\*/g, '')
           .trim()
-          .slice(0, 80) // Limiter la longueur
+          .slice(0, 120)
 
-        // Réponse courte
-        const reponse = nextMsg.content.slice(0, 100).trim()
+        // Réponse : garder plus de contexte (200 chars)
+        const reponse = nextMsg.content.slice(0, 200).trim()
 
         if (question && reponse) {
           qr.push(`Q: ${question} → R: ${reponse}`)
@@ -136,42 +233,6 @@ function extraireQuestionsReponses(messages: SimpleMessage[]): string[] {
   }
 
   return qr
-}
-
-/**
- * Résume une liste de messages en extrayant les points clés
- * INCLUT les questions déjà posées et leurs réponses
- */
-function resumerMessages(messages: SimpleMessage[]): string {
-  const points: string[] = []
-
-  for (const msg of messages) {
-    // Extraire les éléments clés du contenu
-    const extracted = extrairePointsCles(msg.content)
-    points.push(...extracted)
-  }
-
-  // Extraire les paires Q/R - CRUCIAL pour ne pas reposer les questions
-  const questionsReponses = extraireQuestionsReponses(messages)
-
-  // Dédupliquer les points
-  const uniquePoints = [...new Set(points)]
-
-  // Construire le résumé avec section Q/R explicite
-  let summary = ''
-
-  if (questionsReponses.length > 0) {
-    summary += '**Questions déjà posées et réponses :**\n'
-    summary += questionsReponses.slice(-10).map(qr => `• ${qr}`).join('\n')
-    summary += '\n\n'
-  }
-
-  if (uniquePoints.length > 0) {
-    summary += '**Informations collectées :**\n'
-    summary += uniquePoints.slice(0, 8).map(p => `• ${p}`).join('\n')
-  }
-
-  return summary
 }
 
 /**
@@ -290,20 +351,21 @@ function parseMontant(text: string): number {
 
 /**
  * Optimise le contexte complet pour un appel API
+ * Seuil modéré : compresse à partir de ~20K tokens de messages
  */
 export function optimiserContexte(
   systemPrompt: string,
   messages: SimpleMessage[],
-  maxTokens: number = 50000
+  maxTokens: number = 25000
 ): OptimizedContext {
   const originalTokens = estimerTokens(systemPrompt) +
     messages.reduce((sum, m) => sum + estimerTokens(m.content), 0)
 
-  // Compresser les messages si nécessaire
+  // Budget tokens pour les messages (hors system prompt)
   const messagesTokenBudget = maxTokens - estimerTokens(systemPrompt)
-  const compressedMessages = compresserHistorique(messages, messagesTokenBudget)
+  const compressedMessages = compresserHistorique(messages, Math.max(messagesTokenBudget, 8000))
 
-  // Extraire les données structurées
+  // Extraire les données structurées (depuis les messages originaux, pas compressés)
   const extractedData = extraireDonneesStructurees(messages)
 
   // Calculer les nouvelles stats
@@ -371,6 +433,9 @@ function formatMontant(montant: number): string {
 
 /**
  * Détermine si le contexte nécessite une compression
+ * Seuil : 50K tokens (system prompt + messages) — filet de sécurité
+ * La compression intelligente garde les données utilisateur intactes
+ * et condense seulement les réponses verbose de l'assistant
  */
 export function necessiteCompression(
   systemPrompt: string,
