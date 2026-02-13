@@ -107,6 +107,7 @@ Utilise [NUMERIC_FIELDS] quand tu demandes **plusieurs valeurs numériques liée
 **Cas d'utilisation :**
 - MRR actuel + MRR historique (3, 6, 12 mois)
 - CA + marge brute + marge nette pour une même année
+- Logo churn + revenue churn (SaaS)
 - Salaire dirigeant + charges patronales
 - Loyer actuel + valeur locative marché
 - Créances clients + dettes fournisseurs + stocks
@@ -153,6 +154,14 @@ CA annuel|€
 Résultat net|€
 Trésorerie disponible|€
 Dettes financières|€|?
+[/NUMERIC_FIELDS]
+
+**Churn SaaS :**
+
+[NUMERIC_FIELDS]
+Logo churn mensuel|%
+Revenue churn mensuel|%
+Net revenue retention|%|?
 [/NUMERIC_FIELDS]
 
 **Retraitements loyer :**
