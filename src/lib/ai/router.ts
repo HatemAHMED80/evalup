@@ -2,7 +2,7 @@
 // Version 2.0: Analyse sémantique AVANT toute décision
 // Les questions financières → toujours Sonnet
 
-import { MODELS, TASK_TYPES, estimerCout, type ModelType, type TaskClassification } from './models'
+import { MODELS, estimerCout, type ModelType, type TaskClassification } from './models'
 import { calculerScoreComplexite, aDesAnomaliesCritiques } from './anomalies'
 import type { DonneesFinancieres } from './ratios'
 
@@ -123,7 +123,7 @@ const SIMPLE_CLARIFICATION_PATTERNS = [
  * Analyse sémantique du prompt - DOIT être appelée AVANT toute décision
  */
 export function analyzePromptSemantics(prompt: string): PromptSemantics {
-  const promptLower = prompt.toLowerCase().trim()
+  const _promptLower = prompt.toLowerCase().trim()
   const detectedTopics: string[] = []
 
   // Vérifier les questions de valorisation

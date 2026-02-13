@@ -5,6 +5,7 @@ import { stripe } from '@/lib/stripe/client'
 import { PLANS } from '@/lib/stripe/plans'
 import { createPurchase, updateEvaluationDiagnosticData } from '@/lib/usage'
 import { checkoutBodySchema } from '@/lib/security/schemas'
+import { checkRateLimit, getRateLimitHeaders } from '@/lib/security/rate-limit'
 
 // Client admin pour les opérations sur profiles (bypass RLS)
 function getAdminClient() {
@@ -23,6 +24,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Non authentifie' },
         { status: 401 }
+      )
+    }
+
+    // Rate limiting: 10 checkouts par heure par utilisateur
+    const rateLimitResult = await checkRateLimit(user.id, 'stripeCheckout')
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { error: 'Trop de tentatives. Réessayez plus tard.' },
+        { status: 429, headers: getRateLimitHeaders(rateLimitResult) }
       )
     }
 

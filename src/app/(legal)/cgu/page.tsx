@@ -9,7 +9,7 @@ export default function CGUPage() {
   return (
     <article>
       <h1 className="text-[32px] font-bold text-[var(--text-primary)] mb-4">
-        Conditions Générales d'Utilisation
+        Conditions Générales d&apos;Utilisation
       </h1>
       <p className="text-[var(--text-muted)] mb-8">
         Dernière mise à jour : Janvier 2025
@@ -21,9 +21,9 @@ export default function CGUPage() {
             1. Objet
           </h2>
           <p className="text-[var(--text-secondary)] leading-relaxed">
-            Les presentes Conditions Générales d'Utilisation (CGU) ont pour objet de définir
-            les conditions d'acces et d'utilisation du service EvalUp, plateforme
-            d'évaluation d'entreprises par intelligence artificielle.
+            Les presentes Conditions Générales d&apos;Utilisation (CGU) ont pour objet de définir
+            les conditions d&apos;acces et d&apos;utilisation du service EvalUp, plateforme
+            d&apos;évaluation d&apos;entreprises par intelligence artificielle.
           </p>
         </section>
 
@@ -32,8 +32,8 @@ export default function CGUPage() {
             2. Acceptation des CGU
           </h2>
           <p className="text-[var(--text-secondary)] leading-relaxed">
-            L'utilisation du service EvalUp implique l'acceptation pleine et entière
-            des présentes CGU. Si vous n'acceptez pas ces conditions, vous ne devez pas
+            L&apos;utilisation du service EvalUp implique l&apos;acceptation pleine et entière
+            des présentes CGU. Si vous n&apos;acceptez pas ces conditions, vous ne devez pas
             utiliser le service.
           </p>
         </section>
@@ -43,14 +43,14 @@ export default function CGUPage() {
             3. Description du service
           </h2>
           <p className="text-[var(--text-secondary)] leading-relaxed">
-            EvalUp est un service en ligne permettant d'obtenir une estimation de la valeur
-            d'une entreprise à partir de données financières et d'informations publiques.
-            Le service utilise l'intelligence artificielle pour analyser ces données.
+            EvalUp est un service en ligne permettant d&apos;obtenir une estimation de la valeur
+            d&apos;une entreprise à partir de données financières et d&apos;informations publiques.
+            Le service utilise l&apos;intelligence artificielle pour analyser ces données.
           </p>
           <p className="text-[var(--text-secondary)] leading-relaxed mt-4">
             <strong className="text-[var(--text-primary)]">Important :</strong> Les évaluations fournies par EvalUp
             sont des estimations à titre indicatif uniquement. Elles ne constituent en aucun cas
-            un conseil financier, juridique ou d'investissement.
+            un conseil financier, juridique ou d&apos;investissement.
           </p>
         </section>
 
@@ -75,7 +75,7 @@ export default function CGUPage() {
           </p>
           <ul className="text-[var(--text-secondary)] space-y-2 mt-4 list-disc list-inside">
             <li>Utiliser le service à des fins illégales ou non autorisées</li>
-            <li>Tenter d'accéder à des données non destinées à l'utilisateur</li>
+            <li>Tenter d&apos;accéder à des données non destinées à l&apos;utilisateur</li>
             <li>Perturber ou surcharger les serveurs du service</li>
             <li>Reproduire ou redistribuer le contenu du service sans autorisation</li>
           </ul>
@@ -86,7 +86,7 @@ export default function CGUPage() {
             6. Limitation de responsabilite
           </h2>
           <p className="text-[var(--text-secondary)] leading-relaxed">
-            EvalUp est fourni "tel quel" sans garantie d'aucune sorte. POSSE ne saurait
+            EvalUp est fourni &quot;tel quel&quot; sans garantie d&apos;aucune sorte. POSSE ne saurait
             être tenue responsable des décisions prises sur la base des informations fournies
             par le service.
           </p>

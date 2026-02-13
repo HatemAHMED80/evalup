@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unescaped-entities */
 // Pages supplémentaires du rapport professionnel EvalUp
 import React from 'react'
 import { Page, Text, View } from '@react-pdf/renderer'
@@ -5,7 +6,7 @@ import { COLORS } from './styles'
 import { formatCurrency, formatPercent, cleanText, formatVariation, calculateVariation } from './utils'
 import { BENCHMARKS, compareWithBenchmark, getSectorFromNaf } from './sector-benchmarks'
 import { evaluerRatio, formaterRatio, LABELS_RATIOS, type EvaluationRatio } from '@/lib/analyse/ratios'
-import { styles, Header, Footer, KPICard, NoteCircle, BarChart, type ProfessionalReportData } from './professional-report'
+import { styles, Header, Footer, KPICard, BarChart, type ProfessionalReportData } from './professional-report'
 
 // ============================================
 // PAGES 5-7: PRÉSENTATION ENTREPRISE

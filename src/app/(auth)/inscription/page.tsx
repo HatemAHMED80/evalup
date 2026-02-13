@@ -2,13 +2,12 @@
 
 import { Suspense, useState } from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { createClient } from '@/lib/supabase/client'
 
 function InscriptionForm() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const redirectUrl = searchParams.get('redirect') || '/app'
 
@@ -214,7 +213,7 @@ function InscriptionForm() {
                 <label className="flex items-start gap-2 cursor-pointer">
                   <input type="checkbox" className="rounded border-[var(--border)] mt-0.5" required />
                   <span className="text-[var(--text-secondary)]">
-                    J'accepte les{' '}
+                    J&apos;accepte les{' '}
                     <Link href="/cgu" className="text-[var(--accent)] hover:underline">CGU</Link>
                     {' '}et la{' '}
                     <Link href="/privacy" className="text-[var(--accent)] hover:underline">politique de confidentialité</Link>

@@ -117,7 +117,7 @@ export async function canDownloadPDF(userId: string): Promise<boolean> {
     .from('evaluations')
     .select('id')
     .eq('user_id', userId)
-    .in('status', ['paid', 'complete_in_progress', 'completed'])
+    .in('status', ['pending_upload', 'pending_review', 'complete_in_progress', 'completed'])
     .limit(1)
     .single()
 

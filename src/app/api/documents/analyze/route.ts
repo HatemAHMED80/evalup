@@ -15,7 +15,6 @@ import {
 import {
   optionalAuth,
   checkRateLimit,
-  getClientIp,
   getRateLimitHeaders,
   validateUploadedFile,
   ALLOWED_MIME_TYPES,

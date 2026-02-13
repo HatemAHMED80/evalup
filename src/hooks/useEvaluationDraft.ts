@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useCallback, useRef } from 'react'
+import { useCallback, useRef } from 'react'
 import {
   saveDraft,
   getDraftBySiren,
@@ -32,7 +32,7 @@ interface UseEvaluationDraftReturn {
 export function useEvaluationDraft({
   siren,
   entrepriseNom,
-  autoSaveInterval = 30000, // 30 secondes par défaut
+  autoSaveInterval: _autoSaveInterval = 30000, // 30 secondes par défaut
 }: UseEvaluationDraftOptions): UseEvaluationDraftReturn {
   const lastSavedRef = useRef<string>('')
 

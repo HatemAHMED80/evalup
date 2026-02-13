@@ -105,8 +105,8 @@ export const SEUILS_PAR_SECTEUR: Record<string, Partial<Record<string, SeuilsRat
 export function calculerRatios(bilan: BilanAnnuel, capex?: number): RatiosFinanciers {
   const ca = bilan.chiffreAffaires || 1
   const achats = bilan.achatsConsommes ?? ca * 0.6
-  const chargesExternes = bilan.chargesExternes ?? 0
-  const chargesPersonnel = bilan.chargesPersonnel ?? 0
+  const _chargesExternes = bilan.chargesExternes ?? 0
+  const _chargesPersonnel = bilan.chargesPersonnel ?? 0
 
   // EBITDA et EBIT
   const ebitda = bilan.resultatExploitation + (bilan.dotationsAmortissements ?? 0) + (bilan.dotationsProvisions ?? 0)

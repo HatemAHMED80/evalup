@@ -17,7 +17,7 @@ interface QuickRepliesProps {
 export function QuickReplies({
   replies,
   onSelect,
-  allowMultiple = false,
+  allowMultiple: _allowMultiple = false,
   selectedIds = [],
   className = '',
 }: QuickRepliesProps) {

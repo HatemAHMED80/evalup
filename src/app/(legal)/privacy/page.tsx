@@ -38,9 +38,9 @@ export default function PrivacyPage() {
             Nous collectons les données suivantes :
           </p>
           <ul className="text-[var(--text-secondary)] space-y-2 mt-4 list-disc list-inside">
-            <li><strong className="text-[var(--text-primary)]">Données d'identification :</strong> nom, prénom, email</li>
+            <li><strong className="text-[var(--text-primary)]">Données d&apos;identification :</strong> nom, prénom, email</li>
             <li><strong className="text-[var(--text-primary)]">Données de connexion :</strong> identifiants, logs de connexion</li>
-            <li><strong className="text-[var(--text-primary)]">Données d'utilisation :</strong> évaluations réalisées, historique</li>
+            <li><strong className="text-[var(--text-primary)]">Données d&apos;utilisation :</strong> évaluations réalisées, historique</li>
             <li><strong className="text-[var(--text-primary)]">Données de paiement :</strong> traitées par Stripe (nous ne stockons pas vos données bancaires)</li>
           </ul>
         </section>
@@ -68,9 +68,9 @@ export default function PrivacyPage() {
             Conformément au RGPD, vous disposez des droits suivants :
           </p>
           <ul className="text-[var(--text-secondary)] space-y-2 mt-4 list-disc list-inside">
-            <li><strong className="text-[var(--text-primary)]">Droit d'accès :</strong> obtenir une copie de vos données</li>
+            <li><strong className="text-[var(--text-primary)]">Droit d&apos;accès :</strong> obtenir une copie de vos données</li>
             <li><strong className="text-[var(--text-primary)]">Droit de rectification :</strong> corriger vos données inexactes</li>
-            <li><strong className="text-[var(--text-primary)]">Droit à l'effacement :</strong> demander la suppression de vos données</li>
+            <li><strong className="text-[var(--text-primary)]">Droit à l&apos;effacement :</strong> demander la suppression de vos données</li>
             <li><strong className="text-[var(--text-primary)]">Droit à la portabilité :</strong> recevoir vos données dans un format structuré</li>
           </ul>
           <p className="text-[var(--text-secondary)] leading-relaxed mt-4">

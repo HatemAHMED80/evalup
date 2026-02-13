@@ -14,6 +14,10 @@ export const RATE_LIMITS = {
   chatApi: { requests: 20, window: 60 },
   // Scraping BODACC (admin): 5 par heure
   scrapeBodacc: { requests: 5, window: 3600 },
+  // Checkout Stripe: 10 par heure par utilisateur
+  stripeCheckout: { requests: 10, window: 3600 },
+  // API Pappers: 30 par minute
+  pappersApi: { requests: 30, window: 60 },
   // Generic fallback
   default: { requests: 100, window: 60 },
 }

@@ -1,17 +1,16 @@
+/* eslint-disable react/no-unescaped-entities */
 // Générateur PDF professionnel pour les rapports d'évaluation EvalUp (25-40 pages)
 import React from 'react'
 import {
-  Document,
   Page,
   Text,
   View,
   StyleSheet,
   Font,
-  pdf,
 } from '@react-pdf/renderer'
 import { COLORS } from './styles'
-import { formatCurrency, formatPercent, formatNumber, cleanText, formatVariation, calculateVariation } from './utils'
-import { BENCHMARKS, compareWithBenchmark, getSectorFromNaf } from './sector-benchmarks'
+import { formatCurrency, formatPercent, cleanText, formatVariation } from './utils'
+import { BENCHMARKS, getSectorFromNaf } from './sector-benchmarks'
 
 // Enregistrer la police Roboto
 Font.register({

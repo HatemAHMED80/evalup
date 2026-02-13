@@ -523,7 +523,7 @@ function validateAndEnrich(extraction: ExtractionResult, fileNames: string[]): E
       ['charges_personnel', 'Charges de personnel'],
     ]
 
-    for (const [field, label] of criticalFields) {
+    for (const [field, _label] of criticalFields) {
       if (dernierExercice[field] === null || dernierExercice[field] === undefined) {
         missingCritical.push(field)
       }
@@ -584,7 +584,7 @@ async function updateSessionAndEvaluation(params: {
   documentContents: { name: string }[]
   validFiles: { file: File }[]
 }): Promise<void> {
-  const { siren, evaluationId, extraction, documentContents, validFiles } = params
+  const { siren, evaluationId, extraction, documentContents: _documentContents, validFiles } = params
 
   // Update session in Redis
   if (siren) {

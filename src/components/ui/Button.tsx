@@ -54,7 +54,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     // Handle asChild - render child element with button styles
     if (asChild && isValidElement(children)) {
       // Ne pas passer les props specifiques aux boutons (type, disabled, etc.) aux elements enfants
-      const { type, disabled: _disabled, ...safeProps } = props as Record<string, unknown>
+      const { type: _type, disabled: _disabled, ...safeProps } = props as Record<string, unknown>
       return cloneElement(children as React.ReactElement<{ className?: string }>, {
         className: `${combinedClassName} ${(children.props as { className?: string }).className || ''}`,
         ...safeProps,

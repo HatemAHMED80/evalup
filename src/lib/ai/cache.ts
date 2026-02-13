@@ -2,6 +2,8 @@
 // Évite les appels API redondants et réduit les coûts
 // Version 2.0: Avec SIREN dans la clé, types de contenu, et invalidation
 
+import { createHash } from 'crypto'
+
 /**
  * Types de contenu pour le cache - détermine le TTL et si le SIREN est requis
  */
@@ -95,7 +97,7 @@ export function determineContentType(
   prompt: string,
   context?: { siren?: string; step?: number; totalSteps?: number }
 ): CacheContentType {
-  const promptLower = prompt.toLowerCase()
+  const _promptLower = prompt.toLowerCase()
 
   // Synthèse finale (dernière étape)
   if (context?.step && context?.totalSteps && context.step === context.totalSteps) {
@@ -129,7 +131,6 @@ export function determineContentType(
  * Génère un hash cryptographique SHA-256 (compatible Node.js runtime)
  */
 function generateStrongHash(content: string): string {
-  const { createHash } = require('crypto') as typeof import('crypto')
   return createHash('sha256').update(content).digest('hex').substring(0, 32)
 }
 

@@ -22,8 +22,8 @@ export default function CGVPage() {
           </h2>
           <p className="text-[var(--text-secondary)] leading-relaxed">
             Les presentes Conditions Générales de Vente (CGV) regissent les ventes de services
-            de valorisation d'entreprise proposées par la société POSSE, éditrice du service EvalUp.
-            Elles s'appliquent à tout achat unitaire ou souscription d'abonnement effectué sur le
+            de valorisation d&apos;entreprise proposées par la société POSSE, éditrice du service EvalUp.
+            Elles s&apos;appliquent à tout achat unitaire ou souscription d&apos;abonnement effectué sur le
             site evalup.fr.
           </p>
         </section>
@@ -33,9 +33,9 @@ export default function CGVPage() {
             2. Description du service
           </h2>
           <p className="text-[var(--text-secondary)] leading-relaxed mb-4">
-            EvalUp est un outil d'aide à la valorisation d'entreprise utilisant l'intelligence
+            EvalUp est un outil d&apos;aide à la valorisation d&apos;entreprise utilisant l&apos;intelligence
             artificielle. Le service fournit des estimations indicatives basées sur les données
-            financières publiques et les informations communiquées par l'utilisateur.
+            financières publiques et les informations communiquées par l&apos;utilisateur.
           </p>
           <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
             <p className="text-amber-800 dark:text-amber-200 text-sm font-medium mb-2">
@@ -45,8 +45,8 @@ export default function CGVPage() {
               Les valorisations fournies par EvalUp sont des estimations indicatives générées par
               intelligence artificielle. Elles ne constituent en aucun cas une expertise certifiée,
               un audit financier, un conseil en investissement ou une évaluation opposable. EvalUp
-              ne se substitue pas à l'intervention d'un expert-comptable, d'un commissaire aux
-              comptes ou d'un évaluateur professionnel agréé. Pour toute décision financière
+              ne se substitue pas à l&apos;intervention d&apos;un expert-comptable, d&apos;un commissaire aux
+              comptes ou d&apos;un évaluateur professionnel agréé. Pour toute décision financière
               importante (cession, acquisition, levée de fonds), nous recommandons de faire appel
               à un professionnel qualifié.
             </p>
@@ -68,7 +68,7 @@ export default function CGVPage() {
           </ul>
           <p className="text-[var(--text-secondary)] leading-relaxed mt-4">
             Les prix sont indiques toutes taxes comprises (TTC). POSSE se reserve le droit de
-            modifier ses tarifs à tout moment. Les modifications de prix ne s'appliquent pas aux
+            modifier ses tarifs à tout moment. Les modifications de prix ne s&apos;appliquent pas aux
             achats unitaires déjà effectués ni aux abonnements en cours de periode.
           </p>
         </section>
@@ -78,7 +78,7 @@ export default function CGVPage() {
             4. Modalites de paiement
           </h2>
           <p className="text-[var(--text-secondary)] leading-relaxed">
-            Le paiement s'effectue par carte bancaire via notre prestataire de paiement
+            Le paiement s&apos;effectue par carte bancaire via notre prestataire de paiement
             sécurisé Stripe. Les cartes acceptées sont : Visa, Mastercard, American Express.
             POSSE ne stocke aucune donnée bancaire. Le traitement des paiements est entièrement
             délégué à Stripe, certifié PCI DSS.
@@ -94,14 +94,14 @@ export default function CGVPage() {
           </p>
           <ul className="text-[var(--text-secondary)] space-y-2 list-disc list-inside mb-3">
             <li>Données financières publiques (source : Pappers / INPI)</li>
-            <li>Informations déclaratives fournies par l'utilisateur</li>
+            <li>Informations déclaratives fournies par l&apos;utilisateur</li>
             <li>Modèles algorithmiques et intelligence artificielle (Claude, Anthropic)</li>
             <li>Multiples sectoriels de référence</li>
           </ul>
           <p className="text-[var(--text-secondary)] leading-relaxed">
-            POSSE ne garantit ni l'exactitude, ni l'exhaustivite, ni l'adéquation des résultats
-            à une situation particulière. L'utilisateur est seul responsable de la vérification
-            et de l'utilisation des résultats fournis. Les données financières publiques peuvent
+            POSSE ne garantit ni l&apos;exactitude, ni l&apos;exhaustivite, ni l&apos;adéquation des résultats
+            à une situation particulière. L&apos;utilisateur est seul responsable de la vérification
+            et de l&apos;utilisation des résultats fournis. Les données financières publiques peuvent
             contenir des erreurs ou être incomplètes.
           </p>
         </section>
@@ -115,14 +115,14 @@ export default function CGVPage() {
           </p>
           <ul className="text-[var(--text-secondary)] space-y-2 list-disc list-inside mb-3">
             <li>Des décisions prises sur la base des valorisations fournies</li>
-            <li>Des pertes financieres directes ou indirectes résultant de l'utilisation du service</li>
+            <li>Des pertes financieres directes ou indirectes résultant de l&apos;utilisation du service</li>
             <li>Des écarts entre les estimations fournies et la valeur réelle de transaction</li>
             <li>Des interruptions temporaires du service</li>
             <li>Des erreurs dans les données publiques utilisees</li>
           </ul>
           <p className="text-[var(--text-secondary)] leading-relaxed">
             En tout état de cause, la responsabilité de POSSE est limitée au montant payé par
-            l'utilisateur pour le service concerné.
+            l&apos;utilisateur pour le service concerné.
           </p>
         </section>
 
@@ -131,14 +131,14 @@ export default function CGVPage() {
             7. Droit de rétractation et remboursement
           </h2>
           <p className="text-[var(--text-secondary)] leading-relaxed mb-3">
-            Conformément à l'article L221-28 du Code de la consommation, le droit de
+            Conformément à l&apos;article L221-28 du Code de la consommation, le droit de
             rétractation ne peut être exercé pour les contenus numériques non fournis sur un
-            support matériel dont l'exécution a commencé avec l'accord du consommateur.
+            support matériel dont l&apos;exécution a commencé avec l&apos;accord du consommateur.
           </p>
           <p className="text-[var(--text-secondary)] leading-relaxed">
             Toutefois, en cas de dysfonctionnement technique avéré empêchant la délivrance du
             service, un remboursement pourra etre accordé sur demande adressée a contact@evalup.fr
-            dans un délai de 14 jours suivant l'achat.
+            dans un délai de 14 jours suivant l&apos;achat.
           </p>
         </section>
 
@@ -149,7 +149,7 @@ export default function CGVPage() {
           <p className="text-[var(--text-secondary)] leading-relaxed">
             Vous pouvez résilier votre abonnement à tout moment depuis votre espace personnel.
             La résiliation prendra effet à la fin de la période de facturation en cours. Aucun
-            remboursement au prorata n'est effectué pour la période restante. L'acces aux
+            remboursement au prorata n&apos;est effectué pour la période restante. L&apos;acces aux
             évaluations déjà réalisées est conservé après résiliation.
           </p>
         </section>
@@ -159,9 +159,9 @@ export default function CGVPage() {
             9. Propriété intellectuelle
           </h2>
           <p className="text-[var(--text-secondary)] leading-relaxed">
-            Les rapports PDF générés par EvalUp sont la propriété de l'utilisateur qui les a
+            Les rapports PDF générés par EvalUp sont la propriété de l&apos;utilisateur qui les a
             commandés. En revanche, les algorithmes, modeles, méthodes de calcul, code source et
-            l'ensemble des elements constitutifs du service restent la propriété exclusive de POSSE.
+            l&apos;ensemble des elements constitutifs du service restent la propriété exclusive de POSSE.
             Toute reproduction ou réutilisation non autorisée est interdite.
           </p>
         </section>
@@ -173,7 +173,7 @@ export default function CGVPage() {
           <p className="text-[var(--text-secondary)] leading-relaxed mb-3">
             Les présentes CGV sont soumises au droit français. En cas de litige, une solution
             amiable sera recherchee en priorite. À défaut, tout litige sera de la compétence
-            exclusive des tribunaux du ressort de la Cour d'appel de Versailles.
+            exclusive des tribunaux du ressort de la Cour d&apos;appel de Versailles.
           </p>
           <p className="text-[var(--text-secondary)] leading-relaxed">
             Conformément aux dispositions du Code de la consommation, le consommateur peut

@@ -24,7 +24,6 @@ import {
   // Cache (v2 avec SIREN et types de contenu)
   checkCache,
   saveToCache,
-  getCacheType,
 
   // Sessions serveur
   findSessionBySiren,

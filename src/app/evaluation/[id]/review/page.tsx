@@ -141,7 +141,7 @@ export default function ReviewPage({
   const [loading, setLoading] = useState(true)
   const [authError, setAuthError] = useState<string | null>(null)
   const [evaluationName, setEvaluationName] = useState<string>('')
-  const [evaluationSiren, setEvaluationSiren] = useState<string>('')
+  const [_evaluationSiren, setEvaluationSiren] = useState<string>('')
   const [exercices, setExercices] = useState<ExerciceData[]>([])
   const [metadata, setMetadata] = useState<ExtractionMetadata | null>(null)
   const [editingCell, setEditingCell] = useState<{ exIdx: number; field: ExerciceField } | null>(null)
@@ -316,7 +316,7 @@ export default function ReviewPage({
     } catch {
       setIsSaving(false)
     }
-  }, [exercices, metadata, completenessScore, missingCritical, evaluationId, evaluationSiren, router])
+  }, [exercices, metadata, completenessScore, missingCritical, evaluationId, router])
 
   // ─────────────────────────────────────────────────────────────────────────
   // Render states

@@ -77,7 +77,7 @@ function ConnexionForm() {
               Valorisez votre entreprise en quelques minutes
             </h1>
             <p className="text-white/70 text-lg max-w-md">
-              Rejoignez des centaines d'entrepreneurs qui utilisent EvalUp pour estimer la valeur de leur entreprise.
+              Rejoignez des centaines d&apos;entrepreneurs qui utilisent EvalUp pour estimer la valeur de leur entreprise.
             </p>
           </div>
 
@@ -185,7 +185,7 @@ function ConnexionForm() {
             <p className="text-center text-[var(--text-secondary)] text-sm mt-6">
               Pas encore de compte ?{' '}
               <Link href="/inscription" className="text-[var(--accent)] font-medium hover:underline">
-                S'inscrire
+                S&apos;inscrire
               </Link>
             </p>
           </div>

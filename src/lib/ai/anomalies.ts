@@ -153,7 +153,7 @@ export function detecterAnomalies(
   if (donnees.tresorerie > donnees.ca * 0.5 && donnees.ca > 0) {
     anomalies.push({
       id: 'tresorerie_excessive',
-      type: 'info' as any, // On force le type car c'est plutôt une info
+      type: 'financiere' as const, // Catégorisé comme financière (info de trésorerie)
       severite: 'info',
       titre: 'Trésorerie importante',
       description: `La trésorerie représente ${((donnees.tresorerie / donnees.ca) * 100).toFixed(0)}% du CA.`,

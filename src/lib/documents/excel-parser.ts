@@ -82,6 +82,6 @@ function truncate(str: string, maxLength: number): string {
 }
 
 export function parseCSV(text: string): ExcelParseResult {
-  const workbook = XLSX.read(text, { type: 'string' })
+  const _workbook = XLSX.read(text, { type: 'string' })
   return parseExcel(Buffer.from(text))
 }

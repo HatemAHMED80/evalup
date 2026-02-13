@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unescaped-entities */
 // Pages finales du rapport professionnel EvalUp
 import React from 'react'
 import { Page, Text, View, Document, pdf } from '@react-pdf/renderer'
@@ -473,7 +474,7 @@ function genererJustificationDefaut(nomMethode: string, poids: number): string {
 
 const ValuationSection = ({ data }: { data: ProfessionalReportData }) => {
   const secteurCode = getSectorFromNaf(data.entreprise.codeNaf)
-  const benchmark = BENCHMARKS[secteurCode] || BENCHMARKS.default
+  const _benchmark = BENCHMARKS[secteurCode] || BENCHMARKS.default
 
   return (
     <>

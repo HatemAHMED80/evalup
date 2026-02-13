@@ -217,7 +217,7 @@ export function ChatInterface({ entreprise, initialContext, onStepChange, previo
         typeIntervalRef.current = null
       }
     }
-  }, [selectedObjectif, OBJECTIF_MESSAGE])
+  }, [selectedObjectif, OBJECTIF_MESSAGE, bentoGridData])
 
   // Message initial (seulement si pas de bento grid et pas de messages precedents)
   useEffect(() => {

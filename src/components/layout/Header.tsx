@@ -1,7 +1,7 @@
 'use client'
 
-import { Stepper } from '../ui/Stepper'
-import { Badge } from '../ui/Badge'
+import { Stepper } from '@/components/ui/Stepper'
+import { Badge } from '@/components/ui/Badge'
 
 interface HeaderProps {
   companyName?: string

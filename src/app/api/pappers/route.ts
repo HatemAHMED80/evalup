@@ -6,10 +6,20 @@ import {
   rechercherEntreprise,
   isPappersConfigured,
   PappersError,
-  type DonneesEntreprisePappers,
 } from '@/lib/pappers'
+import { checkRateLimit, getClientIp, getRateLimitHeaders } from '@/lib/security/rate-limit'
 
 export async function GET(request: NextRequest) {
+  // Rate limiting: 30 par minute par IP
+  const ip = getClientIp(request)
+  const rateLimitResult = await checkRateLimit(ip, 'pappersApi')
+  if (!rateLimitResult.success) {
+    return NextResponse.json(
+      { success: false, error: 'Trop de requêtes. Réessayez plus tard.', code: 'RATE_LIMITED' },
+      { status: 429, headers: getRateLimitHeaders(rateLimitResult) }
+    )
+  }
+
   // Vérifier si l'API est configurée
   if (!isPappersConfigured()) {
     return NextResponse.json(

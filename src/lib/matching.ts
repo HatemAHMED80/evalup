@@ -1,7 +1,7 @@
 // Algorithme de matching entre vendeurs et acheteurs
 // Calcule un score de compatibilité basé sur les critères de recherche
 
-import type { Vendeur, Acheteur, CriteresRecherche } from './database.types'
+import type { CriteresRecherche } from './database.types'
 
 // ============================================================
 // TYPES
@@ -139,7 +139,7 @@ function calculerScoreBudget(vendeur: VendeurPourMatching, criteres: CriteresRec
 
   const valorisation = vendeur.valorisation_moyenne
   const budgetMax = criteres.prix_max
-  const apportDisponible = criteres.apport_disponible || 0
+  const _apportDisponible = criteres.apport_disponible || 0
 
   // Calcul du ratio valorisation / budget
   const ratio = valorisation / budgetMax

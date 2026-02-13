@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { ChatLayout } from '@/components/chat/ChatLayout'
 import type { ConversationContext } from '@/lib/anthropic'
 
@@ -238,9 +239,9 @@ export default function EvaluationChatPage({
       <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center p-4">
         <div className="text-center">
           <p className="text-[var(--danger)] mb-4">{error || 'Erreur inconnue'}</p>
-          <a href="/" className="text-[var(--accent)] hover:underline">
+          <Link href="/" className="text-[var(--accent)] hover:underline">
             Retour a l&apos;accueil
-          </a>
+          </Link>
         </div>
       </div>
     )

@@ -147,7 +147,7 @@ export default function TarifsPage() {
               Des tarifs simples et transparents
             </h1>
             <p className="text-[var(--text-secondary)] text-lg max-w-2xl mx-auto">
-              Commencez gratuitement avec l'évaluation Flash, puis passez à l'évaluation Complète pour une valorisation précise.
+              Commencez gratuitement avec l&apos;évaluation Flash, puis passez à l&apos;évaluation Complète pour une valorisation précise.
             </p>
           </div>
         </section>

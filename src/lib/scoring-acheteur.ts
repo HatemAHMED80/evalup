@@ -199,7 +199,7 @@ function calculerGrade(total: number): ScoreGrade {
   return 'E'
 }
 
-function genererConseils(profil: ProfilAcheteur, details: ScoreDetails): string[] {
+function genererConseils(profil: ProfilAcheteur, _details: ScoreDetails): string[] {
   const conseils: string[] = []
 
   // Conseil sur la preuve de fonds

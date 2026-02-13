@@ -130,7 +130,7 @@ export function genererDiagnostic(
   const toutesLignes = [...rentabilite, ...structure, ...liquidite, ...bfr, ...cash]
   const nbBons = toutesLignes.filter((l) => l.evaluation === 'bon').length
   const nbMoyens = toutesLignes.filter((l) => l.evaluation === 'moyen').length
-  const nbMauvais = toutesLignes.filter((l) => l.evaluation === 'mauvais').length
+  const _nbMauvais = toutesLignes.filter((l) => l.evaluation === 'mauvais').length
 
   // Points forts = ratios "bons"
   const pointsForts = toutesLignes

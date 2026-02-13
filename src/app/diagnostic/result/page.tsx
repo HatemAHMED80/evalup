@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { ARCHETYPES } from '@/lib/valuation/archetypes'
@@ -27,59 +27,55 @@ interface CompanyInfo {
 function DiagnosticResult() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [archetype, setArchetype] = useState<Archetype | null>(null)
-  const [archetypeId, setArchetypeId] = useState('')
-  const [company, setCompany] = useState<CompanyInfo | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  // Auth gate supprimé : le résultat d'archetype n'est pas sensible.
-  // Le CTA checkout demandera l'auth si nécessaire.
-
-  // ── Load archetype + company from sessionStorage / query params ──────────
-  useEffect(() => {
-    // Company info from the original form data
-    const formRaw = sessionStorage.getItem('diagnostic_data')
-    if (formRaw) {
-      try {
+  const [company] = useState<CompanyInfo | null>(() => {
+    if (typeof window === 'undefined') return null
+    try {
+      const formRaw = sessionStorage.getItem('diagnostic_data')
+      if (formRaw) {
         const form = JSON.parse(formRaw)
         if (form.companyName) {
-          setCompany({
+          return {
             siren: (form.siren || '').replace(/\D/g, ''),
             companyName: form.companyName,
             sector: form.sector || '',
             nafCode: form.nafCode || '',
-          })
+          }
         }
-      } catch { /* ignore */ }
-    }
+      }
+    } catch { /* ignore */ }
+    return null
+  })
+
+  const [{ archetype, archetypeId, error }] = useState<{
+    archetype: Archetype | null
+    archetypeId: string
+    error: string | null
+  }>(() => {
+    if (typeof window === 'undefined') return { archetype: null, archetypeId: '', error: null }
 
     // 1) Try API result in sessionStorage (set by loading page)
-    const resultRaw = sessionStorage.getItem('diagnostic_result')
-    if (resultRaw) {
-      try {
+    try {
+      const resultRaw = sessionStorage.getItem('diagnostic_result')
+      if (resultRaw) {
         const data = JSON.parse(resultRaw)
         const id = data.archetypeId as string
         const arch = (data.archetype as Archetype) || ARCHETYPES[id]
         if (arch && id) {
-          setArchetype(arch)
-          setArchetypeId(id)
           trackConversion('diagnostic_viewed', { archetype_id: id })
-          return
+          return { archetype: arch, archetypeId: id, error: null }
         }
-      } catch { /* fall through */ }
-    }
+      }
+    } catch { /* fall through */ }
 
     // 2) Fallback: query param
     const paramId = searchParams.get('archetype') || ''
     if (paramId && ARCHETYPES[paramId]) {
-      setArchetype(ARCHETYPES[paramId])
-      setArchetypeId(paramId)
       trackConversion('diagnostic_viewed', { archetype_id: paramId })
-      return
+      return { archetype: ARCHETYPES[paramId], archetypeId: paramId, error: null }
     }
 
-    setError('Diagnostic introuvable. Veuillez recommencer.')
-  }, [searchParams])
+    return { archetype: null, archetypeId: '', error: 'Diagnostic introuvable. Veuillez recommencer.' }
+  })
 
   // ── Guards ───────────────────────────────────────────────────────────────
 

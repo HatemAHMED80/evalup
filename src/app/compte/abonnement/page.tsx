@@ -172,7 +172,7 @@ export default function AbonnementPage() {
                   Gerez votre abonnement, moyen de paiement ou annulez
                 </p>
                 <Button onClick={handleManageSubscription} isLoading={isPortalLoading}>
-                  Gerer l'abonnement
+                  Gerer l&apos;abonnement
                 </Button>
               </>
             ) : (

@@ -63,7 +63,7 @@ export default function MotDePasseOubliePage() {
                 Email envoye !
               </h2>
               <p className="text-[var(--text-secondary)] mb-6">
-                Si un compte existe avec l'adresse <strong>{email}</strong>, vous recevrez un lien de reinitialisation.
+                Si un compte existe avec l&apos;adresse <strong>{email}</strong>, vous recevrez un lien de reinitialisation.
               </p>
               <Button variant="outline" asChild className="w-full">
                 <Link href="/connexion">Retour a la connexion</Link>

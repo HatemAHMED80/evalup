@@ -152,7 +152,7 @@ export default function AidePage() {
 
             {search && filteredCategories.length === 0 && (
               <p className="text-center text-[var(--text-muted)] py-8">
-                Aucun résultat pour "{search}"
+                Aucun résultat pour &quot;{search}&quot;
               </p>
             )}
           </div>
@@ -162,7 +162,7 @@ export default function AidePage() {
         <section className="py-12 bg-[var(--bg-secondary)]">
           <div className="max-w-xl mx-auto px-8 text-center">
             <h2 className="text-[20px] font-bold text-[var(--text-primary)] mb-2">
-              Vous n'avez pas trouvé votre réponse ?
+              Vous n&apos;avez pas trouvé votre réponse ?
             </h2>
             <p className="text-[var(--text-secondary)] mb-6">
               Notre équipe est disponible pour vous aider.

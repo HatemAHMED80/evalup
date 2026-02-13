@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { createContext, useContext, useState, ReactNode } from 'react'
 
 type Theme = 'light' | 'dark'
 
@@ -13,22 +13,20 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>('light')
-
-  useEffect(() => {
+  const [theme, setThemeState] = useState<Theme>(() => {
+    if (typeof window === 'undefined') return 'light'
     // Check localStorage first
     const stored = localStorage.getItem('theme') as Theme | null
     if (stored) {
-      setThemeState(stored)
       document.documentElement.setAttribute('data-theme', stored)
-    } else {
-      // Check system preference
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-      const systemTheme = prefersDark ? 'dark' : 'light'
-      setThemeState(systemTheme)
-      document.documentElement.setAttribute('data-theme', systemTheme)
+      return stored
     }
-  }, [])
+    // Check system preference
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    const systemTheme = prefersDark ? 'dark' : 'light'
+    document.documentElement.setAttribute('data-theme', systemTheme)
+    return systemTheme
+  })
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme)

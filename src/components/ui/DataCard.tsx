@@ -1,5 +1,5 @@
 import { ReactNode } from 'react'
-import Badge from './Badge'
+import Badge from '@/components/ui/Badge'
 
 interface DataItem {
   label: string

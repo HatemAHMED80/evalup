@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Badge } from '../ui/Badge'
+import { Badge } from '@/components/ui/Badge'
 
 export function Hero() {
   return (

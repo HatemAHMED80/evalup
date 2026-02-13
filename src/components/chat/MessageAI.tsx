@@ -1,5 +1,5 @@
 import { ReactNode } from 'react'
-import { Avatar } from '../ui/Avatar'
+import { Avatar } from '@/components/ui/Avatar'
 
 interface MessageAIProps {
   content: string | ReactNode

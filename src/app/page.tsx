@@ -80,7 +80,7 @@ export default function LandingPage() {
                   <div className="flex gap-3">
                     <div className="w-7 h-7 rounded-full bg-[var(--accent)] text-white text-[10px] font-bold flex items-center justify-center shrink-0">E</div>
                     <div className="text-[13px] text-[var(--text-secondary)]">
-                      J'ai trouvé <strong className="text-[var(--text-primary)]">WEBCRAFT AGENCY</strong> via Pappers. Voici les données financières :
+                      J&apos;ai trouvé <strong className="text-[var(--text-primary)]">WEBCRAFT AGENCY</strong> via Pappers. Voici les données financières :
                     </div>
                   </div>
 
@@ -92,7 +92,7 @@ export default function LandingPage() {
                     </div>
                     <div className="grid grid-cols-3 gap-4">
                       <div>
-                        <p className="text-[9px] uppercase text-[var(--text-muted)] font-medium">Chiffre d'affaires</p>
+                        <p className="text-[9px] uppercase text-[var(--text-muted)] font-medium">Chiffre d&apos;affaires</p>
                         <p className="font-mono text-[15px] font-bold text-[var(--text-primary)]">320 K&#8364;</p>
                         <p className="text-[10px] text-[var(--success)]">&#9650; +18.5%</p>
                       </div>
@@ -372,7 +372,7 @@ export default function LandingPage() {
               <div key={i} className="bg-[var(--bg-primary)] border border-[var(--border)] rounded-[var(--radius-xl)] p-7 hover:shadow-[var(--shadow-md)] hover:-translate-y-1 transition-all">
                 <div className="text-[14px] text-yellow-400 tracking-wider mb-4">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
                 <p className="text-[14px] text-[var(--text-secondary)] leading-relaxed italic mb-5">
-                  "{testimonial.text}"
+                  &quot;{testimonial.text}&quot;
                 </p>
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${testimonial.color} text-white text-[13px] font-bold flex items-center justify-center`}>

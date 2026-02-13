@@ -8,7 +8,7 @@ const ALLOWED_ORIGINS = [
   ...(process.env.NODE_ENV === 'development' ? ['http://localhost:3000'] : []),
 ].filter(Boolean) as string[]
 
-// Headers de sécurité
+// Headers de sécurité statiques (CSP est dynamique, voir middleware)
 const securityHeaders: Record<string, string> = {
   'X-Frame-Options': 'DENY',
   'X-Content-Type-Options': 'nosniff',
@@ -16,11 +16,13 @@ const securityHeaders: Record<string, string> = {
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
   'Cross-Origin-Opener-Policy': 'same-origin',
-  // CSP : unsafe-inline requis pour Stripe et les styles Tailwind en mode dev
-  // En production, idéalement utiliser des nonces
-  'Content-Security-Policy': [
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+}
+
+function buildCSP(nonce: string): string {
+  return [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' https://js.stripe.com https://www.googletagmanager.com https://www.google-analytics.com https://googleads.g.doubleclick.net https://www.googleadservices.com",
+    `script-src 'self' 'nonce-${nonce}' https://js.stripe.com https://www.googletagmanager.com https://www.google-analytics.com https://googleads.g.doubleclick.net https://www.googleadservices.com`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: https: blob:",
     "font-src 'self' https://fonts.gstatic.com",
@@ -30,18 +32,25 @@ const securityHeaders: Record<string, string> = {
     "base-uri 'self'",
     "form-action 'self'",
     "upgrade-insecure-requests",
-  ].join('; '),
-  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+  ].join('; ')
 }
 
 export async function middleware(request: NextRequest) {
   // Mettre à jour la session Supabase
   const response = await updateSession(request)
 
-  // Ajouter les headers de sécurité
+  // Générer un nonce unique par requête pour la CSP
+  const nonce = Buffer.from(crypto.randomUUID()).toString('base64')
+
+  // Ajouter les headers de sécurité statiques
   Object.entries(securityHeaders).forEach(([key, value]) => {
     response.headers.set(key, value)
   })
+
+  // CSP dynamique avec nonce
+  response.headers.set('Content-Security-Policy', buildCSP(nonce))
+  // Exposer le nonce pour le layout (header interne, non envoyé au client)
+  response.headers.set('x-nonce', nonce)
 
   // CORS pour les routes API
   if (request.nextUrl.pathname.startsWith('/api/')) {

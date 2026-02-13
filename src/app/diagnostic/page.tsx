@@ -369,7 +369,7 @@ export default function DiagnosticPage() {
             <div className="space-y-6">
               <div className="text-center space-y-2">
                 <h1 className="text-[28px] font-bold text-[var(--text-primary)]">
-                  Quel est votre type d'activité ?
+                  Quel est votre type d&apos;activité ?
                 </h1>
                 <p className="text-[var(--text-secondary)]">
                   Choisissez la catégorie la plus proche.
@@ -415,10 +415,10 @@ export default function DiagnosticPage() {
             <div className="space-y-6">
               <div className="text-center space-y-2">
                 <h1 className="text-[28px] font-bold text-[var(--text-primary)]">
-                  Quel est votre chiffre d'affaires annuel ?
+                  Quel est votre chiffre d&apos;affaires annuel ?
                 </h1>
                 <p className="text-[var(--text-secondary)]">
-                  Dernier exercice clos ou estimation pour l'année en cours.
+                  Dernier exercice clos ou estimation pour l&apos;année en cours.
                 </p>
               </div>
               <Input
@@ -450,7 +450,7 @@ export default function DiagnosticPage() {
                   Quel est votre EBITDA annuel ?
                 </h1>
                 <p className="text-[var(--text-secondary)]">
-                  Résultat d'exploitation + dotations aux amortissements. Peut être négatif.
+                  Résultat d&apos;exploitation + dotations aux amortissements. Peut être négatif.
                 </p>
               </div>
               <Input

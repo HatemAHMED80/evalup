@@ -40,7 +40,7 @@ export function Stepper({
       {steps.map((step, index) => {
         const isCompleted = index < currentStep
         const isCurrent = index === currentStep
-        const isUpcoming = index > currentStep
+        const _isUpcoming = index > currentStep
 
         return (
           <div key={step.id} className="flex items-center">

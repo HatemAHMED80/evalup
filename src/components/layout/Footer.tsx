@@ -62,7 +62,7 @@ export function Footer({ className = '' }: FooterProps) {
               </span>
             </Link>
             <p className="text-[14px] text-white/60 max-w-xs leading-relaxed">
-              Plateforme de valorisation d'entreprise basée sur l'IA. Obtenez une estimation fiable en quelques minutes.
+              Plateforme de valorisation d&apos;entreprise basée sur l&apos;IA. Obtenez une estimation fiable en quelques minutes.
             </p>
           </div>
 

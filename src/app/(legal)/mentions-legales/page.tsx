@@ -52,7 +52,7 @@ export default function MentionsLegalesPage() {
             3. Propriété intellectuelle
           </h2>
           <p className="text-[var(--text-secondary)] leading-relaxed">
-            L'ensemble du contenu du site EvalUp (textes, images, graphismes, logo, icones, etc.)
+            L&apos;ensemble du contenu du site EvalUp (textes, images, graphismes, logo, icones, etc.)
             est la propriété exclusive de POSSE. Toute reproduction, même partielle, est strictement
             interdite sans autorisation préalable.
           </p>
@@ -63,11 +63,11 @@ export default function MentionsLegalesPage() {
             4. Données personnelles
           </h2>
           <p className="text-[var(--text-secondary)] leading-relaxed">
-            Conformément au RGPD, vous disposez d'un droit d'accès, de rectification et de suppression
+            Conformément au RGPD, vous disposez d&apos;un droit d&apos;accès, de rectification et de suppression
             de vos données personnelles. Pour exercer ces droits, contactez-nous à : contact@evalup.fr
           </p>
           <p className="text-[var(--text-secondary)] leading-relaxed mt-2">
-            Pour plus d'informations, consultez notre{' '}
+            Pour plus d&apos;informations, consultez notre{' '}
             <Link href="/privacy" className="text-[var(--accent)] hover:underline">
               politique de confidentialité
             </Link>.

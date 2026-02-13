@@ -177,11 +177,11 @@ export default function ContactPage() {
           </div>
 
           <div className="bg-[var(--accent-light)] border border-[var(--accent)]/20 rounded-[var(--radius-lg)] p-6">
-            <h3 className="text-[var(--text-primary)] font-medium mb-2">Besoin d'aide immediate ?</h3>
+            <h3 className="text-[var(--text-primary)] font-medium mb-2">Besoin d&apos;aide immediate ?</h3>
             <p className="text-[var(--text-secondary)] text-sm">
               Consultez notre{' '}
               <Link href="/aide" className="text-[var(--accent)] hover:underline">
-                page d'aide
+                page d&apos;aide
               </Link>
               {' '}pour trouver des reponses aux questions frequentes.
             </p>

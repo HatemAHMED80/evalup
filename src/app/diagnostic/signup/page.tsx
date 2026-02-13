@@ -170,7 +170,7 @@ function SignupForm() {
               <p className="text-[var(--text-secondary)] text-[14px]">
                 Un email de confirmation a été envoyé à <strong>{email}</strong>.
                 <br />
-                Cliquez sur le lien dans l'email pour accéder à votre diagnostic.
+                Cliquez sur le lien dans l&apos;email pour accéder à votre diagnostic.
               </p>
               <button
                 onClick={() => router.push(resultUrl)}
