@@ -90,6 +90,7 @@ export default function UploadPage({
   const [evaluation, setEvaluation] = useState<EvaluationInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [authError, setAuthError] = useState<string | null>(null)
+  const [isWebhookDelay, setIsWebhookDelay] = useState(false)
   const [files, setFiles] = useState<UploadedFile[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
@@ -100,8 +101,8 @@ export default function UploadPage({
   // On poll l'API quelques fois avant de considérer que le paiement a échoué.
   useEffect(() => {
     const isPostPayment = searchParams.get('payment') === 'success'
-    const maxRetries = isPostPayment ? 8 : 0
-    const retryDelay = 2000 // 2s entre chaque retry
+    const maxRetries = isPostPayment ? 15 : 0
+    const retryDelay = 2000 // 2s entre chaque retry (15 × 2s = 30s max)
 
     async function fetchEvaluation(attempt = 0) {
       try {
@@ -126,7 +127,8 @@ export default function UploadPage({
           if (isPostPayment) {
             // NE PAS rediriger vers checkout (cause une boucle infinie)
             // L'utilisateur vient de payer — le webhook est probablement en retard
-            setAuthError('Votre paiement a ete recu mais le traitement prend plus de temps que prevu. Rechargez la page dans quelques secondes.')
+            setIsWebhookDelay(true)
+            setAuthError('Votre paiement a ete recu mais le traitement prend plus de temps que prevu.')
             setLoading(false)
           } else {
             // Accès direct sans paiement — rediriger vers checkout
@@ -377,10 +379,16 @@ export default function UploadPage({
     return (
       <div className="min-h-screen bg-[var(--bg-secondary)] flex items-center justify-center">
         <Card variant="default" padding="lg" className="max-w-md w-full text-center">
-          <p className="text-[var(--danger)] font-medium mb-4">{authError}</p>
-          <Button variant="primary" onClick={() => router.push('/login')}>
-            Se connecter
-          </Button>
+          <p className={`font-medium mb-4 ${isWebhookDelay ? 'text-[var(--text-primary)]' : 'text-[var(--danger)]'}`}>{authError}</p>
+          {isWebhookDelay ? (
+            <Button variant="primary" onClick={() => window.location.reload()}>
+              Recharger la page
+            </Button>
+          ) : (
+            <Button variant="primary" onClick={() => router.push('/connexion')}>
+              Se connecter
+            </Button>
+          )}
         </Card>
       </div>
     )
