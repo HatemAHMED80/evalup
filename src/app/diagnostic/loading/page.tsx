@@ -70,21 +70,28 @@ export default function DiagnosticLoadingPage() {
 
     const callApi = async () => {
       try {
-        const res = await fetch('/api/diagnostic', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData),
-        })
+        // Lancer auth check et API en parallèle
+        const supabase = createClient()
+        const [authResult, apiRes] = await Promise.all([
+          supabase.auth.getSession().catch(() => ({ data: { session: null } })),
+          fetch('/api/diagnostic', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData),
+          }),
+        ])
 
         clearTimeout(timeout)
         if (cancelled) return
 
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}))
+        const isAuthenticated = !!authResult.data.session
+
+        if (!apiRes.ok) {
+          const body = await apiRes.json().catch(() => ({}))
           throw new Error(body.error || 'Erreur lors du diagnostic')
         }
 
-        const result = await res.json()
+        const result = await apiRes.json()
         if (cancelled) return
 
         sessionStorage.setItem('diagnostic_result', JSON.stringify(result))
@@ -97,11 +104,8 @@ export default function DiagnosticLoadingPage() {
         await new Promise((r) => setTimeout(r, 600))
         if (cancelled) return
 
-        // Si l'utilisateur est déjà connecté, skip signup → résultat direct
-        const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
-
-        if (user) {
+        // Rediriger : si connecté → résultat direct, sinon → signup
+        if (isAuthenticated) {
           router.push(`/diagnostic/result?archetype=${result.archetypeId}`)
         } else {
           router.push(`/diagnostic/signup?archetype=${result.archetypeId}`)
