@@ -141,6 +141,7 @@ export default function ReviewPage({
   const [loading, setLoading] = useState(true)
   const [authError, setAuthError] = useState<string | null>(null)
   const [evaluationName, setEvaluationName] = useState<string>('')
+  const [evaluationSiren, setEvaluationSiren] = useState<string>('')
   const [exercices, setExercices] = useState<ExerciceData[]>([])
   const [metadata, setMetadata] = useState<ExtractionMetadata | null>(null)
   const [editingCell, setEditingCell] = useState<{ exIdx: number; field: ExerciceField } | null>(null)
@@ -176,6 +177,7 @@ export default function ReviewPage({
         }
         const evalData = await res.json()
         setEvaluationName(evalData.entreprise_nom || `SIREN ${evalData.siren}`)
+        setEvaluationSiren(evalData.siren)
 
         // 2. Read extraction data from sessionStorage
         const stored = sessionStorage.getItem(STORAGE_KEY_EXTRACTION(evaluationId))
@@ -314,7 +316,7 @@ export default function ReviewPage({
     } catch {
       setIsSaving(false)
     }
-  }, [exercices, metadata, completenessScore, missingCritical, evaluationId, router])
+  }, [exercices, metadata, completenessScore, missingCritical, evaluationId, evaluationSiren, router])
 
   // ─────────────────────────────────────────────────────────────────────────
   // Render states

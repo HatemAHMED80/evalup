@@ -35,7 +35,7 @@ export async function GET(
   // Fetch the evaluation (cast needed: evaluations table not in generated Supabase types)
   const { data, error } = await supabase
     .from('evaluations')
-    .select('id, user_id, siren, entreprise_nom, type, status, questions_count, documents_count')
+    .select('id, user_id, siren, entreprise_nom, type, status, questions_count, documents_count, archetype_id, diagnostic_data')
     .eq('id', id)
     .single()
 
@@ -73,5 +73,7 @@ export async function GET(
     status: evaluation.status,
     questionsCount: evaluation.questions_count,
     documentsCount: evaluation.documents_count,
+    archetypeId: evaluation.archetype_id,
+    diagnosticData: evaluation.diagnostic_data,
   })
 }

@@ -1,11 +1,14 @@
 import type { Metadata, Viewport } from 'next'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ThemeProvider } from '@/contexts/ThemeContext'
+import { DevToolbar } from '@/components/layout/DevToolbar'
 import '../styles/globals.css'
 import '../styles/animations.css'
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://evalup.fr'
-const gaId = process.env.NEXT_PUBLIC_GA_ID || 'G-5CDRQB90BP'
+const gaId = process.env.NODE_ENV === 'production'
+  ? (process.env.NEXT_PUBLIC_GA_ID || 'G-5CDRQB90BP')
+  : process.env.NEXT_PUBLIC_GA_ID || ''
 
 export const metadata: Metadata = {
   title: {
@@ -137,6 +140,7 @@ export default function RootLayout({
         <AuthProvider>
           <ThemeProvider>
             {children}
+            <DevToolbar />
           </ThemeProvider>
         </AuthProvider>
       </body>

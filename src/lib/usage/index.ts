@@ -1,11 +1,10 @@
 export { recordTokenUsage, checkTokenUsage, canDownloadPDF } from './tokens'
 
-// Nouveau systeme d'evaluations
+// Systeme d'evaluations
 export {
   getOrCreateEvaluation,
   checkEvaluationAccess,
   incrementQuestionCount,
-  completeFlashEvaluation,
   markEvaluationAsPaid,
   startCompleteEvaluation,
   completeEvaluation,

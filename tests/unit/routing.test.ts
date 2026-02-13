@@ -401,6 +401,62 @@ test('SaaS hyper à P1 : ebitda < 0 + growth > 40 + MRR', () => {
   assertEqual(result, 'saas_hyper', 'Devrait match P1 saas_hyper')
 })
 
+// ── Tests Rule 10b : SaaS déclaré avec faible récurrence ──
+
+test('SaaS sector + hasMRR + recurring faible (20%) + growth 50% → saas_hyper (Rule 10b)', () => {
+  // Cas réel : app de rencontre SaaS, slider récurrence par défaut à 20%
+  const result = detectArchetype({
+    sector: 'saas',
+    revenue: 2_000_000,
+    ebitda: 60_000,
+    growth: 50,
+    recurring: 20,
+    masseSalariale: 35,
+    hasMRR: true,
+  })
+  assertEqual(result, 'saas_hyper', 'SaaS avec récurrence faible mais forte croissance')
+})
+
+test('SaaS sector + hasMRR + recurring faible (20%) + growth 15% → saas_mature (Rule 10b)', () => {
+  const result = detectArchetype({
+    sector: 'saas',
+    revenue: 3_000_000,
+    ebitda: 500_000,
+    growth: 15,
+    recurring: 20,
+    masseSalariale: 30,
+    hasMRR: true,
+  })
+  assertEqual(result, 'saas_mature', 'SaaS avec récurrence faible et croissance modérée')
+})
+
+test('SaaS sector + hasMRR + recurring faible (20%) + growth 2% → saas_decline (Rule 10b)', () => {
+  const result = detectArchetype({
+    sector: 'saas',
+    revenue: 2_000_000,
+    ebitda: 300_000,
+    growth: 2,
+    recurring: 20,
+    masseSalariale: 40,
+    hasMRR: true,
+  })
+  assertEqual(result, 'saas_decline', 'SaaS avec récurrence faible et faible croissance')
+})
+
+test('SaaS sector + recurring faible SANS hasMRR → NE match PAS Rule 10b (fallback)', () => {
+  // Sans hasMRR, même avec sector=saas, Rule 10b ne s'applique pas
+  const result = detectArchetype({
+    sector: 'saas',
+    revenue: 2_000_000,
+    ebitda: 200_000,
+    growth: 50,
+    recurring: 20,
+    masseSalariale: 35,
+  })
+  // Sans hasMRR → pas de match SaaS, tombe en fallback conseil
+  assertEqual(result, 'conseil', 'SaaS sans hasMRR ne devrait pas matcher Rule 10b')
+})
+
 test('SaaS sans MRR explicite ne match pas SaaS (recurring > 60 → services_recurrents)', () => {
   const result = detectArchetype({
     sector: 'tech',

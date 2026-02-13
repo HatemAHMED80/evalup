@@ -3,10 +3,6 @@
 
 type ConversionEvent =
   | 'signup'
-  | 'search_siren'
-  | 'start_flash'
-  | 'flash_complete'
-  | 'click_upgrade'
   | 'start_checkout'
   | 'purchase_complete'
   | 'pdf_download'
@@ -56,10 +52,6 @@ export function trackConversion(event: ConversionEvent, params?: EventParams) {
     // Mapper les evenements vers les evenements GA4 standard
     const ga4Mapping: Record<ConversionEvent, string> = {
       signup: 'sign_up',
-      search_siren: 'search',
-      start_flash: 'begin_checkout',
-      flash_complete: 'add_to_cart',
-      click_upgrade: 'select_promotion',
       start_checkout: 'begin_checkout',
       purchase_complete: 'purchase',
       pdf_download: 'file_download',

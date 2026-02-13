@@ -32,7 +32,7 @@ const FAQ_CATEGORIES = [
       },
       {
         q: 'Comment l\'evaluation est-elle calculee ?',
-        a: 'L\'evaluation combine plusieurs methodes : multiples de marche (EV/EBITDA), DCF simplifié, et comparaison avec des transactions similaires dans le secteur.',
+        a: 'L\'evaluation repose sur un archetype sectoriel adapte a votre activite (SaaS, commerce, services, industrie, etc.). Elle utilise les multiples de marche Damodaran (EV/EBITDA ou EV/Revenue selon le profil), applique des retraitements EBITDA (salaire dirigeant, loyer, credit-bail, charges exceptionnelles) et des decotes qualitatives (illiquidite, dependance dirigeant, concentration clients, litiges).',
       },
     ],
   },

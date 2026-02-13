@@ -1,6 +1,8 @@
 // API Route pour générer les rapports PDF d'évaluation
 import { NextRequest, NextResponse } from 'next/server'
-import { generateProfessionalPDFBuffer, type ProfessionalReportData } from '@/lib/pdf'
+import { generateProfessionalPDFBuffer } from '@/lib/pdf'
+import { assembleReportData } from '@/lib/pdf/assemble-report-data'
+import type { ConversationContext } from '@/lib/anthropic'
 import { createClient } from '@/lib/supabase/server'
 import { canDownloadPDF } from '@/lib/usage'
 
@@ -29,19 +31,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const data: ProfessionalReportData = await request.json()
+    const context: ConversationContext = await request.json()
 
     // Validation basique des données
-    if (!data.entreprise?.nom || !data.entreprise?.siren) {
+    if (!context.entreprise?.nom || !context.entreprise?.siren) {
       return NextResponse.json(
         { error: 'Données entreprise manquantes' },
         { status: 400 }
       )
     }
 
-    if (!data.valeurEntreprise?.moyenne) {
+    if (!context.financials?.bilans?.length) {
       return NextResponse.json(
-        { error: 'Données de valorisation manquantes' },
+        { error: 'Données financières manquantes' },
         { status: 400 }
       )
     }
@@ -51,7 +53,7 @@ export async function POST(request: NextRequest) {
       .from('evaluations')
       .select('id')
       .eq('user_id', user.id)
-      .eq('siren', data.entreprise.siren)
+      .eq('siren', context.entreprise.siren)
       .limit(1)
       .single()
 
@@ -61,6 +63,9 @@ export async function POST(request: NextRequest) {
         { status: 403 }
       )
     }
+
+    // Assembler les données du rapport (V2 calculateur + diagnostic + ratios)
+    const data = assembleReportData(context)
 
     // Générer le PDF professionnel (30 pages)
     const pdfBuffer = await generateProfessionalPDFBuffer(data)

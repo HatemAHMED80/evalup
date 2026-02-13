@@ -77,9 +77,8 @@ export interface ConversationContext {
   objet?: 'titres_100' | 'titres_partiel' | 'fonds_commerce'
   pourcentageParts?: number
   // Évaluation complète (après paiement)
-  evaluationType?: 'flash' | 'complete'
   isPaid?: boolean
-  // Nouveau flow : archétype détecté par le diagnostic
+  // Archétype détecté par le diagnostic
   archetype?: string // ID de l'archétype (ex: 'saas_hyper', 'ecommerce', etc.)
   diagnosticData?: {
     revenue: number
@@ -97,6 +96,27 @@ export interface ConversationContext {
       missing_critical: string[]
       source_documents: string[]
     }
+  }
+  // Retraitements EBITDA collectés via le chat (blocs [DATA_UPDATE])
+  retraitements?: {
+    salaireDirigeant?: number
+    loyerAnnuel?: number
+    loyerMarche?: number
+    loyerAppartientDirigeant?: boolean
+    creditBailAnnuel?: number
+    creditBailRestant?: number
+    chargesExceptionnelles?: number
+    produitsExceptionnels?: number
+    salairesExcessifsFamille?: number
+    salairesInsuffisantsFamille?: number
+  }
+  // Données qualitatives collectées via le chat (blocs [DATA_UPDATE])
+  qualitativeData?: {
+    dependanceDirigeant?: 'faible' | 'moyenne' | 'forte'
+    concentrationClients?: number
+    participationMinoritaire?: boolean
+    litiges?: boolean
+    contratsCles?: boolean
   }
 }
 

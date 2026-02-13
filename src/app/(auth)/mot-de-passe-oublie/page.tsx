@@ -4,20 +4,37 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { createClient } from '@/lib/supabase/client'
 
 export default function MotDePasseOubliePage() {
   const [email, setEmail] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [sent, setSent] = useState(false)
+  const [error, setError] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    // TODO: Implement reset logic
-    setTimeout(() => {
-      setIsLoading(false)
+    setError('')
+
+    try {
+      const supabase = createClient()
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/api/auth/callback?next=/reset-password`,
+      })
+
+      if (resetError) {
+        setError(resetError.message)
+        return
+      }
+
+      // Toujours afficher le message de succes (meme si le compte n'existe pas, pour securite)
       setSent(true)
-    }, 1000)
+    } catch {
+      setError('Une erreur est survenue. Veuillez reessayer.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -64,6 +81,12 @@ export default function MotDePasseOubliePage() {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
+                {error && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-[var(--radius-md)] text-red-600 text-sm">
+                    {error}
+                  </div>
+                )}
+
                 <Input
                   label="Email"
                   type="email"

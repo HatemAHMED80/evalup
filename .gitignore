@@ -54,6 +54,14 @@ tests/logs/
 tests/screenshots/
 tests/reports/
 
+# binary data files
+/data/
+docs/*.xlsx
+docs/*.xls
+
+# supabase temp
+supabase/.temp/
+
 # claude code settings (local)
 .claude/settings.local.json
 .env*.local

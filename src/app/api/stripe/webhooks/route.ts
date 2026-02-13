@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { headers } from 'next/headers'
 import { getStripeClient } from '@/lib/stripe/client'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
-import { confirmPurchase } from '@/lib/usage'
+import { confirmPurchase, markEvaluationAsPaid } from '@/lib/usage'
 import { sendPaymentConfirmation, sendPaymentFailed, sendSubscriptionWelcome, sendRefundConfirmation } from '@/lib/emails/send'
 import type Stripe from 'stripe'
 
@@ -122,7 +122,15 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     }
 
     // Confirmer l'achat et activer l'evaluation complete
-    await confirmPurchase(paymentIntentId, session.id)
+    try {
+      await confirmPurchase(paymentIntentId, session.id)
+    } catch (purchaseError) {
+      console.error('[Webhook] confirmPurchase echoue (non-bloquant):', purchaseError)
+    }
+
+    // Fallback : si confirmPurchase n'a pas pu mettre à jour l'évaluation
+    // (ex: purchase record manquant), on met à jour directement via metadata
+    await markEvaluationAsPaid(evaluationId, paymentIntentId, session.amount_total || 7900)
 
     console.log('Achat unique confirme:', {
       sessionId: session.id,
@@ -136,6 +144,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         to: session.customer_details.email,
         siren: session.metadata?.siren || '',
         montant: session.amount_total || 7900,
+        evaluationId,
       })
     }
     return
@@ -302,7 +311,7 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
   }
 
   // Mettre a jour le statut de l'achat
-  await supabase
+  const { error: purchaseError } = await supabase
     .from('purchases')
     .update({
       status: isFullRefund ? 'refunded' : 'partially_refunded',
@@ -311,14 +320,22 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
     })
     .eq('id', purchase.id)
 
+  if (purchaseError) {
+    console.error('[Refund] Erreur update purchase:', purchaseError, { purchaseId: purchase.id })
+  }
+
   // Pour un remboursement total, revoquer l'acces a l'evaluation
   if (isFullRefund && purchase.evaluation_id) {
-    await supabase
+    const { error: evalError } = await supabase
       .from('evaluations')
       .update({ status: 'refunded' })
       .eq('id', purchase.evaluation_id)
 
-    console.log('[Refund] Acces evaluation revoque:', purchase.evaluation_id)
+    if (evalError) {
+      console.error('[Refund] Erreur revocation evaluation:', evalError, { evaluationId: purchase.evaluation_id })
+    } else {
+      console.log('[Refund] Acces evaluation revoque:', purchase.evaluation_id)
+    }
   }
 
   // Envoyer un email de confirmation de remboursement

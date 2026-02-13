@@ -93,7 +93,7 @@ export function MessageBubble({
   // Extraire les différentes sections du contenu
   const { mainContent, context, question, suggestions } = isUser
     ? { mainContent: message.content, context: null, question: null, suggestions: [] }
-    : parseContent(message.content.replace('[EVALUATION_COMPLETE]', ''))
+    : parseContent(message.content.replace('[EVALUATION_COMPLETE]', '').replace(/\[DATA_UPDATE\][\s\S]*?\[\/DATA_UPDATE\]/gi, ''))
 
   // Toggle une suggestion
   const toggleSuggestion = (suggestion: string) => {
@@ -121,13 +121,13 @@ export function MessageBubble({
           {message.documents && message.documents.length > 0 && (
             <div className="mb-2 flex flex-wrap justify-end gap-2">
               {message.documents.map((doc, i) => (
-                <span key={i} className="text-sm flex items-center gap-1 bg-white/10 px-2 py-1 rounded-lg text-white/70">
+                <span key={i} className="text-sm flex items-center gap-1 bg-[var(--bg-tertiary)] px-2 py-1 rounded-[var(--radius-md)] text-[var(--text-secondary)]">
                   📄 {doc.name}
                 </span>
               ))}
             </div>
           )}
-          <div className="bg-[#c9a227] text-[#1a1a2e] rounded-2xl rounded-br-md px-4 py-3">
+          <div className="bg-[var(--accent)] text-white rounded-2xl rounded-br-md px-4 py-3">
             <p className="whitespace-pre-wrap">{message.content}</p>
           </div>
         </div>
@@ -140,31 +140,31 @@ export function MessageBubble({
     <div className="flex gap-3">
       {/* Avatar */}
       <div className="flex-shrink-0">
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#c9a227] to-[#e8c547] flex items-center justify-center">
-          <span className="text-[#1a1a2e] font-bold text-xs">E</span>
+        <div className="w-8 h-8 rounded-full bg-[var(--accent)] flex items-center justify-center">
+          <span className="text-white font-bold text-xs">E</span>
         </div>
       </div>
 
       {/* Contenu */}
       <div className="flex-1 min-w-0 pt-1">
-        <div className="prose prose-sm prose-invert max-w-none">
+        <div className="prose prose-sm max-w-none">
           <ReactMarkdown
             components={{
-              p: ({ children }) => <p className="mb-3 last:mb-0 text-white/90 leading-relaxed">{children}</p>,
-              ul: ({ children }) => <ul className="list-disc pl-4 mb-3 space-y-1 text-white/90">{children}</ul>,
-              ol: ({ children }) => <ol className="list-decimal pl-4 mb-3 space-y-1 text-white/90">{children}</ol>,
-              li: ({ children }) => <li className="mb-0.5 text-white/90">{children}</li>,
-              strong: ({ children }) => <strong className="font-bold text-[#c9a227]">{children}</strong>,
-              em: ({ children }) => <em className="text-sm text-white/50 block mt-2">{children}</em>,
-              h1: ({ children }) => <h1 className="font-bold text-2xl mb-2 text-white">{children}</h1>,
-              h2: ({ children }) => <h2 className="font-semibold text-xl mt-4 mb-2 text-white">{children}</h2>,
-              h3: ({ children }) => <h3 className="font-semibold text-base mt-4 mb-2 text-white">{children}</h3>,
-              h4: ({ children }) => <h4 className="font-semibold text-sm mt-3 mb-1 text-white/90">{children}</h4>,
+              p: ({ children }) => <p className="mb-3 last:mb-0 text-[var(--text-primary)] leading-relaxed">{children}</p>,
+              ul: ({ children }) => <ul className="list-disc pl-4 mb-3 space-y-1 text-[var(--text-primary)]">{children}</ul>,
+              ol: ({ children }) => <ol className="list-decimal pl-4 mb-3 space-y-1 text-[var(--text-primary)]">{children}</ol>,
+              li: ({ children }) => <li className="mb-0.5 text-[var(--text-primary)]">{children}</li>,
+              strong: ({ children }) => <strong className="font-bold text-[var(--accent)]">{children}</strong>,
+              em: ({ children }) => <em className="text-sm text-[var(--text-tertiary)] block mt-2">{children}</em>,
+              h1: ({ children }) => <h1 className="font-bold text-2xl mb-2 text-[var(--text-primary)]">{children}</h1>,
+              h2: ({ children }) => <h2 className="font-semibold text-xl mt-4 mb-2 text-[var(--text-primary)]">{children}</h2>,
+              h3: ({ children }) => <h3 className="font-semibold text-base mt-4 mb-2 text-[var(--text-primary)]">{children}</h3>,
+              h4: ({ children }) => <h4 className="font-semibold text-sm mt-3 mb-1 text-[var(--text-primary)]">{children}</h4>,
               code: ({ children }) => (
-                <code className="bg-white/10 px-1.5 py-0.5 rounded text-sm font-mono text-white/90">{children}</code>
+                <code className="bg-[var(--bg-tertiary)] px-1.5 py-0.5 rounded text-sm font-mono text-[var(--text-primary)]">{children}</code>
               ),
               blockquote: ({ children }) => (
-                <blockquote className="border-l-2 border-[#c9a227] pl-3 my-3 text-white/70 italic">{children}</blockquote>
+                <blockquote className="border-l-2 border-[var(--accent)] pl-3 my-3 text-[var(--text-secondary)] italic">{children}</blockquote>
               ),
               table: ({ children }) => (
                 <div className="overflow-x-auto my-3">
@@ -172,10 +172,10 @@ export function MessageBubble({
                 </div>
               ),
               th: ({ children }) => (
-                <th className="border border-white/20 px-3 py-2 bg-white/5 font-medium text-left text-white/90">{children}</th>
+                <th className="border border-[var(--border)] px-3 py-2 bg-[var(--bg-tertiary)] font-medium text-left text-[var(--text-primary)]">{children}</th>
               ),
               td: ({ children }) => (
-                <td className="border border-white/20 px-3 py-2 text-white/80">{children}</td>
+                <td className="border border-[var(--border)] px-3 py-2 text-[var(--text-secondary)]">{children}</td>
               ),
             }}
           >
@@ -184,23 +184,23 @@ export function MessageBubble({
 
           {/* Contexte en petit, gris, italique */}
           {context && (
-            <div className="mt-3 text-xs text-white/50 italic leading-relaxed">
+            <div className="mt-3 text-xs text-[var(--text-tertiary)] italic leading-relaxed">
               {context.split('\n').map((line, i) => (
                 <p key={i} className="mb-1">{line}</p>
               ))}
             </div>
           )}
 
-          {/* Question en jaune gras - toujours à la fin */}
+          {/* Question en accent gras - toujours à la fin */}
           {question && (
-            <p className="mt-4 text-[#c9a227] font-semibold text-base">
+            <p className="mt-4 text-[var(--accent)] font-semibold text-base">
               {question}
             </p>
           )}
 
           {/* Curseur clignotant pendant le streaming */}
           {isStreaming && (
-            <span className="inline-block w-2 h-4 bg-[#c9a227] ml-0.5 animate-pulse rounded-sm" />
+            <span className="inline-block w-2 h-4 bg-[var(--accent)] ml-0.5 animate-pulse rounded-sm" />
           )}
         </div>
 
@@ -214,10 +214,10 @@ export function MessageBubble({
                   <button
                     key={index}
                     onClick={() => toggleSuggestion(suggestion)}
-                    className={`px-4 py-2 border rounded-full text-sm transition-all ${
+                    className={`px-4 py-2 border rounded-[var(--radius-full)] text-sm transition-all ${
                       isSelected
-                        ? 'bg-[#c9a227]/30 border-[#c9a227] text-white'
-                        : 'bg-white/5 border-white/20 text-white/80 hover:bg-[#c9a227]/20 hover:border-[#c9a227]/50 hover:text-white'
+                        ? 'bg-[var(--accent-light)] border-[var(--accent)] text-[var(--accent)]'
+                        : 'bg-[var(--bg-secondary)] border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--accent-light)] hover:border-[var(--accent)] hover:text-[var(--accent)]'
                     }`}
                   >
                     {isSelected && <span className="mr-1">✓</span>}
@@ -230,7 +230,7 @@ export function MessageBubble({
             {selectedSuggestions.length > 0 && (
               <button
                 onClick={sendSelectedSuggestions}
-                className="mt-3 px-5 py-2 bg-[#c9a227] text-[#1a1a2e] rounded-full text-sm font-medium hover:bg-[#e8c547] transition-all flex items-center gap-2"
+                className="mt-3 px-5 py-2 bg-[var(--accent)] text-white rounded-[var(--radius-full)] text-sm font-medium hover:bg-[var(--accent-hover)] transition-all flex items-center gap-2"
               >
                 Envoyer {selectedSuggestions.length > 1 ? `(${selectedSuggestions.length})` : ''}
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

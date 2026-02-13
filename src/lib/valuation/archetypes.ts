@@ -1032,6 +1032,14 @@ export function detectArchetype(data: DiagnosticInput): string {
     return 'saas_decline'
   }
 
+  // Règle 10b : SaaS déclaré (sector=saas) avec hasMRR mais récurrence < 60%
+  // L'utilisateur a choisi "SaaS / Logiciel" — on route selon la croissance
+  if (s === 'saas' && hasMRR) {
+    if (growth > 40) return 'saas_hyper'
+    if (growth >= 5) return 'saas_mature'
+    return 'saas_decline'
+  }
+
   // Règle 11 : Marketplace → #4
   if (s === 'marketplace') {
     return 'marketplace'

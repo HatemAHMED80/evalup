@@ -1,7 +1,7 @@
 'use client'
 
 import { use, useCallback, useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
@@ -84,6 +84,7 @@ export default function UploadPage({
 }) {
   const { id: evaluationId } = use(params)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [evaluation, setEvaluation] = useState<EvaluationInfo | null>(null)
@@ -95,8 +96,14 @@ export default function UploadPage({
   const [analyzeError, setAnalyzeError] = useState<string | null>(null)
 
   // ── Fetch evaluation info + auth check ──
+  // Si ?payment=success, le webhook Stripe n'a peut-être pas encore tourné.
+  // On poll l'API quelques fois avant de considérer que le paiement a échoué.
   useEffect(() => {
-    async function fetchEvaluation() {
+    const isPostPayment = searchParams.get('payment') === 'success'
+    const maxRetries = isPostPayment ? 8 : 0
+    const retryDelay = 2000 // 2s entre chaque retry
+
+    async function fetchEvaluation(attempt = 0) {
       try {
         const res = await fetch(`/api/evaluations/${evaluationId}`)
         if (res.status === 401) {
@@ -110,8 +117,21 @@ export default function UploadPage({
           return
         }
         if (res.status === 402) {
-          // Not paid — redirect to checkout
-          router.replace(`/checkout?eval=${evaluationId}`)
+          // Webhook pas encore arrivé — retry si post-payment
+          if (attempt < maxRetries) {
+            setTimeout(() => fetchEvaluation(attempt + 1), retryDelay)
+            return // Ne pas toucher loading — on poll encore
+          }
+          // Toujours pas payé après tous les retries
+          if (isPostPayment) {
+            // NE PAS rediriger vers checkout (cause une boucle infinie)
+            // L'utilisateur vient de payer — le webhook est probablement en retard
+            setAuthError('Votre paiement a ete recu mais le traitement prend plus de temps que prevu. Rechargez la page dans quelques secondes.')
+            setLoading(false)
+          } else {
+            // Accès direct sans paiement — rediriger vers checkout
+            router.replace(`/checkout?eval=${evaluationId}`)
+          }
           return
         }
         if (!res.ok) {
@@ -121,14 +141,20 @@ export default function UploadPage({
         }
         const data = await res.json()
         setEvaluation(data)
+        setLoading(false)
+        // Nettoyer le ?payment=success de l'URL
+        if (isPostPayment) {
+          const url = new URL(window.location.href)
+          url.searchParams.delete('payment')
+          window.history.replaceState({}, '', url.toString())
+        }
       } catch {
         setAuthError('Erreur de connexion. Reessayez.')
-      } finally {
         setLoading(false)
       }
     }
     fetchEvaluation()
-  }, [evaluationId, router])
+  }, [evaluationId, router, searchParams])
 
   // ── File validation ──
   const validateFile = useCallback((file: File): string | null => {

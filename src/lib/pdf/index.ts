@@ -1,9 +1,5 @@
 // Exports du module PDF EvalUp
 
-// Générateur PDF standard (3 pages)
-export { generateEvaluationPDF, generateEvaluationPDFBuffer } from './generator'
-export type { EvaluationData } from './generator'
-
 // Générateur PDF professionnel (25-40 pages)
 export { generateProfessionalPDF, generateProfessionalPDFBuffer, ProfessionalReport } from './professional-report-final'
 export type { ProfessionalReportData } from './professional-report'

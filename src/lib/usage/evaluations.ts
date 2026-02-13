@@ -1,8 +1,8 @@
 // Service de gestion des evaluations
-// Modele: Diagnostic (gratuit) -> Complete (79€) -> Pro (199€/399€)
+// Modele: Diagnostic (gratuit, formulaire) -> Paiement (79€) -> Upload -> Review -> Chat IA -> Rapport PDF
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
-import { getEvalsPerMonthLimit, canDoCompleteEval } from '@/lib/stripe/plans'
+import { getEvalsPerMonthLimit, canDoCompleteEval, PLANS } from '@/lib/stripe/plans'
 
 // Client Supabase admin (lazy init)
 let _supabaseAdmin: SupabaseClient | null = null
@@ -21,17 +21,15 @@ function getSupabaseAdmin(): SupabaseClient {
 // TYPES
 // ============================================
 
-export type EvaluationType = 'flash' | 'complete'
+export type EvaluationType = 'complete'
 
 export type EvaluationStatus =
-  | 'in_progress'        // Flash en cours
-  | 'flash_completed'    // Flash terminee, en attente paiement
-  | 'payment_pending'    // Paiement initie
-  | 'paid'               // Paye, pret pour complete (legacy)
-  | 'pending_upload'     // Paye, en attente upload documents
-  | 'pending_review'     // Documents uploades, en attente review
-  | 'complete_in_progress' // Complete en cours
-  | 'completed'          // Terminee
+  | 'payment_pending'       // Paiement initie (evaluation creee au checkout)
+  | 'pending_upload'        // Paye, en attente upload documents
+  | 'pending_review'        // Documents uploades, en attente review
+  | 'complete_in_progress'  // Chat IA en cours
+  | 'completed'             // Terminee
+  | 'refunded'              // Remboursee
 
 export interface Evaluation {
   id: string
@@ -50,7 +48,6 @@ export interface Evaluation {
   stripe_payment_id?: string
   amount_paid?: number
   created_at: string
-  flash_completed_at?: string
   paid_at?: string
   completed_at?: string
 }
@@ -93,15 +90,15 @@ export async function getOrCreateEvaluation(
     return existing as Evaluation
   }
 
-  // Creer une nouvelle evaluation Flash
+  // Creer une nouvelle evaluation
   const { data: newEval, error } = await supabase
     .from('evaluations')
     .insert({
       user_id: userId,
       siren,
       entreprise_nom: entrepriseNom,
-      type: 'flash',
-      status: 'in_progress',
+      type: 'complete',
+      status: 'payment_pending',
       questions_count: 0,
       documents_count: 0,
     })
@@ -137,10 +134,10 @@ export async function checkEvaluationAccess(
 
   const planId = subscription?.plan_id || null
 
-  // Cas 0: Abonnement actif -> accès complet (priorité sur le statut Flash)
+  // Cas 0: Abonnement Pro actif -> accès complet
   const hasProAccess = canDoCompleteEval(planId)
 
-  if (hasProAccess && (evaluation.status === 'in_progress' || evaluation.status === 'flash_completed')) {
+  if (hasProAccess && evaluation.status === 'payment_pending') {
     const evalsUsed = await getMonthlyEvalCount(userId)
     const limit = getEvalsPerMonthLimit(planId)
 
@@ -156,8 +153,8 @@ export async function checkEvaluationAccess(
     }
   }
 
-  // Cas 1: Evaluation en cours (utilisateur gratuit, pas encore payé)
-  if (evaluation.status === 'in_progress') {
+  // Cas 1: En attente de paiement
+  if (evaluation.status === 'payment_pending') {
     return {
       canContinue: false,
       canUploadDocuments: false,
@@ -168,19 +165,7 @@ export async function checkEvaluationAccess(
     }
   }
 
-  // Cas 2: Flash terminee, en attente de paiement
-  if (evaluation.status === 'flash_completed' || evaluation.status === 'payment_pending') {
-    return {
-      canContinue: false,
-      canUploadDocuments: false,
-      canDownloadPDF: false,
-      questionsRemaining: 0,
-      needsPayment: true,
-      evaluation,
-    }
-  }
-
-  // Cas 3a: En attente upload ou review -> accès documents, pas de chat
+  // Cas 2: En attente upload ou review -> accès documents, pas de chat
   if (evaluation.status === 'pending_upload' || evaluation.status === 'pending_review') {
     return {
       canContinue: false,
@@ -192,8 +177,8 @@ export async function checkEvaluationAccess(
     }
   }
 
-  // Cas 3b: Paye ou en cours de complete -> acces complet
-  if (evaluation.status === 'paid' || evaluation.status === 'complete_in_progress') {
+  // Cas 3: Chat IA en cours -> acces complet
+  if (evaluation.status === 'complete_in_progress') {
     return {
       canContinue: true,
       canUploadDocuments: true,
@@ -210,6 +195,18 @@ export async function checkEvaluationAccess(
       canContinue: false,
       canUploadDocuments: false,
       canDownloadPDF: true,
+      questionsRemaining: 0,
+      needsPayment: false,
+      evaluation,
+    }
+  }
+
+  // Cas 5: Evaluation remboursee -> aucun acces
+  if (evaluation.status === 'refunded') {
+    return {
+      canContinue: false,
+      canUploadDocuments: false,
+      canDownloadPDF: false,
       questionsRemaining: 0,
       needsPayment: false,
       evaluation,
@@ -259,64 +256,7 @@ export async function incrementQuestionCount(evaluationId: string): Promise<numb
 }
 
 /**
- * Marque la Flash comme terminee
- */
-export async function completeFlashEvaluation(
-  evaluationId: string,
-  valuationLow?: number,
-  valuationHigh?: number
-): Promise<void> {
-  const supabase = getSupabaseAdmin()
-
-  const updateData: Record<string, unknown> = {
-    status: 'flash_completed',
-    flash_completed_at: new Date().toISOString(),
-  }
-
-  // Ajouter les valorisations si fournies
-  if (valuationLow !== undefined) updateData.valuation_low = valuationLow
-  if (valuationHigh !== undefined) updateData.valuation_high = valuationHigh
-
-  await supabase
-    .from('evaluations')
-    .update(updateData)
-    .eq('id', evaluationId)
-}
-
-/**
- * Marque une évaluation Flash comme terminée par SIREN
- * Utilisé quand l'IA donne la valorisation
- */
-export async function markFlashCompleteByUserAndSiren(
-  userId: string,
-  siren: string
-): Promise<void> {
-  const supabase = getSupabaseAdmin()
-
-  // Trouver l'évaluation en cours
-  const { data: evaluation } = await supabase
-    .from('evaluations')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('siren', siren)
-    .eq('status', 'in_progress')
-    .eq('type', 'flash')
-    .single()
-
-  if (evaluation) {
-    await supabase
-      .from('evaluations')
-      .update({
-        status: 'flash_completed',
-        flash_completed_at: new Date().toISOString(),
-      })
-      .eq('id', evaluation.id)
-  }
-}
-
-/**
  * Marque l'evaluation comme payee (apres paiement Stripe)
- * Garde: uniquement depuis flash_completed, payment_pending ou in_progress
  */
 export async function markEvaluationAsPaid(
   evaluationId: string,
@@ -332,13 +272,13 @@ export async function markEvaluationAsPaid(
     .eq('id', evaluationId)
     .single()
 
-  const validFromStatuses = ['flash_completed', 'payment_pending', 'in_progress']
+  const validFromStatuses = ['payment_pending']
   if (evaluation && !validFromStatuses.includes(evaluation.status)) {
     console.warn(`[Evaluations] Transition invalide: ${evaluation.status} -> paid pour ${evaluationId}`)
     return
   }
 
-  await supabase
+  const { error } = await supabase
     .from('evaluations')
     .update({
       type: 'complete',
@@ -348,6 +288,10 @@ export async function markEvaluationAsPaid(
       paid_at: new Date().toISOString(),
     })
     .eq('id', evaluationId)
+
+  if (error) {
+    console.error(`[Evaluations] Erreur update evaluation ${evaluationId}:`, error)
+  }
 }
 
 /**
@@ -499,7 +443,7 @@ export async function createPurchase(
       evaluation_id: evaluationId,
       stripe_checkout_session_id: stripeCheckoutSessionId,
       product_type: 'eval_complete',
-      amount: 7900, // 79€ en centimes
+      amount: PLANS.eval_complete.price * 100,
       status: 'pending',
     })
     .select('id')
@@ -520,7 +464,7 @@ export async function confirmPurchase(
   const supabase = getSupabaseAdmin()
 
   // Mettre a jour l'achat
-  const { data: purchase } = await supabase
+  const { data: purchase, error } = await supabase
     .from('purchases')
     .update({
       stripe_payment_intent_id: stripePaymentIntentId,
@@ -531,9 +475,15 @@ export async function confirmPurchase(
     .select('evaluation_id')
     .single()
 
+  if (error) {
+    console.error('[confirmPurchase] Erreur update purchase:', error, { stripeCheckoutSessionId })
+  }
+
   // Mettre a jour l'evaluation
   if (purchase?.evaluation_id) {
-    await markEvaluationAsPaid(purchase.evaluation_id, stripePaymentIntentId, 7900)
+    await markEvaluationAsPaid(purchase.evaluation_id, stripePaymentIntentId, PLANS.eval_complete.price * 100)
+  } else {
+    console.warn('[confirmPurchase] Purchase non trouvee pour session:', stripeCheckoutSessionId)
   }
 }
 

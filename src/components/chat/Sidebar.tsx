@@ -65,8 +65,8 @@ export function Sidebar({
       <aside
         className={`
           fixed lg:static inset-y-0 left-0 z-50
-          bg-[#1a1a2e] text-white
-          border-r border-white/10
+          bg-[var(--bg-secondary)] text-[var(--text-primary)]
+          border-r border-[var(--border)]
           transform transition-all duration-300 ease-in-out
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
           ${isCollapsed ? 'lg:w-16' : 'lg:w-72'}
@@ -75,7 +75,7 @@ export function Sidebar({
         `}
       >
         {/* Logo / Header */}
-        <div className={`p-4 border-b border-white/10 ${isCollapsed ? 'lg:px-3' : ''}`}>
+        <div className={`p-4 border-b border-[var(--border)] ${isCollapsed ? 'lg:px-3' : ''}`}>
           <Link
             href="/"
             onClick={() => {
@@ -84,10 +84,10 @@ export function Sidebar({
                 onToggle()
               }
             }}
-            className="flex items-center gap-2 text-white/90 hover:text-white transition-colors"
+            className="flex items-center gap-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
           >
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#c9a227] to-[#e8c547] flex items-center justify-center flex-shrink-0">
-              <span className="text-[#1a1a2e] font-bold text-sm">E</span>
+            <div className="w-8 h-8 rounded-[var(--radius-md)] bg-[var(--accent)] flex items-center justify-center flex-shrink-0">
+              <span className="text-white font-bold text-sm">E</span>
             </div>
             <span className={`font-semibold transition-opacity duration-200 ${isCollapsed ? 'lg:hidden' : ''}`}>
               EvalUp
@@ -96,7 +96,7 @@ export function Sidebar({
         </div>
 
         {/* Nouvelle évaluation */}
-        <div className={`p-3 border-b border-white/10 ${isCollapsed ? 'lg:p-2' : ''}`}>
+        <div className={`p-3 border-b border-[var(--border)] ${isCollapsed ? 'lg:p-2' : ''}`}>
           <button
             onClick={() => {
               // Fermer la sidebar sur mobile
@@ -105,7 +105,7 @@ export function Sidebar({
               }
               onNewEvaluation?.()
             }}
-            className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm text-white/80 bg-white/5 hover:bg-white/10 rounded-lg transition-colors ${isCollapsed ? 'lg:justify-center lg:px-2' : ''}`}
+            className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm text-[var(--text-secondary)] bg-[var(--bg-tertiary)] hover:bg-[var(--accent-light)] hover:text-[var(--accent)] rounded-[var(--radius-md)] transition-colors ${isCollapsed ? 'lg:justify-center lg:px-2' : ''}`}
             title="Nouvelle évaluation"
           >
             <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -119,19 +119,19 @@ export function Sidebar({
         <div className={`flex-1 overflow-y-auto ${isCollapsed ? 'lg:hidden' : ''}`}>
           {/* Évaluation actuelle - seulement si une entreprise est sélectionnée */}
           {entreprise.siren && currentStep > 0 && (
-            <div className="p-3 border-b border-white/10">
-              <div className="text-xs text-white/40 uppercase tracking-wide mb-2 px-2">Actuelle</div>
-              <div className="bg-white/10 rounded-lg p-3">
-                <div className="font-medium text-white/90 text-sm truncate">{entreprise.nom}</div>
-                <div className="text-xs text-white/50 truncate mt-0.5">{entreprise.secteur}</div>
+            <div className="p-3 border-b border-[var(--border)]">
+              <div className="text-xs text-[var(--text-tertiary)] uppercase tracking-wide mb-2 px-2">Actuelle</div>
+              <div className="bg-[var(--bg-tertiary)] rounded-[var(--radius-md)] p-3">
+                <div className="font-medium text-[var(--text-primary)] text-sm truncate">{entreprise.nom}</div>
+                <div className="text-xs text-[var(--text-tertiary)] truncate mt-0.5">{entreprise.secteur}</div>
                 <div className="flex items-center gap-2 mt-2">
-                  <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                  <div className="flex-1 h-1.5 bg-[var(--border)] rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-gradient-to-r from-[#c9a227] to-[#e8c547] rounded-full transition-all duration-500"
+                      className="h-full bg-[var(--accent)] rounded-full transition-all duration-500"
                       style={{ width: `${(currentStep / 6) * 100}%` }}
                     />
                   </div>
-                  <span className="text-xs text-white/50">{currentStep}/6</span>
+                  <span className="text-xs text-[var(--text-tertiary)]">{currentStep}/6</span>
                 </div>
               </div>
             </div>
@@ -140,7 +140,7 @@ export function Sidebar({
           {/* Liste des évaluations précédentes */}
           {evaluations.length > 0 && (
             <div className="p-3">
-              <div className="text-xs text-white/40 uppercase tracking-wide mb-2 px-2">Historique</div>
+              <div className="text-xs text-[var(--text-tertiary)] uppercase tracking-wide mb-2 px-2">Historique</div>
               <div className="space-y-1">
                 {displayedEvaluations.map((evaluation) => {
                   const isCurrent = evaluation.siren === entreprise.siren
@@ -156,17 +156,17 @@ export function Sidebar({
                           }
                           onSelectEvaluation?.(evaluation.siren)
                         }}
-                        className="w-full flex items-start gap-3 px-2 py-2 rounded-lg hover:bg-white/5 transition-colors text-left"
+                        className="w-full flex items-start gap-3 px-2 py-2 rounded-[var(--radius-md)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
                       >
-                        <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <span className="text-xs text-white/50">{evaluation.currentStep}/6</span>
+                        <div className="w-8 h-8 rounded-[var(--radius-md)] bg-[var(--bg-tertiary)] flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="text-xs text-[var(--text-tertiary)]">{evaluation.currentStep}/6</span>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm text-white/80 truncate group-hover:text-white transition-colors">
+                          <div className="text-sm text-[var(--text-secondary)] truncate group-hover:text-[var(--text-primary)] transition-colors">
                             {evaluation.nom}
                           </div>
-                          <div className="text-xs text-white/40 truncate">{evaluation.secteur}</div>
-                          <div className="text-xs text-white/30 mt-0.5">
+                          <div className="text-xs text-[var(--text-tertiary)] truncate">{evaluation.secteur}</div>
+                          <div className="text-xs text-[var(--text-tertiary)] mt-0.5">
                             {formatRelativeDate(evaluation.lastAccess)}
                           </div>
                         </div>
@@ -178,7 +178,7 @@ export function Sidebar({
                             e.preventDefault()
                             onDeleteEvaluation(evaluation.siren)
                           }}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-white/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-[var(--text-tertiary)] hover:text-[var(--danger)] opacity-0 group-hover:opacity-100 transition-all"
                           title="Supprimer"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -195,7 +195,7 @@ export function Sidebar({
               {hasMoreEvaluations && (
                 <button
                   onClick={() => setShowAllEvaluations(!showAllEvaluations)}
-                  className="w-full mt-2 px-2 py-1.5 text-xs text-white/40 hover:text-white/60 transition-colors"
+                  className="w-full mt-2 px-2 py-1.5 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors"
                 >
                   {showAllEvaluations ? 'Voir moins' : `Voir tout (${evaluations.length})`}
                 </button>
@@ -216,19 +216,19 @@ export function Sidebar({
                 <div
                   key={step.num}
                   className={`
-                    flex items-center justify-center py-2.5 rounded-lg transition-colors
-                    ${isActive ? 'bg-white/10 text-white' : ''}
-                    ${isCompleted ? 'text-white/70' : ''}
-                    ${isPending ? 'text-white/30' : ''}
+                    flex items-center justify-center py-2.5 rounded-[var(--radius-md)] transition-colors
+                    ${isActive ? 'bg-[var(--bg-tertiary)] text-[var(--text-primary)]' : ''}
+                    ${isCompleted ? 'text-[var(--text-secondary)]' : ''}
+                    ${isPending ? 'text-[var(--text-tertiary)]' : ''}
                   `}
                   title={step.name}
                 >
                   <div
                     className={`
                       w-6 h-6 rounded-full flex items-center justify-center text-xs
-                      ${isCompleted ? 'bg-green-500/20 text-green-400' : ''}
-                      ${isActive ? 'bg-[#c9a227]/20 text-[#c9a227]' : ''}
-                      ${isPending ? 'bg-white/5 text-white/30' : ''}
+                      ${isCompleted ? 'bg-[var(--success)]/20 text-[var(--success)]' : ''}
+                      ${isActive ? 'bg-[var(--accent-light)] text-[var(--accent)]' : ''}
+                      ${isPending ? 'bg-[var(--bg-tertiary)] text-[var(--text-tertiary)]' : ''}
                     `}
                   >
                     {isCompleted ? '✓' : step.num}
@@ -240,9 +240,9 @@ export function Sidebar({
         </div>
 
         {/* Actions (mode collapsed) */}
-        <div className={`p-2 border-t border-white/10 space-y-1 hidden ${isCollapsed ? 'lg:block' : ''}`}>
+        <div className={`p-2 border-t border-[var(--border)] space-y-1 hidden ${isCollapsed ? 'lg:block' : ''}`}>
           <button
-            className="w-full flex items-center justify-center py-2 text-white/60 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+            className="w-full flex items-center justify-center py-2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] rounded-[var(--radius-md)] transition-colors"
             title="Exporter"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -252,10 +252,10 @@ export function Sidebar({
         </div>
 
         {/* Learn More - Liens légaux */}
-        <div className={`border-t border-white/10 ${isCollapsed ? 'lg:hidden' : ''}`}>
+        <div className={`border-t border-[var(--border)] ${isCollapsed ? 'lg:hidden' : ''}`}>
           <button
             onClick={() => setLearnMoreOpen(!learnMoreOpen)}
-            className="w-full flex items-center justify-between px-4 py-3 text-sm text-white/50 hover:text-white/70 transition-colors"
+            className="w-full flex items-center justify-between px-4 py-3 text-sm text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors"
           >
             <span>En savoir plus</span>
             <svg
@@ -271,25 +271,25 @@ export function Sidebar({
             <div className="px-4 pb-3 space-y-1">
               <Link
                 href="/mentions-legales"
-                className="block px-3 py-1.5 text-xs text-white/40 hover:text-white/70 transition-colors"
+                className="block px-3 py-1.5 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors"
               >
                 Mentions légales
               </Link>
               <Link
                 href="/cgu"
-                className="block px-3 py-1.5 text-xs text-white/40 hover:text-white/70 transition-colors"
+                className="block px-3 py-1.5 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors"
               >
                 Conditions d&apos;utilisation
               </Link>
               <Link
                 href="/privacy"
-                className="block px-3 py-1.5 text-xs text-white/40 hover:text-white/70 transition-colors"
+                className="block px-3 py-1.5 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors"
               >
                 Politique de confidentialité
               </Link>
               <Link
                 href="/contact"
-                className="block px-3 py-1.5 text-xs text-white/40 hover:text-white/70 transition-colors"
+                className="block px-3 py-1.5 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors"
               >
                 Contact
               </Link>
@@ -298,14 +298,14 @@ export function Sidebar({
         </div>
 
         {/* Compte utilisateur */}
-        <div className={`p-4 border-t border-white/10 ${isCollapsed ? 'lg:p-2' : ''}`}>
+        <div className={`p-4 border-t border-[var(--border)] ${isCollapsed ? 'lg:p-2' : ''}`}>
           <UserMenu />
         </div>
 
         {/* Bouton collapse (desktop only) */}
         <button
           onClick={onCollapse}
-          className="hidden lg:flex absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-[#1a1a2e] border border-white/10 rounded-full items-center justify-center text-white/50 hover:text-white hover:bg-[#2a2a4e] transition-colors"
+          className="hidden lg:flex absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-[var(--bg-secondary)] border border-[var(--border)] rounded-full items-center justify-center text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors"
           title={isCollapsed ? 'Ouvrir le menu' : 'Fermer le menu'}
         >
           <svg

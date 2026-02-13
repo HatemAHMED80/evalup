@@ -1,13 +1,17 @@
 // Assemblage des données pour le rapport professionnel PDF
 // Convertit ConversationContext → ProfessionalReportData
+// Utilise le calculateur V2 (archétype + multiples Damodaran)
 
 import type { ConversationContext } from '@/lib/anthropic'
-import type { BilanAnnuel as BilanV2, DonneesEvaluationV2 } from '@/lib/evaluation/types'
+import type { BilanAnnuel as BilanV2 } from '@/lib/evaluation/types'
 import type { ProfessionalReportData } from './professional-report'
-import { evaluerEntrepriseV2 } from '@/lib/evaluation/calculateur'
+import { calculateValuation } from '@/lib/valuation/calculator-v2'
+import type { FinancialData, ValuationResult, Retraitements, QualitativeData } from '@/lib/valuation/calculator-v2'
+import { getArchetype } from '@/lib/valuation/archetypes'
+import { getMultiplesForArchetype } from '@/lib/valuation/multiples'
 import { genererDiagnostic } from '@/lib/analyse/diagnostic'
-import { calculerRatios } from '@/lib/analyse/ratios'
-import { getSectorFromNaf, BENCHMARKS } from './sector-benchmarks'
+import { calculerRatios, type RatiosFinanciers } from '@/lib/analyse/ratios'
+import { getSectorFromNaf, BENCHMARKS, type SectorBenchmarks } from './sector-benchmarks'
 import { genererSWOT, genererAnalyseMarche, genererRisques } from './generate-qualitative'
 
 // ============================================
@@ -35,12 +39,127 @@ function convertBilan(b: BilanContext): BilanV2 {
 }
 
 // ============================================
+// HELPERS QUALITATIFS
+// ============================================
+
+function genererPointsForts(ratios: RatiosFinanciers, benchmark: SectorBenchmarks): string[] {
+  const points: string[] = []
+  if (ratios.margeEbitda > benchmark.margeEbitda.median) points.push('Marge EBITDA au-dessus de la mediane sectorielle')
+  if (ratios.margeNette > 0.05) points.push('Rentabilite nette satisfaisante')
+  if (ratios.ratioEndettement < 0.5) points.push('Faible endettement financier')
+  if (ratios.roe > 0.15) points.push('Bonne rentabilite des capitaux propres')
+  if (ratios.liquiditeGenerale > 1.5) points.push('Tresorerie solide')
+  if (ratios.dso < benchmark.dso.median) points.push('Bonne gestion des delais clients')
+  if (points.length === 0) points.push('Activite en place avec un historique financier')
+  return points
+}
+
+function genererPointsVigilance(ratios: RatiosFinanciers, benchmark: SectorBenchmarks): string[] {
+  const points: string[] = []
+  if (ratios.margeNette < 0.02) points.push('Marge nette faible')
+  if (ratios.ratioEndettement > 1.5) points.push('Endettement financier eleve')
+  if (ratios.dso > benchmark.dso.max) points.push('Delais de paiement clients eleves')
+  if (ratios.bfrSurCa > 0.25) points.push('BFR important pesant sur la tresorerie')
+  if (ratios.margeEbitda < benchmark.margeEbitda.min) points.push('Marge EBITDA sous la moyenne sectorielle')
+  if (points.length === 0) points.push('Aucun point de vigilance majeur identifie')
+  return points
+}
+
+function genererRecommandations(ratios: RatiosFinanciers): string[] {
+  const recs: string[] = []
+  if (ratios.margeNette < 0.05) recs.push('Optimiser les couts operationnels pour ameliorer la marge nette')
+  if (ratios.dso > 60) recs.push('Reduire les delais de paiement clients pour ameliorer la tresorerie')
+  if (ratios.ratioEndettement > 1.0) recs.push('Reduire progressivement l\'endettement')
+  if (ratios.bfrSurCa > 0.2) recs.push('Optimiser le BFR (stocks, clients, fournisseurs)')
+  recs.push('Preparer la documentation pour la cession')
+  if (recs.length < 3) recs.push('Maintenir la croissance du chiffre d\'affaires')
+  return recs.slice(0, 5)
+}
+
+function mapConfidence(score: number): 'elevee' | 'moyenne' | 'faible' {
+  if (score >= 70) return 'elevee'
+  if (score >= 40) return 'moyenne'
+  return 'faible'
+}
+
+function genererFacteursIncertitude(valuation: ValuationResult): string[] {
+  const facteurs: string[] = []
+  if (valuation.confidenceScore < 70) {
+    facteurs.push('Donnees financieres limitees ou incompletes')
+  }
+  if (valuation.adjustments.length === 0) {
+    facteurs.push('Retraitements EBITDA non effectues (salaire dirigeant, loyer, etc.)')
+  }
+  if (valuation.decotes.length > 0) {
+    facteurs.push(`${valuation.decotes.length} decote(s) appliquee(s) affectant la valorisation`)
+  }
+  if (facteurs.length === 0) {
+    facteurs.push('Valorisation basee sur les donnees publiques et declarees')
+  }
+  return facteurs
+}
+
+// ============================================
+// EXTRACTION RETRAITEMENTS (extractedDocData → V2)
+// ============================================
+
+/**
+ * Extrait les données de retraitement depuis les documents comptables uploadés.
+ * Mappe ExtractedExercice → Retraitements (format V2).
+ */
+function extractRetraitements(context: ConversationContext): Retraitements | undefined {
+  const exercice = context.extractedDocData?.exercices?.[0]
+  const fromDocs: Retraitements = {}
+  let hasDoc = false
+
+  if (exercice) {
+    // Salaire dirigeant → V2 compare au barème normatif et ajuste l'EBITDA
+    if (exercice.remuneration_dirigeant != null && exercice.remuneration_dirigeant > 0) {
+      fromDocs.salaireDirigeant = exercice.remuneration_dirigeant
+      hasDoc = true
+    }
+
+    // Crédit-bail → V2 réintègre les loyers dans l'EBITDA
+    if (exercice.credit_bail != null && exercice.credit_bail > 0) {
+      fromDocs.creditBailAnnuel = exercice.credit_bail
+      hasDoc = true
+    }
+  }
+
+  // Données chat ([DATA_UPDATE]) — prioritaires sur les docs
+  const fromChat = context.retraitements
+  const hasChat = fromChat && Object.keys(fromChat).length > 0
+
+  if (!hasDoc && !hasChat) return undefined
+
+  return { ...fromDocs, ...fromChat }
+}
+
+/**
+ * Construit les données qualitatives depuis le contexte de conversation.
+ * Utilisé par V2 pour appliquer les décotes (illiquidité, minoritaire, etc.).
+ */
+function buildQualitativeData(context: ConversationContext): QualitativeData {
+  const fromChat = context.qualitativeData || {}
+  return {
+    // Participation minoritaire : chat > fallback objet/pourcentage
+    participationMinoritaire:
+      fromChat.participationMinoritaire ??
+      (context.objet === 'titres_partiel' && (context.pourcentageParts ?? 100) < 50),
+    dependanceDirigeant: fromChat.dependanceDirigeant,
+    concentrationClients: fromChat.concentrationClients,
+    litiges: fromChat.litiges,
+    contratsCles: fromChat.contratsCles,
+  }
+}
+
+// ============================================
 // ASSEMBLAGE PRINCIPAL
 // ============================================
 
 /**
  * Assemble ProfessionalReportData depuis le ConversationContext du chat.
- * Exécute le calculateur V2, le diagnostic financier et calcule tous les ratios.
+ * Utilise le calculateur V2 (archétype), le diagnostic financier et les ratios.
  */
 export function assembleReportData(context: ConversationContext): ProfessionalReportData {
   const { entreprise, financials } = context
@@ -53,28 +172,36 @@ export function assembleReportData(context: ConversationContext): ProfessionalRe
     throw new Error('Aucun bilan disponible pour generer le rapport')
   }
 
-  // 1. Exécuter le calculateur V2
-  const donneesV2: DonneesEvaluationV2 = {
-    siren: entreprise.siren,
-    nomEntreprise: entreprise.nom,
-    codeNaf: entreprise.codeNaf,
-    dateCreation: entreprise.dateCreation,
-    effectif: Number(entreprise.effectif) || undefined,
-    localisation: entreprise.ville || entreprise.adresse,
-    bilans: bilansV2,
-    retraitements: {
-      salaireDirigeantBrutCharge: 0,
-      nombreDirigeants: 1,
-    },
+  // 1. Préparer les données pour le calculateur V2
+  const archetypeId = context.archetype || 'services_recurrents'
+  const ebitdaComptable = bilanRecent.resultatExploitation + (bilanRecent.dotationsAmortissements ?? 0)
+  const debt = bilanRecent.empruntsEtablissementsCredit ?? 0
+  const cash = bilanRecent.disponibilites ?? 0
+
+  // Extraire les retraitements depuis les documents uploadés (si disponibles)
+  const retraitements = extractRetraitements(context)
+
+  const financialData: FinancialData = {
+    revenue: bilanRecent.chiffreAffaires,
+    ebitda: ebitdaComptable,
+    netIncome: bilanRecent.resultatNet,
+    equity: bilanRecent.capitauxPropres,
+    cash,
+    debt,
+    growth: context.diagnosticData?.growth,
+    recurring: context.diagnosticData?.recurring,
+    retraitements,
   }
 
-  const resultat = evaluerEntrepriseV2(donneesV2)
+  // Construire les données qualitatives (décotes : illiquidité, minoritaire, etc.)
+  const qualitativeData = buildQualitativeData(context)
 
-  // 2. Exécuter le diagnostic financier
+  // 2. Calculer la valorisation V2 (avec retraitements + décotes)
+  const valuation = calculateValuation(archetypeId, financialData, qualitativeData)
+
+  // 3. Diagnostic financier + ratios
   const secteurCode = getSectorFromNaf(entreprise.codeNaf)
   const diagnostic = genererDiagnostic(bilanRecent, secteurCode)
-
-  // 3. Calculer les ratios financiers complets
   const ratios = calculerRatios(bilanRecent)
 
   // 4. Calculer les évolutions annuelles
@@ -88,13 +215,13 @@ export function assembleReportData(context: ConversationContext): ProfessionalRe
 
   // 5. Générer les données qualitatives (SWOT, marché, risques)
   const benchmark = BENCHMARKS[secteurCode] || BENCHMARKS.default
-  const niveauConfiance = resultat.niveauConfiance
+  const niveauConfiance = mapConfidence(valuation.confidenceScore)
+  const pointsForts = genererPointsForts(ratios, benchmark)
+  const pointsVigilance = genererPointsVigilance(ratios, benchmark)
 
   const swot = genererSWOT({
-    pointsForts: resultat.pointsForts,
-    pointsVigilance: resultat.pointsVigilance.length > 0
-      ? resultat.pointsVigilance
-      : ['Aucun point de vigilance majeur identifie'],
+    pointsForts,
+    pointsVigilance,
     ratios,
     secteurCode,
     benchmark,
@@ -115,12 +242,19 @@ export function assembleReportData(context: ConversationContext): ProfessionalRe
     benchmark,
   })
 
-  // 6. Assembler ProfessionalReportData
+  // 6. Enrichir avec les données d'archétype
+  const archetype = getArchetype(archetypeId)
+  const multiples = getMultiplesForArchetype(archetypeId)
+
+  // 7. EBITDA normalisé (retraitements V2)
+  const totalRetraitements = valuation.adjustments.reduce((sum, a) => sum + a.impact, 0)
+
+  // 8. Assembler ProfessionalReportData
   return {
     entreprise: {
       nom: entreprise.nom,
       siren: entreprise.siren,
-      secteur: resultat.secteur.nom,
+      secteur: archetype?.name || entreprise.secteur,
       codeNaf: entreprise.codeNaf,
       dateCreation: entreprise.dateCreation || '',
       effectif: Number(entreprise.effectif) || 0,
@@ -132,9 +266,9 @@ export function assembleReportData(context: ConversationContext): ProfessionalRe
       resultatNet: bilanRecent.resultatNet,
       resultatNetEvolution: rnEvolution,
       resultatExploitation: bilanRecent.resultatExploitation,
-      ebitda: resultat.ebitda.ebitdaComptable,
-      tresorerie: bilanRecent.disponibilites ?? 0,
-      dettes: bilanRecent.empruntsEtablissementsCredit ?? 0,
+      ebitda: ebitdaComptable,
+      tresorerie: cash,
+      dettes: debt,
       capitauxPropres: bilanRecent.capitauxPropres,
       margeNette: ratios.margeNette,
       margeEbitda: ratios.margeEbitda,
@@ -164,42 +298,41 @@ export function assembleReportData(context: ConversationContext): ProfessionalRe
       tresorerie: b.tresorerie,
       ebitda: b.resultat_exploitation + b.dotations_amortissements,
     })),
-    valeurEntreprise: resultat.valeurEntreprise,
-    prixCession: resultat.prixCession,
+    valeurEntreprise: {
+      basse: valuation.enterpriseValue.low,
+      moyenne: valuation.enterpriseValue.median,
+      haute: valuation.enterpriseValue.high,
+    },
+    prixCession: {
+      basse: valuation.equityValue.low,
+      moyenne: valuation.equityValue.median,
+      haute: valuation.equityValue.high,
+    },
     detteNette: {
-      totalDettes: resultat.detteNette.totalDettes,
-      totalTresorerie: resultat.detteNette.totalTresorerie,
-      detteFinanciereNette: resultat.detteNette.detteFinanciereNette,
+      totalDettes: debt,
+      totalTresorerie: cash,
+      detteFinanciereNette: valuation.netDebt,
     },
     ebitdaNormalise: {
-      ebitdaComptable: resultat.ebitda.ebitdaComptable,
-      totalRetraitements: resultat.ebitda.totalRetraitements,
-      ebitdaNormalise: resultat.ebitda.ebitdaNormalise,
-      retraitements: resultat.ebitda.retraitements.map(r => ({
-        libelle: r.libelle,
-        montant: r.montant,
+      ebitdaComptable,
+      totalRetraitements,
+      ebitdaNormalise: ebitdaComptable + totalRetraitements,
+      retraitements: valuation.adjustments.map(a => ({
+        libelle: a.name,
+        montant: a.impact,
       })),
     },
-    methodes: resultat.methodes.map(m => ({
-      nom: m.nom,
-      valeur: m.valeurEntreprise,
-      poids: m.poids,
-      explication: m.details.formule,
-      multiple: m.details.multiple,
-    })),
-    niveauConfiance: resultat.niveauConfiance,
-    facteursIncertitude: resultat.facteursIncertitude,
-    pointsForts: resultat.pointsForts,
-    pointsVigilance: resultat.pointsVigilance.length > 0
-      ? resultat.pointsVigilance
-      : ['Aucun point de vigilance majeur identifie'],
-    recommandations: resultat.recommandations.length > 0
-      ? resultat.recommandations
-      : [
-          'Maintenir la croissance du CA',
-          'Continuer a optimiser les couts operationnels',
-          'Preparer la documentation pour la cession',
-        ],
+    methodes: [{
+      nom: valuation.methodUsed,
+      valeur: valuation.enterpriseValue.median,
+      poids: 100,
+      explication: archetype?.whyThisMethod || 'Methode adaptee au profil de l\'entreprise',
+    }],
+    niveauConfiance,
+    facteursIncertitude: genererFacteursIncertitude(valuation),
+    pointsForts,
+    pointsVigilance,
+    recommandations: genererRecommandations(ratios),
     swot,
     risques,
     marche: {
@@ -220,6 +353,23 @@ export function assembleReportData(context: ConversationContext): ProfessionalRe
         })),
       })),
     },
+    // Archétype
+    archetypeId,
+    archetypeName: archetype?.name,
+    archetypeIcon: archetype?.icon,
+    archetypeColor: archetype?.color,
+    archetypePrimaryMethod: archetype?.primaryMethod,
+    archetypeSecondaryMethod: archetype?.secondaryMethod,
+    archetypeWhyThisMethod: archetype?.whyThisMethod,
+    archetypeCommonMistakes: archetype?.commonMistakes,
+    archetypeKeyFactors: archetype?.keyFactors,
+    // Damodaran multiples
+    damodaranMultiples: multiples ? {
+      primaryMultiple: multiples.primaryMultiple,
+      secondaryMultiple: multiples.secondaryMultiple,
+      damodaranSector: multiples.damodaranSector,
+      source: multiples.source,
+    } : undefined,
     dateGeneration: new Date().toLocaleDateString('fr-FR', {
       year: 'numeric', month: 'long', day: 'numeric',
     }),

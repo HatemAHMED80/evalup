@@ -27,6 +27,7 @@ function SignupForm() {
   const [error, setError] = useState('')
   const [emailSent, setEmailSent] = useState(false)
   const [hasSession, setHasSession] = useState(false)
+  const [isLoginMode, setIsLoginMode] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -41,6 +42,32 @@ function SignupForm() {
 
     try {
       const supabase = createClient()
+
+      // Mode connexion : signInWithPassword directement
+      if (isLoginMode) {
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        })
+
+        if (signInError) {
+          if (signInError.message.includes('Invalid login credentials')) {
+            setError('Email ou mot de passe incorrect')
+          } else {
+            setError(signInError.message)
+          }
+          return
+        }
+
+        if (signInData?.session) {
+          setHasSession(true)
+          setEmailSent(true)
+          setTimeout(() => router.push(resultUrl), 1500)
+        }
+        return
+      }
+
+      // Mode inscription
       const { data: signUpData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -51,7 +78,11 @@ function SignupForm() {
 
       if (authError) {
         if (authError.message.includes('already registered')) {
-          setError('Cet email est déjà utilisé. Connectez-vous plutôt.')
+          setError('Cet email est déjà utilisé.')
+          setIsLoginMode(true)
+        } else if (authError.status === 429 || authError.message.includes('rate limit')) {
+          setError('Trop de tentatives. Patientez quelques minutes ou connectez-vous si vous avez déjà un compte.')
+          setIsLoginMode(true)
         } else {
           setError(authError.message)
         }
@@ -184,7 +215,9 @@ function SignupForm() {
             </h1>
           )}
           <p className="text-[var(--text-secondary)]">
-            Votre diagnostic est prêt. Créez un compte pour le consulter.
+            {isLoginMode
+              ? 'Connectez-vous pour accéder à votre diagnostic.'
+              : 'Votre diagnostic est prêt. Créez un compte pour le consulter.'}
           </p>
         </div>
 
@@ -212,7 +245,7 @@ function SignupForm() {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              hint="8 caractères minimum"
+              hint={isLoginMode ? undefined : '8 caractères minimum'}
               required
             />
 
@@ -223,7 +256,7 @@ function SignupForm() {
               className="w-full"
               isLoading={isLoading}
             >
-              Voir mon diagnostic →
+              {isLoginMode ? 'Se connecter →' : 'Voir mon diagnostic →'}
             </Button>
           </form>
 
@@ -249,15 +282,31 @@ function SignupForm() {
             Continuer avec Google
           </Button>
 
-          {/* Login link */}
+          {/* Toggle login/signup */}
           <p className="text-center text-[var(--text-secondary)] text-[14px] mt-6">
-            J'ai déjà un compte{' '}
-            <Link
-              href={`/connexion?redirect=${encodeURIComponent(resultUrl)}`}
-              className="text-[var(--accent)] font-medium hover:underline"
-            >
-              Se connecter
-            </Link>
+            {isLoginMode ? (
+              <>
+                Pas encore de compte ?{' '}
+                <button
+                  type="button"
+                  onClick={() => { setIsLoginMode(false); setError('') }}
+                  className="text-[var(--accent)] font-medium hover:underline"
+                >
+                  Créer un compte
+                </button>
+              </>
+            ) : (
+              <>
+                J&apos;ai déjà un compte{' '}
+                <button
+                  type="button"
+                  onClick={() => { setIsLoginMode(true); setError('') }}
+                  className="text-[var(--accent)] font-medium hover:underline"
+                >
+                  Se connecter
+                </button>
+              </>
+            )}
           </p>
         </div>
 

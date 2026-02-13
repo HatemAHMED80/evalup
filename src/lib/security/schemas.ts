@@ -33,6 +33,8 @@ export const chatBodySchema = z.object({
     evaluationProgress: evaluationProgressSchema,
     parcours: z.string().max(50).optional(),
     pedagogyLevel: z.string().max(50).optional(),
+    retraitements: z.record(z.string(), z.union([z.number(), z.boolean()])).optional(),
+    qualitativeData: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
   }),
   options: z.object({
     // forceModel et skipCache retirés: le serveur contrôle le modèle et le cache

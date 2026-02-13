@@ -24,8 +24,8 @@ export function LandingHero() {
     setIsLoading(true)
     setError('')
 
-    // Rediriger directement vers le chat
-    router.push(`/chat/${cleanSiren}`)
+    // Rediriger vers le diagnostic
+    router.push(`/diagnostic`)
   }
 
   const formatSiren = (value: string) => {

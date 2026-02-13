@@ -113,14 +113,13 @@ export async function POST(request: NextRequest) {
 
       if (!evalId && siren) {
         try {
-          // Chercher l'évaluation Flash en cours ou terminée pour ce SIREN
-          // Utiliser maybeSingle() au lieu de single() pour gérer le cas où il n'y a pas de résultat
+          // Chercher l'évaluation en attente de paiement pour ce SIREN
           const { data: evaluations } = await supabase
             .from('evaluations')
             .select('id')
             .eq('user_id', user.id)
             .eq('siren', siren)
-            .in('status', ['in_progress', 'flash_completed', 'payment_pending'])
+            .in('status', ['payment_pending'])
             .order('created_at', { ascending: false })
             .limit(1) as { data: Array<{ id: string }> | null }
 

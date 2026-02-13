@@ -711,6 +711,34 @@ test('Crèche privée → services_recurrents', () => {
   assertOneOf(result, ['services_recurrents', 'masse_salariale_lourde'], 'Crèche privée')
 })
 
+test('App SaaS avec récurrence faible (dating app, growth 50%) → saas_hyper (PAS conseil)', () => {
+  // Cas réel : l'utilisateur choisit "SaaS / Logiciel" mais le slider récurrence
+  // reste à 20% par défaut. La croissance de 50% indique clairement un SaaS.
+  const result = detectArchetype({
+    sector: 'saas',
+    revenue: 2_000_000,
+    ebitda: 60_000,
+    growth: 50,
+    recurring: 20,
+    masseSalariale: 35,
+    hasMRR: true,
+  })
+  assertEqual(result, 'saas_hyper', 'App SaaS recurring faible')
+})
+
+test('SaaS B2B faible récurrence (growth 10%) → saas_mature (PAS conseil)', () => {
+  const result = detectArchetype({
+    sector: 'saas',
+    revenue: 4_000_000,
+    ebitda: 600_000,
+    growth: 10,
+    recurring: 30,
+    masseSalariale: 40,
+    hasMRR: true,
+  })
+  assertEqual(result, 'saas_mature', 'SaaS B2B récurrence faible')
+})
+
 test('Auto-école → commerce_retail', () => {
   const result = detectArchetype({
     sector: 'auto-école',

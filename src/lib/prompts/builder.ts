@@ -8,6 +8,7 @@
 
 import { getPromptForArchetype, type ArchetypePromptContext } from './archetype-prompts'
 import { RETRAITEMENTS_PROMPT } from './modules/retraitements'
+import { DATA_UPDATE_PROMPT } from './modules/data-update'
 import { DECOTES_PROMPT, RISQUES_PROMPT, FONDS_COMMERCE_PROMPT } from './modules/decotes'
 import {
   CONVERSATION_RULES_PROMPT,
@@ -19,7 +20,7 @@ import {
   ANOMALY_RULES_PROMPT,
 } from './modules/rules'
 import { SYSTEM_PROMPTS, PEDAGOGY_PROMPTS, type UserParcours, type PedagogyLevel } from './modules/parcours'
-import { EVALUATION_FINALE_PROMPT } from './base'
+import { EVALUATION_FINALE_PROMPT } from './modules/evaluation-finale'
 import type { ConversationContext, BilanAnnuel, ExtractedExercice } from '../anthropic'
 import { ARCHETYPES } from '../valuation/archetypes'
 import { getMultiplesForArchetype, type ArchetypeMultiples } from '../valuation/multiples'
@@ -455,6 +456,7 @@ export function buildArchetypePrompt(options: BuildPromptOptions): string {
   sections.push(YEAR_REFERENCE_RULES_PROMPT.replace(/\{\{ANNEE_REFERENCE\}\}/g, String(anneeReference)))
   sections.push(ANOMALY_RULES_PROMPT)
   sections.push(RETRAITEMENTS_PROMPT)
+  sections.push(DATA_UPDATE_PROMPT)
   sections.push(DECOTES_PROMPT)
   sections.push(RISQUES_PROMPT)
 

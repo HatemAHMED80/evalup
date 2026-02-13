@@ -10,7 +10,7 @@ import { CompanyBentoGrid } from '@/components/CompanyBentoGrid'
 import { useEvaluationDraft } from '@/hooks/useEvaluationDraft'
 import { getDraftBySiren } from '@/lib/evaluation-draft'
 import type { ConversationContext, Message, UploadedDocument } from '@/lib/anthropic'
-import { MESSAGE_INITIAL } from '@/lib/prompts/base'
+import { MESSAGE_INITIAL } from '@/lib/prompts/messages'
 import { INTRO_MESSAGES, DOCUMENT_RESPONSE_YES, DOCUMENT_RESPONSE_NO, PEDAGOGY_OPTIONS, type UserParcours, type PedagogyLevel } from '@/lib/prompts/parcours'
 import { trackConversion } from '@/lib/analytics'
 
@@ -331,6 +331,27 @@ export function ChatInterface({ entreprise, initialContext, onStepChange, previo
     }
   }, [])
 
+  // Extraire et merger les données [DATA_UPDATE] dans le contexte
+  const extractDataUpdate = useCallback((text: string) => {
+    const match = text.match(/\[DATA_UPDATE\]([\s\S]*?)\[\/DATA_UPDATE\]/i)
+    if (!match) return
+    try {
+      const data = JSON.parse(match[1])
+      setContext(prev => ({
+        ...prev,
+        retraitements: data.retraitements
+          ? { ...prev.retraitements, ...data.retraitements }
+          : prev.retraitements,
+        qualitativeData: data.qualitative
+          ? { ...prev.qualitativeData, ...data.qualitative }
+          : prev.qualitativeData,
+      }))
+      console.log('[ChatInterface] DATA_UPDATE parsed:', data)
+    } catch {
+      console.warn('[ChatInterface] DATA_UPDATE JSON invalide, ignoré')
+    }
+  }, [])
+
   // Detecter l'etape dans la reponse
   const detectStep = useCallback((text: string) => {
     const stepMatch = text.match(/📍\s*(?:\*\*)?Étape\s*(\d+)\/6/i)
@@ -419,7 +440,7 @@ export function ChatInterface({ entreprise, initialContext, onStepChange, previo
 
     // Gérer le clic sur "Oui, je veux affiner mon évaluation"
     if (content.toLowerCase().includes('affiner mon évaluation') || content.toLowerCase().includes('oui, je veux affiner')) {
-      trackConversion('click_upgrade', { siren: entreprise.siren, plan: 'eval_complete' })
+      trackConversion('checkout_started', { siren: entreprise.siren, plan: 'eval_complete' })
       router.push(`/checkout?siren=${entreprise.siren}&plan=eval_complete`)
       return
     }
@@ -616,6 +637,7 @@ Quel est le **salaire annuel brut du dirigeant** (charges patronales incluses) ?
           setStreamingContent('')
           setIsStreaming(false)
           detectStep(fullText)
+          extractDataUpdate(fullText)
         }
       )
     } catch (error) {
@@ -677,8 +699,8 @@ Quel est le **salaire annuel brut du dirigeant** (charges patronales incluses) ?
           {/* Bento Grid */}
           {bentoGridData && (
             <div className="flex gap-3">
-              <div className="w-8 h-8 rounded-full bg-[#c9a227] flex items-center justify-center flex-shrink-0">
-                <span className="text-[#1a1a2e] text-sm font-bold">E</span>
+              <div className="w-8 h-8 rounded-full bg-[var(--accent)] flex items-center justify-center flex-shrink-0">
+                <span className="text-white text-sm font-bold">E</span>
               </div>
               <div className="flex-1">
                 <CompanyBentoGrid
@@ -696,13 +718,13 @@ Quel est le **salaire annuel brut du dirigeant** (charges patronales incluses) ?
           {/* Question d'objectif avec typewriter */}
           {showObjectifQuestion && (
             <div className="flex gap-3">
-              <div className="w-8 h-8 rounded-full bg-[#c9a227] flex items-center justify-center flex-shrink-0">
-                <span className="text-[#1a1a2e] text-sm font-bold">E</span>
+              <div className="w-8 h-8 rounded-full bg-[var(--accent)] flex items-center justify-center flex-shrink-0">
+                <span className="text-white text-sm font-bold">E</span>
               </div>
-              <div className="bg-white/5 rounded-2xl rounded-tl-sm px-4 py-3 text-white/90 max-w-[80%]">
+              <div className="bg-[var(--bg-secondary)] rounded-2xl rounded-tl-sm px-4 py-3 text-[var(--text-primary)] max-w-[80%]">
                 {selectedObjectif ? OBJECTIF_MESSAGE : objectifMessageText}
                 {isTypingObjectif && !selectedObjectif && (
-                  <span className="inline-block w-0.5 h-4 bg-[#c9a227] ml-0.5 animate-pulse" />
+                  <span className="inline-block w-0.5 h-4 bg-[var(--accent)] ml-0.5 animate-pulse" />
                 )}
               </div>
             </div>
@@ -715,14 +737,14 @@ Quel est le **salaire annuel brut du dirigeant** (charges patronales incluses) ?
                 <button
                   key={option.id}
                   onClick={() => handleObjectifSelect(option.id)}
-                  className="flex items-start gap-2 p-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-[#c9a227]/50 transition-all text-left group"
+                  className="flex items-start gap-2 p-3 bg-[var(--bg-secondary)] border border-[var(--border)] rounded-[var(--radius-lg)] hover:bg-[var(--accent-light)] hover:border-[var(--accent)] transition-all text-left group"
                 >
                   <span className="text-xl">{option.icon}</span>
                   <div>
-                    <p className="text-white font-medium text-sm group-hover:text-[#c9a227] transition-colors">
+                    <p className="text-[var(--text-primary)] font-medium text-sm group-hover:text-[var(--accent)] transition-colors">
                       {option.title}
                     </p>
-                    <p className="text-white/60 text-xs">{option.description}</p>
+                    <p className="text-[var(--text-tertiary)] text-xs">{option.description}</p>
                   </div>
                 </button>
               ))}
@@ -745,14 +767,14 @@ Quel est le **salaire annuel brut du dirigeant** (charges patronales incluses) ?
                 <button
                   key={option.id}
                   onClick={() => handlePedagogySelect(option.id)}
-                  className="flex flex-col items-center gap-2 p-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-[#c9a227]/50 transition-all text-center group"
+                  className="flex flex-col items-center gap-2 p-4 bg-[var(--bg-secondary)] border border-[var(--border)] rounded-[var(--radius-lg)] hover:bg-[var(--accent-light)] hover:border-[var(--accent)] transition-all text-center group"
                 >
                   <span className="text-2xl">{option.icon}</span>
                   <div>
-                    <p className="text-white font-medium text-sm group-hover:text-[#c9a227] transition-colors">
+                    <p className="text-[var(--text-primary)] font-medium text-sm group-hover:text-[var(--accent)] transition-colors">
                       {option.title}
                     </p>
-                    <p className="text-white/60 text-xs">{option.description}</p>
+                    <p className="text-[var(--text-tertiary)] text-xs">{option.description}</p>
                   </div>
                 </button>
               ))}
@@ -779,12 +801,6 @@ Quel est le **salaire annuel brut du dirigeant** (charges patronales incluses) ?
             <DownloadReport
               context={context}
               messages={messages}
-              evaluation={{
-                valeurBasse: context.financials.ratios.ebitda * 4,
-                valeurHaute: context.financials.ratios.ebitda * 7,
-                methode: 'Multiple EBITDA',
-                multiple: 5.5,
-              }}
             />
           )}
 
@@ -793,17 +809,17 @@ Quel est le **salaire annuel brut du dirigeant** (charges patronales incluses) ?
       </div>
 
       {/* Zone de saisie */}
-      <div className="sticky bottom-0 bg-[#1a1a2e] shadow-[0_-8px_20px_rgba(0,0,0,0.3)]">
+      <div className="sticky bottom-0 bg-[var(--bg-primary)] border-t border-[var(--border)] shadow-[var(--shadow-md)]">
         {uploadedDocs.length > 0 && (
           <div className="px-3 sm:px-4 pt-2 sm:pt-3 pb-0">
             <div className="max-w-3xl mx-auto flex flex-wrap gap-1.5 sm:gap-2">
               {uploadedDocs.map((doc, i) => (
-                <div key={i} className="flex items-center gap-1.5 sm:gap-2 bg-white/10 px-2.5 sm:px-3 py-1.5 rounded-full text-xs sm:text-sm border border-white/20">
+                <div key={i} className="flex items-center gap-1.5 sm:gap-2 bg-[var(--bg-tertiary)] px-2.5 sm:px-3 py-1.5 rounded-[var(--radius-full)] text-xs sm:text-sm border border-[var(--border)]">
                   <span>📄</span>
-                  <span className="truncate max-w-[100px] sm:max-w-[150px] text-white/80">{doc.name}</span>
+                  <span className="truncate max-w-[100px] sm:max-w-[150px] text-[var(--text-secondary)]">{doc.name}</span>
                   <button
                     onClick={() => removeDocument(i)}
-                    className="text-white/40 hover:text-red-400 transition-colors p-0.5"
+                    className="text-[var(--text-tertiary)] hover:text-[var(--danger)] transition-colors p-0.5"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -816,7 +832,7 @@ Quel est le **salaire annuel brut du dirigeant** (charges patronales incluses) ?
         )}
         <div className="p-3 sm:p-4 pb-safe">
           <form onSubmit={handleSubmit} className="max-w-3xl mx-auto">
-            <div className="relative bg-white/5 rounded-2xl border border-white/20 focus-within:border-[#c9a227] focus-within:ring-2 focus-within:ring-[#c9a227]/20 transition-all">
+            <div className="relative bg-[var(--bg-secondary)] rounded-[var(--radius-xl)] border border-[var(--border)] focus-within:border-[var(--accent)] focus-within:ring-2 focus-within:ring-[var(--accent)]/20 transition-all">
               <div className="flex items-end gap-1.5 sm:gap-2 p-1.5 sm:p-2">
                 <DocumentUpload onUpload={handleDocumentUpload} disabled={isLoading || isStreaming} />
 
@@ -831,7 +847,7 @@ Quel est le **salaire annuel brut du dirigeant** (charges patronales incluses) ?
                     }
                   }}
                   placeholder="Ecris ta reponse..."
-                  className="flex-1 bg-transparent px-2 py-2.5 sm:py-2 resize-none focus:outline-none text-white placeholder:text-white/40 text-base"
+                  className="flex-1 bg-transparent px-2 py-2.5 sm:py-2 resize-none focus:outline-none text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] text-base"
                   rows={1}
                   disabled={isLoading || isStreaming}
                 />
@@ -839,7 +855,7 @@ Quel est le **salaire annuel brut du dirigeant** (charges patronales incluses) ?
                 <button
                   type="submit"
                   disabled={isLoading || isStreaming || (!input.trim() && !uploadedDocs.length)}
-                  className="p-3 sm:p-2.5 bg-[#c9a227] text-[#1a1a2e] rounded-xl hover:bg-[#e8c547] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  className="p-3 sm:p-2.5 bg-[var(--accent)] text-white rounded-[var(--radius-lg)] hover:bg-[var(--accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   {isLoading || isStreaming ? (
                     <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -855,7 +871,7 @@ Quel est le **salaire annuel brut du dirigeant** (charges patronales incluses) ?
               </div>
             </div>
 
-            <p className="text-xs text-white/30 mt-2 text-center hidden sm:block">
+            <p className="text-xs text-[var(--text-tertiary)] mt-2 text-center hidden sm:block">
               Entree pour envoyer - Maj+Entree pour un retour a la ligne
             </p>
           </form>

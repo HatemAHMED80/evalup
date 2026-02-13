@@ -44,8 +44,15 @@ export function loadMultiples(): MultiplesData {
   if (_cache) return _cache
 
   const filePath = join(process.cwd(), 'data', 'multiples.json')
-  const raw = readFileSync(filePath, 'utf-8')
-  _cache = JSON.parse(raw) as MultiplesData
+  try {
+    const raw = readFileSync(filePath, 'utf-8')
+    _cache = JSON.parse(raw) as MultiplesData
+  } catch (error) {
+    throw new Error(
+      `Impossible de charger ${filePath}. Verifiez que data/multiples.json existe. ` +
+      (error instanceof Error ? error.message : String(error))
+    )
+  }
   return _cache
 }
 

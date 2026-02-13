@@ -40,7 +40,7 @@ export function DocumentUpload({ onUpload, disabled }: DocumentUploadProps) {
         type="button"
         onClick={handleClick}
         disabled={disabled}
-        className="p-3 text-white/50 hover:text-[#c9a227] hover:bg-white/10 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="p-3 text-[var(--text-tertiary)] hover:text-[var(--accent)] hover:bg-[var(--bg-tertiary)] rounded-[var(--radius-lg)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         title="Joindre un document (PDF, Excel, Image...)"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">

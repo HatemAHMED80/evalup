@@ -1,8 +1,10 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
+import { createClient } from '@/lib/supabase/client'
 
 const NAV_ITEMS = [
   { href: '/compte', label: 'Profil', icon: '👤' },
@@ -16,6 +18,13 @@ export default function CompteLayout({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
+  const router = useRouter()
+
+  const handleLogout = async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/connexion')
+  }
 
   return (
     <div className="min-h-screen bg-[var(--bg-secondary)]">
@@ -64,7 +73,12 @@ export default function CompteLayout({
             </nav>
 
             <div className="mt-8 pt-8 border-t border-[var(--border)]">
-              <Button variant="ghost" size="sm" className="w-full justify-start text-[var(--danger)]">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start text-[var(--danger)]"
+                onClick={handleLogout}
+              >
                 Se deconnecter
               </Button>
             </div>

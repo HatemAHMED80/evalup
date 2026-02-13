@@ -63,6 +63,7 @@ export async function sendPaymentConfirmation(params: {
   siren: string
   entreprise?: string
   montant: number
+  evaluationId?: string
 }) {
   const resend = getResend()
   if (!resend) {
@@ -70,7 +71,7 @@ export async function sendPaymentConfirmation(params: {
     return
   }
 
-  const { to, siren, entreprise, montant } = params
+  const { to, siren, entreprise, montant, evaluationId } = params
   const nomEntreprise = entreprise ? escapeHtml(entreprise) : `SIREN ${siren}`
   const montantFormate = (montant / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
 
@@ -88,7 +89,7 @@ export async function sendPaymentConfirmation(params: {
       Votre rapport professionnel (32 pages) est maintenant disponible.
       Vous pouvez y acceder directement depuis votre conversation.
     </p>
-    ${button('Acceder a mon evaluation', `https://evalup.fr/chat/${siren}`)}
+    ${button('Acceder a mon evaluation', evaluationId ? `https://evalup.fr/evaluation/${evaluationId}/upload` : 'https://evalup.fr/diagnostic')}
     <p style="color: #6b7280; font-size: 13px; line-height: 1.6;">
       Votre facture est disponible dans votre <a href="https://evalup.fr/compte/abonnement" style="color: #1E40AF;">espace compte</a>.
       Pour toute question, contactez-nous a <a href="mailto:contact@evalup.fr" style="color: #1E40AF;">contact@evalup.fr</a>.

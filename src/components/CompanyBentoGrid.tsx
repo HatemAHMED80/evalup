@@ -148,8 +148,8 @@ export function CompanyBentoGrid({
           </div>
         </div>
 
-        {/* Card 2: Valorisation - large & highlighted */}
-        {valorisation ? (
+        {/* Card 2: Valorisation - affiché uniquement quand disponible */}
+        {valorisation && (
           <div className="col-span-2 bg-gradient-to-br from-[#c9a227]/20 to-[#c9a227]/5 border border-[#c9a227]/30 rounded-2xl p-4">
             <div className="flex items-center justify-between mb-3">
               <p className="text-white/70 text-sm font-medium">Estimation de valeur</p>
@@ -170,16 +170,6 @@ export function CompanyBentoGrid({
             <div className="flex justify-between text-xs text-white/50 pt-2 border-t border-white/10">
               <span>Methode: {valorisation.methodePrincipale}</span>
               <span>Multiple: {valorisation.multipleSectoriel.min}x - {valorisation.multipleSectoriel.max}x</span>
-            </div>
-          </div>
-        ) : (
-          <div className="col-span-2 bg-white/5 border border-white/10 rounded-2xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-white/70 text-sm font-medium">Estimation de valeur</p>
-            </div>
-            <div className="text-center mb-3">
-              <p className="text-3xl font-bold text-white/30">N/A</p>
-              <p className="text-white/30 text-sm">Données insuffisantes</p>
             </div>
           </div>
         )}

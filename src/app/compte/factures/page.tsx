@@ -1,27 +1,67 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { Card, CardHeader, CardContent } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
+import { createClient } from '@/lib/supabase/client'
+
+interface Invoice {
+  id: string
+  amount_paid: number | null
+  invoice_url: string | null
+  invoice_pdf: string | null
+  created_at: string
+}
 
 export default function FacturesPage() {
-  // Mock data
-  const invoices = [
-    {
-      id: 'INV-001',
-      date: '15 janvier 2024',
-      description: 'Evaluation Complete - DANONE',
-      amount: '79,00 €',
-      status: 'paid',
-    },
-    {
-      id: 'INV-002',
-      date: '3 decembre 2023',
-      description: 'Evaluation Complete - ACME SAS',
-      amount: '79,00 €',
-      status: 'paid',
-    },
-  ]
+  const [invoices, setInvoices] = useState<Invoice[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    async function loadInvoices() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data } = await supabase
+        .from('invoices')
+        .select('id, amount_paid, invoice_url, invoice_pdf, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+
+      setInvoices((data as Invoice[]) || [])
+      setIsLoading(false)
+    }
+    loadInvoices()
+  }, [])
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    })
+  }
+
+  const formatAmount = (cents: number | null) => {
+    if (cents == null) return '-'
+    return (cents / 100).toLocaleString('fr-FR', {
+      style: 'currency',
+      currency: 'EUR',
+    })
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-[24px] font-bold text-[var(--text-primary)]">Mes factures</h1>
+          <p className="text-[var(--text-secondary)] mt-1">Chargement...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -45,9 +85,6 @@ export default function FacturesPage() {
                   <th className="text-left text-[12px] font-medium text-[var(--text-muted)] uppercase tracking-wide px-6 py-3">
                     Date
                   </th>
-                  <th className="text-left text-[12px] font-medium text-[var(--text-muted)] uppercase tracking-wide px-6 py-3">
-                    Description
-                  </th>
                   <th className="text-right text-[12px] font-medium text-[var(--text-muted)] uppercase tracking-wide px-6 py-3">
                     Montant
                   </th>
@@ -62,31 +99,36 @@ export default function FacturesPage() {
                   <tr key={invoice.id} className="border-b border-[var(--border)] last:border-0">
                     <td className="px-6 py-4">
                       <span className="font-mono text-[13px] text-[var(--text-primary)]">
-                        {invoice.id}
+                        {invoice.id.slice(0, 20)}...
                       </span>
                     </td>
                     <td className="px-6 py-4 text-[14px] text-[var(--text-secondary)]">
-                      {invoice.date}
-                    </td>
-                    <td className="px-6 py-4 text-[14px] text-[var(--text-primary)]">
-                      {invoice.description}
+                      {formatDate(invoice.created_at)}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <span className="font-mono text-[14px] font-medium text-[var(--text-primary)]">
-                        {invoice.amount}
+                        {formatAmount(invoice.amount_paid)}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <Badge variant={invoice.status === 'paid' ? 'success' : 'warning'}>
-                        {invoice.status === 'paid' ? 'Payee' : 'En attente'}
-                      </Badge>
+                      <Badge variant="success">Payee</Badge>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <Button variant="ghost" size="sm">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                      </Button>
+                      {invoice.invoice_pdf ? (
+                        <Button variant="ghost" size="sm" asChild>
+                          <a href={invoice.invoice_pdf} target="_blank" rel="noopener noreferrer">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          </a>
+                        </Button>
+                      ) : invoice.invoice_url ? (
+                        <Button variant="ghost" size="sm" asChild>
+                          <a href={invoice.invoice_url} target="_blank" rel="noopener noreferrer">
+                            Voir
+                          </a>
+                        </Button>
+                      ) : null}
                     </td>
                   </tr>
                 ))}

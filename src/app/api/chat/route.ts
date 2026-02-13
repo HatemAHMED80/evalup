@@ -5,7 +5,6 @@ import { anthropic, isAnthropicConfigured } from '@/lib/anthropic'
 import { getModelFallbacks } from '@/lib/ai/models'
 import type { ConversationContext, Message } from '@/lib/anthropic'
 import { buildArchetypePrompt } from '@/lib/prompts/builder'
-import { getSystemPrompt } from '@/lib/prompts'
 import { createClient } from '@/lib/supabase/server'
 import { chatBodySchema } from '@/lib/security/schemas'
 import {
@@ -323,27 +322,21 @@ export async function POST(request: NextRequest) {
       },
     }
 
-    // ── Choix du prompt : archétype (priorité) ou fallback base ──
-    let systemPrompt: string
-
-    if (context.archetype) {
-      console.log(`[API] Flow archétype: ${context.archetype}`)
-      systemPrompt = buildArchetypePrompt({
-        archetypeId: context.archetype,
-        context: contextWithProgress,
-        parcours: context.parcours,
-        pedagogyLevel: context.pedagogyLevel,
-        includeFondsCommerce: context.objet === 'fonds_commerce',
-      })
+    // ── Prompt archétype (seul chemin depuis la migration) ──
+    const archetypeId = context.archetype || 'services_recurrents'
+    if (!context.archetype) {
+      console.warn('[API] Pas d\'archétype fourni — fallback services_recurrents')
     } else {
-      // Fallback si pas d'archétype (legacy)
-      systemPrompt = getSystemPrompt(
-        context.entreprise?.codeNaf,
-        contextWithProgress,
-        context.parcours,
-        context.pedagogyLevel,
-      )
+      console.log(`[API] Flow archétype: ${context.archetype}`)
     }
+
+    let systemPrompt = buildArchetypePrompt({
+      archetypeId,
+      context: contextWithProgress,
+      parcours: context.parcours,
+      pedagogyLevel: context.pedagogyLevel,
+      includeFondsCommerce: context.objet === 'fonds_commerce',
+    })
 
     // Ajouter l'analyse locale au prompt si disponible
     if (localAnalysis) {

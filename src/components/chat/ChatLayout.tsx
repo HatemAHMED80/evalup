@@ -109,11 +109,11 @@ export function ChatLayout({ entreprise, initialContext, bentoGridData }: ChatLa
 
   // Sélectionner une évaluation existante
   const handleSelectEvaluation = (siren: string) => {
-    router.push(`/chat/${siren}`)
+    router.push(`/evaluation/${siren}/chat`)
   }
 
   return (
-    <div className="h-screen-safe flex bg-[#1a1a2e] no-overscroll">
+    <div className="h-screen-safe flex bg-[var(--bg-primary)] no-overscroll">
       {/* Sidebar */}
       <Sidebar
         entreprise={{
@@ -135,7 +135,7 @@ export function ChatLayout({ entreprise, initialContext, bentoGridData }: ChatLa
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header - with safe area top for notch */}
-        <header className="relative z-10 flex items-center gap-3 px-4 py-3 sm:py-4 pt-safe bg-[#1a1a2e] shadow-lg shadow-black/20">
+        <header className="relative z-10 flex items-center gap-3 px-4 py-3 sm:py-4 pt-safe bg-[var(--bg-primary)] border-b border-[var(--border)] shadow-[var(--shadow-xs)]">
           {/* Toggle sidebar button - larger touch target on mobile */}
           <button
             onClick={() => {
@@ -147,7 +147,7 @@ export function ChatLayout({ entreprise, initialContext, bentoGridData }: ChatLa
                 setSidebarCollapsed(!sidebarCollapsed)
               }
             }}
-            className="p-2.5 sm:p-2 -ml-2 text-white/70 hover:bg-white/10 rounded-lg transition-colors touch-target"
+            className="p-2.5 sm:p-2 -ml-2 text-[var(--text-tertiary)] hover:bg-[var(--bg-tertiary)] rounded-[var(--radius-md)] transition-colors touch-target"
             title={sidebarCollapsed ? 'Ouvrir le menu' : 'Fermer le menu'}
           >
             {sidebarCollapsed ? (
@@ -162,16 +162,16 @@ export function ChatLayout({ entreprise, initialContext, bentoGridData }: ChatLa
           </button>
 
           <div className="flex-1 min-w-0">
-            <h1 className="text-sm sm:text-sm font-medium text-white truncate">{entreprise.nom}</h1>
+            <h1 className="text-sm sm:text-sm font-medium text-[var(--text-primary)] truncate">{entreprise.nom}</h1>
           </div>
 
-          <div className="text-xs text-white/60 bg-white/10 px-2.5 py-1.5 sm:px-2 sm:py-1 rounded-full whitespace-nowrap">
+          <div className="text-xs text-[var(--text-secondary)] bg-[var(--bg-tertiary)] px-2.5 py-1.5 sm:px-2 sm:py-1 rounded-[var(--radius-full)] whitespace-nowrap">
             Étape {currentStep}/6
           </div>
         </header>
 
         {/* Chat area */}
-        <main className="flex-1 overflow-hidden bg-[#1a1a2e]">
+        <main className="flex-1 overflow-hidden bg-[var(--bg-primary)]">
           <ChatInterface
             entreprise={entreprise}
             initialContext={initialContext}
