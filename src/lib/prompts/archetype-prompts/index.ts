@@ -1,6 +1,5 @@
 // Index des prompts archétype
-// Chaque archétype aura son prompt spécifique (200-300 lignes)
-// Pour l'instant, tous les prompts sont vides (placeholder)
+// Chaque archétype a son prompt spécifique (200-300 lignes)
 
 import { SAAS_HYPER_PROMPT } from './saas-hyper'
 import { SAAS_MATURE_PROMPT } from './saas-mature'

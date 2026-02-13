@@ -48,7 +48,7 @@ export async function updateSession(request: NextRequest) {
 
   // Routes protegees - rediriger vers connexion si pas authentifie
   // Note: /diagnostic/result gère son propre auth gate côté client
-  const protectedRoutes = ['/compte', '/api/user']
+  const protectedRoutes = ['/compte', '/chat', '/api/user']
   const isProtectedRoute = protectedRoutes.some(route =>
     request.nextUrl.pathname.startsWith(route)
   )
