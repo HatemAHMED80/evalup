@@ -165,10 +165,10 @@ export async function checkEvaluationAccess(
     }
   }
 
-  // Cas 2: En attente upload ou review -> accès documents, pas de chat
+  // Cas 2: En attente upload ou review -> accès documents + chat
   if (evaluation.status === 'pending_upload' || evaluation.status === 'pending_review') {
     return {
-      canContinue: false,
+      canContinue: true,
       canUploadDocuments: true,
       canDownloadPDF: false,
       questionsRemaining: null,

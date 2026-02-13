@@ -39,16 +39,16 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // /app redirige vers /diagnostic (ancien dashboard remplacé par le flow diagnostic)
+  // /app redirige vers /dashboard (qui route vers la dernière évaluation ou /evaluation/new)
   if (request.nextUrl.pathname.startsWith('/app')) {
     const url = request.nextUrl.clone()
-    url.pathname = '/diagnostic'
+    url.pathname = '/dashboard'
     return NextResponse.redirect(url)
   }
 
   // Routes protegees - rediriger vers connexion si pas authentifie
   // Note: /diagnostic/result gère son propre auth gate côté client
-  const protectedRoutes = ['/compte', '/chat', '/api/user']
+  const protectedRoutes = ['/compte', '/chat', '/api/user', '/dashboard', '/evaluation']
   const isProtectedRoute = protectedRoutes.some(route =>
     request.nextUrl.pathname.startsWith(route)
   )

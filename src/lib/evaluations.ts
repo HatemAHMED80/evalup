@@ -2,6 +2,7 @@
 
 export interface SavedEvaluation {
   id: string
+  evaluationId?: string
   siren: string
   nom: string
   secteur: string

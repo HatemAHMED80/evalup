@@ -51,6 +51,7 @@ interface BentoGridData {
 }
 
 interface ChatLayoutProps {
+  evaluationId?: string
   entreprise: {
     siren: string
     nom: string
@@ -66,7 +67,7 @@ interface ChatLayoutProps {
   bentoGridData?: BentoGridData
 }
 
-export function ChatLayout({ entreprise, initialContext, bentoGridData }: ChatLayoutProps) {
+export function ChatLayout({ evaluationId, entreprise, initialContext, bentoGridData }: ChatLayoutProps) {
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false) // Mobile
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false) // Desktop
@@ -82,12 +83,13 @@ export function ChatLayout({ entreprise, initialContext, bentoGridData }: ChatLa
       secteur: entreprise.secteur,
       dateCreation: entreprise.dateCreation,
       currentStep: currentStep,
+      evaluationId: evaluationId,
     })
 
     // Charger toutes les évaluations
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Chargement initial nécessaire
     setEvaluations(getEvaluations())
-  }, [entreprise, currentStep])
+  }, [entreprise, currentStep, evaluationId])
 
   // Mettre à jour l'étape
   const handleStepChange = (step: number) => {
@@ -102,14 +104,19 @@ export function ChatLayout({ entreprise, initialContext, bentoGridData }: ChatLa
     setEvaluations(getEvaluations())
   }
 
-  // Nouvelle évaluation - retour à l'accueil
+  // Nouvelle évaluation
   const handleNewEvaluation = () => {
-    router.push('/')
+    router.push('/evaluation/new')
   }
 
   // Sélectionner une évaluation existante
   const handleSelectEvaluation = (siren: string) => {
-    router.push(`/evaluation/${siren}/chat`)
+    const evaluation = evaluations.find(e => e.siren === siren)
+    if (evaluation?.evaluationId) {
+      router.push(`/evaluation/${evaluation.evaluationId}/chat`)
+    } else {
+      router.push(`/evaluation/${siren}/chat`)
+    }
   }
 
   return (

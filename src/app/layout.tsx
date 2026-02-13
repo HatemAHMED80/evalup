@@ -90,11 +90,11 @@ export default async function RootLayout({
   return (
     <html lang="fr" suppressHydrationWarning>
       <head>
-        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: themeScript }} />
         {gaId && (
           <>
-            <script nonce={nonce} async src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`} />
-            <script nonce={nonce} dangerouslySetInnerHTML={{ __html: `
+            <script nonce={nonce} suppressHydrationWarning async src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`} />
+            <script nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: `
               window.dataLayer = window.dataLayer || [];
               function gtag(){dataLayer.push(arguments);}
               gtag('js', new Date());
@@ -106,6 +106,7 @@ export default async function RootLayout({
       <body className="antialiased">
         <script
           nonce={nonce}
+          suppressHydrationWarning
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({

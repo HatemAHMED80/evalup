@@ -317,7 +317,11 @@ export async function POST(request: NextRequest) {
       ...context,
       evaluationProgress: {
         ...context.evaluationProgress,
-        step: (evalAccess.evaluation?.questions_count || 0) + 1,
+        // Use the higher of client step or server questions_count to avoid regressing
+        step: Math.max(
+          context.evaluationProgress?.step || 1,
+          (evalAccess.evaluation?.questions_count || 0) + 1
+        ),
       },
     }
 

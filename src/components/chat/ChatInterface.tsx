@@ -125,6 +125,9 @@ export function ChatInterface({ entreprise, initialContext, onStepChange, previo
   // Index pour savoir où insérer le bento grid (après les messages initiaux)
   const bentoInsertIndex = useRef(previousMessages?.length || 0)
 
+  const messagesRef = useRef<Message[]>(messages)
+  messagesRef.current = messages
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const typeIntervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -592,7 +595,7 @@ Quel est le **salaire annuel brut du dirigeant** (charges patronales incluses) ?
       setIsStreaming(true)
       setStreamingContent('')
 
-      const allMessages = [...messages, { ...userMessage, content: messageContent }]
+      const allMessages = [...messagesRef.current, { ...userMessage, content: messageContent }]
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

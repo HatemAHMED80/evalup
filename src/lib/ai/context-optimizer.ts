@@ -52,7 +52,7 @@ export function estimerTokens(text: string): number {
  */
 export function compresserHistorique(
   messages: SimpleMessage[],
-  maxTokens: number = 4000
+  maxTokens: number = 30000
 ): SimpleMessage[] {
   const totalTokens = messages.reduce(
     (sum, m) => sum + estimerTokens(m.content),
@@ -69,7 +69,7 @@ export function compresserHistorique(
 
   // Garder le premier message (contexte initial) et les derniers messages
   const firstMessage = messages[0]
-  const recentMessages = messages.slice(-4) // 4 derniers échanges
+  const recentMessages = messages.slice(-8) // 8 derniers échanges (4 paires Q/R)
 
   // Ajouter le premier message
   if (firstMessage) {
@@ -78,7 +78,7 @@ export function compresserHistorique(
   }
 
   // Résumer les messages intermédiaires
-  const middleMessages = messages.slice(1, -4)
+  const middleMessages = messages.slice(1, -8)
   if (middleMessages.length > 0) {
     const summary = resumerMessages(middleMessages)
     const summaryMessage: SimpleMessage = {
@@ -294,7 +294,7 @@ function parseMontant(text: string): number {
 export function optimiserContexte(
   systemPrompt: string,
   messages: SimpleMessage[],
-  maxTokens: number = 8000
+  maxTokens: number = 50000
 ): OptimizedContext {
   const originalTokens = estimerTokens(systemPrompt) +
     messages.reduce((sum, m) => sum + estimerTokens(m.content), 0)
@@ -375,7 +375,7 @@ function formatMontant(montant: number): string {
 export function necessiteCompression(
   systemPrompt: string,
   messages: SimpleMessage[],
-  threshold: number = 6000
+  threshold: number = 50000
 ): boolean {
   const totalTokens = estimerTokens(systemPrompt) +
     messages.reduce((sum, m) => sum + estimerTokens(m.content), 0)

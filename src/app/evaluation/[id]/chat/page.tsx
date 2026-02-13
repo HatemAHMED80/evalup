@@ -247,5 +247,5 @@ export default function EvaluationChatPage({
     )
   }
 
-  return <ChatLayout entreprise={entreprise} initialContext={context} bentoGridData={bentoGridData || undefined} />
+  return <ChatLayout evaluationId={evaluationId} entreprise={entreprise} initialContext={context} bentoGridData={bentoGridData || undefined} />
 }
