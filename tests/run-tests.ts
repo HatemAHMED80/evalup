@@ -13,6 +13,11 @@
  *   TEST_SLOW_MO=100 npx ts-node tests/run-tests.ts     # Ralentir (debug)
  */
 
+// Load env vars from .env.local (needed for Supabase admin, Stripe, etc.)
+import * as dotenv from 'dotenv'
+import * as path from 'path'
+dotenv.config({ path: path.resolve(__dirname, '..', '.env.local') })
+
 import { resetReporter, TestReporter } from './utils/reporter'
 import { getLogger } from './utils/logger'
 import { runChatTests } from './e2e/chat.test'
@@ -25,6 +30,8 @@ import { runAIQualityTests } from './e2e/ai-quality.test'
 import { runAuthTests } from './e2e/auth.test'
 import { runDiagnosticTests } from './e2e/diagnostic.test'
 import { runCheckoutTests } from './e2e/checkout.test'
+import { runScenarioTests } from './e2e/scenarios.test'
+import { runEvalChatFlowTests } from './e2e/eval-chat-flow.test'
 
 // Définition des modules disponibles
 const AVAILABLE_MODULES: Record<string, (reporter: TestReporter) => Promise<void>> = {
@@ -38,6 +45,8 @@ const AVAILABLE_MODULES: Record<string, (reporter: TestReporter) => Promise<void
   payment: runPaymentTests,
   'ai-quality': runAIQualityTests,
   'full-flow': runFullFlowTests,
+  scenarios: runScenarioTests,
+  'eval-chat': runEvalChatFlowTests,
 }
 
 async function main() {

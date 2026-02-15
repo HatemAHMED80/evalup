@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { trackConversion } from '@/lib/analytics'
-import { createClient } from '@/lib/supabase/client'
 
 // ---------------------------------------------------------------------------
 // Rotating messages
@@ -70,21 +69,14 @@ export default function DiagnosticLoadingPage() {
 
     const callApi = async () => {
       try {
-        // Lancer auth check et API en parallèle
-        const supabase = createClient()
-        const [authResult, apiRes] = await Promise.all([
-          supabase.auth.getSession().catch(() => ({ data: { session: null } })),
-          fetch('/api/diagnostic', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(formData),
-          }),
-        ])
+        const apiRes = await fetch('/api/diagnostic', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData),
+        })
 
         clearTimeout(timeout)
         if (cancelled) return
-
-        const isAuthenticated = !!authResult.data.session
 
         if (!apiRes.ok) {
           const body = await apiRes.json().catch(() => ({}))
@@ -104,12 +96,7 @@ export default function DiagnosticLoadingPage() {
         await new Promise((r) => setTimeout(r, 600))
         if (cancelled) return
 
-        // Rediriger : si connecté → résultat direct, sinon → signup
-        if (isAuthenticated) {
-          router.push(`/diagnostic/result?archetype=${result.archetypeId}`)
-        } else {
-          router.push(`/diagnostic/signup?archetype=${result.archetypeId}`)
-        }
+        router.push(`/diagnostic/result?archetype=${result.archetypeId}`)
       } catch (err) {
         if (cancelled) return
         setError(err instanceof Error ? err.message : 'Erreur inattendue')

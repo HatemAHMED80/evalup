@@ -197,9 +197,12 @@ export function getClientIp(request: Request): string {
  * Headers de rate limit pour la réponse
  */
 export function getRateLimitHeaders(result: RateLimitResult): Record<string, string> {
+  const now = Math.floor(Date.now() / 1000)
+  const retryAfter = Math.max(1, result.reset - now)
   return {
     'X-RateLimit-Limit': result.limit.toString(),
     'X-RateLimit-Remaining': result.remaining.toString(),
     'X-RateLimit-Reset': result.reset.toString(),
+    'Retry-After': retryAfter.toString(),
   }
 }

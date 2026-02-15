@@ -22,43 +22,6 @@ interface EntrepriseData {
   chiffreAffaires?: number
 }
 
-interface BentoGridData {
-  financier?: {
-    chiffreAffaires: number
-    resultatNet: number
-    ebitdaComptable: number
-    tresorerie: number
-    dettes: number
-    capitauxPropres: number
-    anneeDernierBilan: number
-  }
-  valorisation?: {
-    valeurEntreprise: { basse: number; moyenne: number; haute: number }
-    prixCession: { basse: number; moyenne: number; haute: number }
-    detteNette: number
-    multipleSectoriel: { min: number; max: number }
-    methodePrincipale: string
-  }
-  ratios?: {
-    margeNette: number
-    margeEbitda: number
-    ratioEndettement: number
-    roe: number
-  }
-  diagnostic?: {
-    noteGlobale: string
-    score: number
-    pointsForts: string[]
-    pointsVigilance: string[]
-  }
-  dataQuality?: {
-    dataYear: number
-    dataAge: number
-    isDataOld: boolean
-    confidence: 'faible' | 'moyenne' | 'haute'
-  }
-}
-
 interface EvalApiResponse {
   id: string
   siren: string
@@ -83,7 +46,6 @@ export default function EvaluationChatPage({
 
   const [entreprise, setEntreprise] = useState<EntrepriseData | null>(null)
   const [context, setContext] = useState<ConversationContext | null>(null)
-  const [bentoGridData, setBentoGridData] = useState<BentoGridData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -107,8 +69,8 @@ export default function EvaluationChatPage({
         }
         const evalData: EvalApiResponse = await evalRes.json()
 
-        // 2. Charger les données entreprise depuis Pappers
-        const response = await fetch(`/api/entreprise/${evalData.siren}`)
+        // 2. Charger les données entreprise depuis Pappers (+ extracted_financials si en base)
+        const response = await fetch(`/api/entreprise/${evalData.siren}?evaluationId=${evaluationId}`)
         const data = await response.json()
 
         if (!response.ok) {
@@ -120,50 +82,17 @@ export default function EvaluationChatPage({
         const entrepriseData: EntrepriseData = data.entreprise
         setEntreprise(entrepriseData)
 
-        // Construire BentoGrid depuis les bilans Pappers (sans valorisation)
         const bilans = data.initialContext?.financials?.bilans || []
-        const dernierBilan = bilans[0]
 
-        if (dernierBilan) {
-          const currentYear = new Date().getFullYear()
-          const dataYear = dernierBilan.annee
-          const dataAge = currentYear - dataYear
-          const isDataOld = dataAge >= 2
-          const ebitda = (dernierBilan.resultat_exploitation || 0) + (dernierBilan.dotations_amortissements || 0)
-
-          setBentoGridData({
-            financier: {
-              chiffreAffaires: dernierBilan.chiffre_affaires || 0,
-              resultatNet: dernierBilan.resultat_net || 0,
-              ebitdaComptable: ebitda,
-              tresorerie: dernierBilan.tresorerie || 0,
-              dettes: dernierBilan.dettes_financieres || 0,
-              capitauxPropres: dernierBilan.capitaux_propres || 0,
-              anneeDernierBilan: dataYear,
-            },
-            ratios: {
-              margeEbitda: dernierBilan.chiffre_affaires > 0 ? ebitda / dernierBilan.chiffre_affaires : 0,
-              margeNette: dernierBilan.chiffre_affaires > 0 ? dernierBilan.resultat_net / dernierBilan.chiffre_affaires : 0,
-              ratioEndettement: dernierBilan.capitaux_propres > 0 ? (dernierBilan.dettes_financieres || 0) / dernierBilan.capitaux_propres : 0,
-              roe: dernierBilan.capitaux_propres > 0 ? dernierBilan.resultat_net / dernierBilan.capitaux_propres : 0,
-            },
-            dataQuality: {
-              dataYear,
-              dataAge,
-              isDataOld,
-              confidence: isDataOld ? 'faible' : dataAge === 1 ? 'moyenne' : 'haute',
-            },
-          })
-        }
-
-        // 3. Charger les données validées des documents (sessionStorage)
-        let extractedDocData: ConversationContext['extractedDocData'] = undefined
+        // 3. Charger les données financières extraites
+        // Priorité: sessionStorage (upload en cours) > base de données (via API)
+        let extractedDocData: ConversationContext['extractedDocData'] = data.initialContext?.extractedDocData || undefined
         const validatedRaw = sessionStorage.getItem(`evalup_validated_data_${evaluationId}`)
         if (validatedRaw) {
           try {
             extractedDocData = JSON.parse(validatedRaw)
           } catch {
-            // Données corrompues — on continue sans
+            // Données corrompues — on continue avec les données de la base
           }
         }
 
@@ -206,6 +135,11 @@ export default function EvaluationChatPage({
             recurring: Number(diag.recurring) || 0,
             masseSalariale: Number(diag.masseSalariale) || 0,
             effectif: String(diag.effectif || ''),
+            remunerationDirigeant: diag.remunerationDirigeant != null ? Number(diag.remunerationDirigeant) : undefined,
+            dettesFinancieres: diag.dettesFinancieres != null ? Number(diag.dettesFinancieres) : undefined,
+            tresorerieActuelle: diag.tresorerieActuelle != null ? Number(diag.tresorerieActuelle) : undefined,
+            concentrationClient: diag.concentrationClient != null ? Number(diag.concentrationClient) : undefined,
+            mrrMensuel: diag.mrrMensuel != null ? Number(diag.mrrMensuel) : undefined,
           } : undefined,
           // Données extraites des documents comptables
           extractedDocData,
@@ -247,5 +181,5 @@ export default function EvaluationChatPage({
     )
   }
 
-  return <ChatLayout evaluationId={evaluationId} entreprise={entreprise} initialContext={context} bentoGridData={bentoGridData || undefined} />
+  return <ChatLayout evaluationId={evaluationId} entreprise={entreprise} initialContext={context} />
 }

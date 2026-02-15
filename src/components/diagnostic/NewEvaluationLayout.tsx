@@ -82,7 +82,7 @@ export function NewEvaluationLayout() {
         </header>
 
         {/* Diagnostic form area */}
-        <main className="flex-1 overflow-y-auto bg-[var(--bg-primary)]">
+        <main className="flex-1 overflow-y-auto overscroll-contain bg-[var(--bg-primary)]">
           <DiagnosticForm
             embedded
             className="flex flex-col items-center justify-center px-6 py-8 min-h-full"

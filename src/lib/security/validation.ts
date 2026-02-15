@@ -175,9 +175,8 @@ export function validateAndCleanSiren(siren: string): { valid: boolean; cleaned?
     return { valid: false, error: 'Le SIREN ne doit contenir que des chiffres' }
   }
 
-  if (!isValidSiren(cleaned)) {
-    return { valid: false, error: 'SIREN invalide (échec vérification Luhn)' }
-  }
+  // Note: Luhn check removed — some valid French SIRENs don't pass Luhn
+  // (e.g. La Poste, legacy numbers). Pappers validates the SIREN directly.
 
   return { valid: true, cleaned }
 }

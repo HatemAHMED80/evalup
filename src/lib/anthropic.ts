@@ -87,6 +87,11 @@ export interface ConversationContext {
     recurring: number
     masseSalariale: number
     effectif: string
+    remunerationDirigeant?: number
+    dettesFinancieres?: number
+    tresorerieActuelle?: number
+    concentrationClient?: number
+    mrrMensuel?: number
   }
   // Données extraites des documents comptables (post-upload, validées par l'utilisateur)
   extractedDocData?: {
@@ -97,7 +102,7 @@ export interface ConversationContext {
       source_documents: string[]
     }
   }
-  // Retraitements EBITDA collectés via le chat (blocs [DATA_UPDATE])
+  // Retraitements EBITDA (sidebar ou chat)
   retraitements?: {
     salaireDirigeant?: number
     loyerAnnuel?: number
@@ -110,13 +115,25 @@ export interface ConversationContext {
     salairesExcessifsFamille?: number
     salairesInsuffisantsFamille?: number
   }
-  // Données qualitatives collectées via le chat (blocs [DATA_UPDATE])
+  // Données qualitatives (sidebar ou chat)
   qualitativeData?: {
     dependanceDirigeant?: 'faible' | 'moyenne' | 'forte'
     concentrationClients?: number
     participationMinoritaire?: boolean
     litiges?: boolean
     contratsCles?: boolean
+  }
+  // Métriques SaaS/Marketplace (sidebar ou chat)
+  saasMetrics?: {
+    mrr?: number           // Monthly Recurring Revenue (EUR)
+    arr?: number           // Annual Recurring Revenue (EUR)
+    churnMensuel?: number  // Taux de churn mensuel (%)
+    nrr?: number           // Net Revenue Retention annuel (%)
+    cac?: number           // Coût d'acquisition client (EUR)
+    cacPayback?: number    // Mois pour rembourser le CAC
+    ltv?: number           // Lifetime Value client (EUR)
+    runway?: number        // Mois de trésorerie restants
+    gmv?: number           // Gross Merchandise Value (marketplaces, EUR)
   }
 }
 

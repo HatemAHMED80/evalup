@@ -896,6 +896,9 @@ export interface DiagnosticInput {
   hasPhysicalStore?: boolean
   hasMRR?: boolean
   nafCode?: string
+  remunerationDirigeant?: number
+  concentrationClient?: number
+  mrrMensuel?: number
 }
 
 // ---------------------------------------------------------------------------
@@ -949,7 +952,7 @@ function isSectorIndustrie(s: string): boolean {
  * Détecte l'archétype de valorisation adapté selon les règles de priorité P1→P6.
  * Source : /docs/ARCHETYPES.xlsx (onglet "Routing Automatique")
  *
- * Retourne l'id de l'archétype (clé de ARCHETYPES). Fallback: 'conseil'.
+ * Retourne l'id de l'archétype (clé de ARCHETYPES). Fallback: 'services_recurrents'.
  */
 export function detectArchetype(data: DiagnosticInput): string {
   const {
@@ -998,7 +1001,9 @@ export function detectArchetype(data: DiagnosticInput): string {
   }
 
   // Règle 5 : CA < 300K€ → #14 Micro-entreprise / Solo
-  if (revenue < 300_000) {
+  // SAUF marketplace (dynamiques différentes à faible CA)
+  // Note : les SaaS hyper-croissance (P1) sont déjà capturés avant
+  if (revenue < 300_000 && s !== 'marketplace') {
     return 'micro_solo'
   }
 
@@ -1078,5 +1083,6 @@ export function detectArchetype(data: DiagnosticInput): string {
   }
 
   // ── P6 — Fallback ────────────────────────────────────────────────────────
+  // Secteur inconnu ou sans métriques distinctives → conseil (catchall)
   return 'conseil'
 }

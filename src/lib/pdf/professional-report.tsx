@@ -126,6 +126,8 @@ export interface ProfessionalReportData {
   // Niveau de confiance
   niveauConfiance?: 'elevee' | 'moyenne' | 'faible'
   facteursIncertitude?: string[]
+  // Notes de cohérence (Gate 3 warnings)
+  validationNotes?: string[]
   // Diagnostic
   diagnostic: {
     noteGlobale: 'A' | 'B' | 'C' | 'D' | 'E'

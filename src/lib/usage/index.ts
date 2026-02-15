@@ -14,6 +14,7 @@ export {
   createPurchase,
   confirmPurchase,
   updateEvaluationDiagnosticData,
+  verifyAndUnlockPayment,
 } from './evaluations'
 
 export type {

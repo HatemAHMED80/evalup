@@ -116,7 +116,7 @@ export function Sidebar({
         </div>
 
         {/* Historique des évaluations */}
-        <div className={`flex-1 overflow-y-auto ${isCollapsed ? 'lg:hidden' : ''}`}>
+        <div className={`flex-1 overflow-y-auto overscroll-contain ${isCollapsed ? 'lg:hidden' : ''}`}>
           {/* Évaluation actuelle - seulement si une entreprise est sélectionnée */}
           {entreprise.siren && currentStep > 0 && (
             <div className="p-3 border-b border-[var(--border)]">
@@ -205,7 +205,7 @@ export function Sidebar({
         </div>
 
         {/* Progression (mode collapsed) */}
-        <div className={`flex-1 p-2 overflow-y-auto hidden ${isCollapsed ? 'lg:block' : 'lg:hidden'}`}>
+        <div className={`flex-1 p-2 overflow-y-auto overscroll-contain hidden ${isCollapsed ? 'lg:block' : 'lg:hidden'}`}>
           <nav className="space-y-1">
             {steps.map((step) => {
               const isActive = step.num === currentStep

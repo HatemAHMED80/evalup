@@ -168,6 +168,164 @@ export function genererDiagnostic(
 }
 
 // ============================================
+// AJUSTEMENT CONTEXTUEL DU SCORE
+// ============================================
+
+export interface ScoreAjustement {
+  label: string
+  points: number
+  reason: string
+}
+
+/**
+ * Applique des ajustements contextuels au score de base du diagnostic.
+ * Appelé par l'API diagnostic (sans pappersContext) et le pipeline PDF (avec pappersContext).
+ */
+export function ajusterScoreDiagnostic(
+  baseScore: number,
+  input: {
+    revenue?: number
+    ebitda?: number
+    growth?: number
+    recurring?: number
+    masseSalariale?: number
+    concentrationClient?: number
+    remunerationDirigeant?: number
+    dettesFinancieres?: number
+    tresorerieActuelle?: number
+    mrrMensuel?: number
+  },
+  pappersContext?: {
+    nombreBilans: number
+    dernierBilanAge: number
+    ancienneteAnnees: number
+    ebitdaNegatif2Ans: boolean
+  }
+): { score: number; grade: 'A' | 'B' | 'C' | 'D' | 'E'; ajustements: ScoreAjustement[] } {
+  const ajustements: ScoreAjustement[] = []
+  let plafond = 100
+  let plancher = 0
+
+  // --- MALUS ---
+
+  // CA < 50k → plafond score 65 (B max)
+  if (input.revenue != null && input.revenue < 50_000 && input.revenue > 0) {
+    plafond = 65
+    ajustements.push({ label: 'CA < 50k€', points: 0, reason: 'Score plafonné à 65 (B max)' })
+  }
+
+  // Concentration client > 50% → -15 ; > 30% → -5
+  if (input.concentrationClient != null) {
+    if (input.concentrationClient > 50) {
+      ajustements.push({ label: 'Concentration client > 50%', points: -15, reason: 'Dépendance critique à quelques clients' })
+    } else if (input.concentrationClient > 30) {
+      ajustements.push({ label: 'Concentration client > 30%', points: -5, reason: 'Concentration client élevée' })
+    }
+  }
+
+  // P2: Rémunération dirigeant = 0 → malus variable selon le profil
+  if (input.remunerationDirigeant === 0 && input.revenue != null && input.revenue > 0) {
+    if (input.revenue < 100_000) {
+      // Micro non valorisable : EBITDA = salaire déguisé, transférabilité nulle
+      plafond = Math.min(plafond, 40)
+      ajustements.push({ label: 'Micro non valorisable', points: -10, reason: 'CA < 100k€ + rémunération 0€ — EBITDA fictif, transférabilité nulle' })
+    } else if (input.masseSalariale != null && input.masseSalariale <= 5) {
+      // Solo > 100k avec rému 0 : EBITDA non représentatif
+      plafond = Math.min(plafond, 55)
+      ajustements.push({ label: 'Solo non rémunéré', points: -10, reason: 'Rémunération 0€ + activité solo — EBITDA non représentatif' })
+    } else {
+      ajustements.push({ label: 'Dirigeant non rémunéré', points: -5, reason: 'Rémunération dirigeant à 0 sur CA > 100k€' })
+    }
+  }
+
+  // Croissance < 0 → -10
+  if (input.growth != null && input.growth < 0) {
+    ajustements.push({ label: 'CA en décroissance', points: -10, reason: `Croissance négative (${input.growth}%)` })
+  }
+
+  // EBITDA < 0 → -10
+  if (input.ebitda != null && input.ebitda < 0) {
+    ajustements.push({ label: 'EBITDA négatif', points: -10, reason: "L'entreprise n'est pas rentable" })
+  }
+
+  // EBITDA négatif 2 ans consécutifs (pappersContext) → -5
+  if (pappersContext?.ebitdaNegatif2Ans) {
+    ajustements.push({ label: 'EBITDA négatif 2 ans', points: -5, reason: 'Pertes consécutives sur 2 exercices' })
+  }
+
+  // Masse salariale > 60% → -5
+  if (input.masseSalariale != null && input.masseSalariale > 60) {
+    ajustements.push({ label: 'Masse salariale > 60%', points: -5, reason: 'Charges de personnel très élevées' })
+  }
+
+  // Dernier bilan > 18 mois (pappersContext) → -10
+  if (pappersContext && pappersContext.dernierBilanAge > 18) {
+    ajustements.push({ label: 'Bilan ancien (> 18 mois)', points: -10, reason: 'Données financières potentiellement obsolètes' })
+  }
+
+  // Moins de 2 bilans (pappersContext) → -5
+  if (pappersContext && pappersContext.nombreBilans < 2) {
+    ajustements.push({ label: 'Historique limité', points: -5, reason: 'Moins de 2 bilans disponibles' })
+  }
+
+  // Ancienneté > 3 ans et CA < 100k (pappersContext) → -10
+  if (pappersContext && pappersContext.ancienneteAnnees > 3 && input.revenue != null && input.revenue < 100_000) {
+    ajustements.push({ label: 'Entreprise mature à faible CA', points: -10, reason: 'Plus de 3 ans d\'ancienneté avec CA < 100k€' })
+  }
+
+  // --- BONUS ---
+
+  // Croissance > 40% → +5
+  if (input.growth != null && input.growth > 40) {
+    ajustements.push({ label: 'Forte croissance', points: +5, reason: `Croissance > 40% (${input.growth}%)` })
+  }
+
+  // Récurrence > 80% → +5
+  if (input.recurring != null && input.recurring > 80) {
+    ajustements.push({ label: 'Récurrence élevée', points: +5, reason: `${input.recurring}% de revenus récurrents` })
+  }
+
+  // Ancienneté > 10 ans et croissance >= 0 (pappersContext) → +5
+  if (pappersContext && pappersContext.ancienneteAnnees > 10 && input.growth != null && input.growth >= 0) {
+    ajustements.push({ label: 'Entreprise établie', points: +5, reason: 'Plus de 10 ans avec croissance positive' })
+  }
+
+  // Concentration client < 10% → +3
+  if (input.concentrationClient != null && input.concentrationClient < 10) {
+    ajustements.push({ label: 'Base client diversifiée', points: +3, reason: 'Concentration < 10%, portefeuille diversifié' })
+  }
+
+  // P1: Hyper-croissance avec MRR (SaaS/Marketplace)
+  // L'EBITDA négatif est structurel dans ce modèle → plancher pour ne pas sous-noter
+  // Seuil : CA >= 200k (sinon c'est du pré-revenu, pas de l'hyper-croissance)
+  if (input.growth != null && input.growth > 40
+    && input.mrrMensuel != null && input.mrrMensuel > 0
+    && input.revenue != null && input.revenue >= 200_000) {
+    if (input.growth > 60) {
+      plancher = Math.max(plancher, 70)
+      ajustements.push({ label: 'Hyper-croissance SaaS/Marketplace', points: 0, reason: `Plancher B+ : croissance ${input.growth}% avec MRR ${input.mrrMensuel}€/mois — EBITDA négatif attendu` })
+    } else {
+      plancher = Math.max(plancher, 65)
+      ajustements.push({ label: 'Croissance SaaS/Marketplace', points: 0, reason: `Plancher B : croissance ${input.growth}% avec MRR — modèle en phase d'investissement` })
+    }
+  }
+
+  // Calcul final
+  const totalPoints = ajustements.reduce((sum, a) => sum + a.points, 0)
+  const rawScore = Math.round(baseScore + totalPoints)
+  const score = Math.max(plancher, Math.min(plafond, rawScore))
+
+  let grade: 'A' | 'B' | 'C' | 'D' | 'E'
+  if (score >= 80) grade = 'A'
+  else if (score >= 65) grade = 'B'
+  else if (score >= 50) grade = 'C'
+  else if (score >= 35) grade = 'D'
+  else grade = 'E'
+
+  return { score, grade, ajustements }
+}
+
+// ============================================
 // GÉNÉRATION D'EXPLICATION
 // ============================================
 

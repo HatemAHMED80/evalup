@@ -45,6 +45,15 @@ async function testCheckoutPageLoads(page: Page, logger: TestLogger): Promise<vo
   })
   await wait(3000)
 
+  const url = page.url()
+
+  // Checkout may redirect to auth (connexion/inscription) if user is not logged in
+  if (url.includes('/connexion') || url.includes('/inscription')) {
+    logger.info('Checkout redirected to auth page (expected when not authenticated)')
+    await takeScreenshot(page, 'checkout_page')
+    return
+  }
+
   const hasContent = await page.evaluate(() => {
     const text = document.body.innerText.toLowerCase()
     return text.includes('paiement') ||

@@ -46,6 +46,13 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // Landing page : utilisateur connecté → dashboard directement
+  if (request.nextUrl.pathname === '/' && user) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/dashboard'
+    return NextResponse.redirect(url)
+  }
+
   // Routes protegees - rediriger vers connexion si pas authentifie
   // Note: /diagnostic/result gère son propre auth gate côté client
   const protectedRoutes = ['/compte', '/chat', '/api/user', '/dashboard', '/evaluation']

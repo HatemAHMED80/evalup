@@ -1,7 +1,7 @@
 /* ─── KEYFRAMES ─── */
 
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(20px); }
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
@@ -76,6 +76,11 @@
   75% { transform: translateX(4px); }
 }
 
+@keyframes highlightPulse {
+  0%, 100% { background-color: transparent; }
+  30% { background-color: var(--accent-light); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08); }
+}
+
 /* ─── UTILITY CLASSES ─── */
 
 .animate-fade-up {
@@ -124,6 +129,10 @@
 
 .animate-shake {
   animation: shake 0.5s var(--ease-default);
+}
+
+.animate-highlight-pulse {
+  animation: highlightPulse 2s var(--ease-default);
 }
 
 /* Shimmer effect for loading states */

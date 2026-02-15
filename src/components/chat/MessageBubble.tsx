@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 interface MessageBubbleProps {
   message: {
     id?: string
@@ -133,7 +134,7 @@ export function MessageBubble({
   // Extraire les différentes sections du contenu
   const { mainContent, context, question, suggestions, numericFields } = isUser
     ? { mainContent: message.content, context: null, question: null, suggestions: [], numericFields: [] }
-    : parseContent(message.content.replace('[EVALUATION_COMPLETE]', '').replace(/\[DATA_UPDATE\][\s\S]*?\[\/DATA_UPDATE\]/gi, ''))
+    : parseContent(message.content.replace('[EVALUATION_COMPLETE]', ''))
 
   // Toggle une suggestion
   const toggleSuggestion = (suggestion: string) => {
@@ -225,6 +226,7 @@ export function MessageBubble({
       <div className="flex-1 min-w-0 pt-1">
         <div className="prose prose-sm max-w-none">
           <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
             components={{
               p: ({ children }) => <p className="mb-3 last:mb-0 text-[var(--text-primary)] leading-relaxed">{children}</p>,
               ul: ({ children }) => <ul className="list-disc pl-4 mb-3 space-y-1 text-[var(--text-primary)]">{children}</ul>,

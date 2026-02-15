@@ -156,14 +156,28 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Si pas d'evalId mais on a un SIREN, on peut quand même procéder
-      // L'evalId sera créé après le paiement via le webhook
-      if (!evalId && !siren) {
-        console.error('Checkout error: ni evalId ni siren', { evaluationId, siren, userId: user.id })
-        return NextResponse.json(
-          { error: 'SIREN ou ID evaluation requis pour achat unique' },
-          { status: 400 }
-        )
+      // Bloquer si on n'a pas d'evalId — un evalId vide causerait une session Stripe
+      // avec metadata evaluation_id='' et un webhook incapable de marquer le paiement
+      if (!evalId) {
+        if (!siren) {
+          console.error('[Checkout] Ni evalId ni siren', { evaluationId, siren, userId: user.id })
+          return NextResponse.json(
+            { error: 'SIREN ou ID evaluation requis pour achat unique' },
+            { status: 400 }
+          )
+        }
+        // Dernière tentative forcée
+        try {
+          const { getOrCreateEvaluation } = await import('@/lib/usage/evaluations')
+          const lastAttempt = await getOrCreateEvaluation(user.id, siren)
+          evalId = lastAttempt.id
+        } catch (finalError) {
+          console.error('[Checkout] CRITICAL: Impossible de créer une évaluation après 3 tentatives', { siren, userId: user.id, error: finalError })
+          return NextResponse.json(
+            { error: 'Impossible de préparer votre évaluation. Veuillez relancer le diagnostic.', code: 'EVAL_CREATION_FAILED' },
+            { status: 500 }
+          )
+        }
       }
 
       // Stocker les données du diagnostic dans l'évaluation

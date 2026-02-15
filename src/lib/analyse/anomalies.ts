@@ -233,7 +233,8 @@ export function convertirBilansNormalises(bilans: Array<{
   capitauxPropres: number
   dettesFinancieres: number
   dettesFournisseurs: number
-}>): BilanAnnuel[] {
+}> | undefined | null): BilanAnnuel[] {
+  if (!bilans || !Array.isArray(bilans)) return []
   return bilans.map(b => ({
     annee: b.annee,
     chiffre_affaires: b.chiffreAffaires,

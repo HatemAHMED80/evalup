@@ -208,7 +208,77 @@
   .font-sans {
     font-family: var(--font-sans);
   }
+
+  .no-overscroll {
+    overscroll-behavior: none;
+  }
+
+  .h-screen-safe {
+    height: 100dvh;
+  }
+
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
 }
+
+/* ─── DATA PANEL DARK SCOPE ─── */
+.panel-dark {
+  --dp-bg: #0d0f15;
+  --dp-card: rgba(255,255,255,0.014);
+  --dp-card-border: rgba(255,255,255,0.028);
+  --dp-line: rgba(255,255,255,0.022);
+  --dp-blue: #4466ee;
+  --dp-green: #44aa66;
+  --dp-orange: #bb8833;
+  --dp-red: #cc5544;
+  --dp-text: #e4e7f0;
+  --dp-text-dim: #606580;
+  --dp-text-muted: #484d68;
+  --dp-text-faint: #383d55;
+  --dp-text-focus: #b0b4cc;
+  --dp-input: #dde0ee;
+  --dp-placeholder: #2a2e44;
+}
+
+.panel-dark ::-webkit-scrollbar { width: 3px; }
+.panel-dark ::-webkit-scrollbar-track { background: transparent; }
+.panel-dark ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 2px; }
+
+.panel-dark input::-webkit-outer-spin-button,
+.panel-dark input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.panel-dark input[type=number] { -moz-appearance: textfield; }
+
+/* ─── DIAGNOSTIC DARK SCOPE ─── */
+.diag-dark {
+  --dg-bg: #0d0f15;
+  --dg-card: rgba(255,255,255,0.02);
+  --dg-card-border: rgba(255,255,255,0.04);
+  --dg-text: #e8eaf0;
+  --dg-text-dim: #7a7f99;
+  --dg-text-muted: #4a5070;
+  --dg-text-faint: #3a3f55;
+  --dg-accent: #4466ee;
+  --dg-accent-hover: #5577ff;
+  --dg-accent-glow: rgba(68,102,238,0.2);
+  --dg-input-bg: rgba(255,255,255,0.025);
+  --dg-input-border: rgba(255,255,255,0.06);
+  --dg-input-text: #e8eaf0;
+  --dg-warn: #e8b84d;
+  --dg-warn-bg: rgba(232,184,77,0.10);
+  --dg-warn-border: rgba(232,184,77,0.25);
+  --dg-danger: #e87755;
+  --dg-danger-bg: rgba(232,119,85,0.10);
+  --dg-danger-border: rgba(232,119,85,0.20);
+}
+
+.diag-dark input::-webkit-outer-spin-button,
+.diag-dark input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.diag-dark input[type=number] { -moz-appearance: textfield; }
 
 /* ─── COMPONENT STYLES ─── */
 @layer components {

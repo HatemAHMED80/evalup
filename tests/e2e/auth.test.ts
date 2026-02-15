@@ -8,9 +8,32 @@ import {
   closeTestContext,
   takeScreenshot,
   wait,
+  waitForText,
 } from '../utils/browser'
+import { createClient as createSupabaseAdmin } from '@supabase/supabase-js'
 
 const MODULE_NAME = 'auth'
+
+// E2E test user for signup + login flow
+const E2E_TEST_USER = {
+  email: process.env.TEST_E2E_EMAIL || 'hatem+e2e@cajis.fr',
+  password: process.env.TEST_E2E_PASSWORD || 'qsdfghjk',
+}
+
+/**
+ * Create a Supabase admin client (service role) for test operations
+ * like deleting/confirming users programmatically.
+ */
+function getAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !serviceKey) {
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY for admin operations')
+  }
+  return createSupabaseAdmin(url, serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+}
 
 async function runTest(
   name: string,
@@ -647,6 +670,206 @@ async function testAuthNavigation(page: Page, logger: TestLogger): Promise<void>
 }
 
 // ============================================================
+// TEST 14: Full signup → confirm → login flow
+// ============================================================
+async function testSignupThenLogin(page: Page, logger: TestLogger): Promise<void> {
+  const { email, password } = E2E_TEST_USER
+  logger.info(`Testing full signup + login flow with: ${email}`)
+
+  // ── Step 0: Clean up — delete existing user if any ──
+  let adminClient: ReturnType<typeof getAdminClient>
+  try {
+    adminClient = getAdminClient()
+  } catch (err) {
+    throw new Error(`Cannot run signup test without admin client: ${err}`)
+  }
+
+  // Find and delete existing user by email
+  const { data: existingUsers } = await adminClient.auth.admin.listUsers() as { data: { users: Array<{ id: string; email?: string }> } }
+  const existingUser = existingUsers?.users?.find(u => u.email === email)
+  if (existingUser) {
+    logger.info(`  Deleting existing user: ${existingUser.id}`)
+    await adminClient.auth.admin.deleteUser(existingUser.id)
+    await wait(1000)
+  }
+
+  // ── Step 1: Navigate to /inscription ──
+  logger.info('Step 1: Navigate to /inscription')
+  await page.goto(`${TEST_CONFIG.baseUrl}/inscription`, { waitUntil: 'networkidle2' })
+  await page.deleteCookie(...(await page.cookies()))
+  await page.evaluate(() => { try { localStorage.clear() } catch {} })
+  await page.goto(`${TEST_CONFIG.baseUrl}/inscription`, { waitUntil: 'networkidle2' })
+  await wait(2000)
+
+  // ── Step 2: Fill the signup form ──
+  logger.info('Step 2: Fill signup form')
+  const emailInput = await page.$('input[type="email"]')
+  const passwordInputs = await page.$$('input[type="password"]')
+  const checkbox = await page.$('input[type="checkbox"]')
+
+  if (!emailInput) throw new Error('Email input not found on /inscription')
+  if (passwordInputs.length < 2) throw new Error(`Expected 2 password inputs, found ${passwordInputs.length}`)
+  if (!checkbox) throw new Error('CGU checkbox not found')
+
+  await emailInput.click({ clickCount: 3 })
+  await emailInput.type(email)
+  await passwordInputs[0].click({ clickCount: 3 })
+  await passwordInputs[0].type(password)
+  await passwordInputs[1].click({ clickCount: 3 })
+  await passwordInputs[1].type(password)
+  await checkbox.click()
+
+  // ── Step 3: Submit the form ──
+  logger.info('Step 3: Submit signup form')
+  const submitBtn = await page.evaluateHandle(() => {
+    return Array.from(document.querySelectorAll('button')).find(btn => {
+      const t = (btn.textContent || '').trim()
+      return t.includes('Créer') || t.includes('Creer')
+    })
+  })
+  if (!submitBtn) throw new Error('"Créer mon compte" button not found')
+  await (submitBtn as any).click()
+  await wait(3000)
+
+  // ── Step 4: Check signup result ──
+  logger.info('Step 4: Check signup result')
+  const signupResult = await page.evaluate(() => {
+    const text = document.body.innerText
+    return {
+      hasVerifyEmail: text.includes('Vérifiez votre email') || text.includes('email de confirmation'),
+      hasAlreadyRegistered: text.includes('déjà utilisé') || text.includes('already registered'),
+      hasError: !!document.querySelector('.bg-red-50'),
+      errorText: document.querySelector('.bg-red-50')?.textContent?.trim() || '',
+      bodyPreview: text.substring(0, 500),
+    }
+  })
+  logger.info(`  Signup result: ${JSON.stringify(signupResult)}`)
+
+  let signupViaUI = false
+
+  if (signupResult.hasVerifyEmail) {
+    logger.info('  Signup successful via UI — email verification required')
+    signupViaUI = true
+    await takeScreenshot(page, 'signup_e2e_success')
+  } else if (signupResult.hasError) {
+    const isRateLimit = signupResult.errorText.includes('rate limit')
+    const isAlreadyRegistered = signupResult.hasAlreadyRegistered
+    if (isRateLimit || isAlreadyRegistered) {
+      logger.warn(`  Signup via UI hit limit: ${signupResult.errorText}`)
+      logger.info('  Falling back to admin API user creation...')
+      // Create user via admin API instead
+      const { data: createData, error: createError } = await adminClient.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+      })
+      if (createError) {
+        // User might already exist, try to update password
+        const { data: users } = await adminClient.auth.admin.listUsers() as { data: { users: Array<{ id: string; email?: string }> } }
+        const user = users?.users?.find(u => u.email === email)
+        if (user) {
+          await adminClient.auth.admin.updateUserById(user.id, { password, email_confirm: true })
+          logger.info(`  Updated existing user: ${user.id}`)
+        } else {
+          throw new Error(`Admin API create failed: ${createError.message}`)
+        }
+      } else {
+        logger.info(`  User created via admin API: ${createData.user.id}`)
+      }
+      await takeScreenshot(page, 'signup_e2e_fallback_admin')
+    } else {
+      await takeScreenshot(page, 'signup_e2e_error')
+      throw new Error(`Signup failed with error: ${signupResult.errorText}`)
+    }
+  } else {
+    // Maybe auto-confirmed
+    const url = page.url()
+    if (url.includes('/app') || url.includes('/dashboard')) {
+      logger.info('  Signup auto-confirmed (no email verification required)')
+      signupViaUI = true
+    } else {
+      await takeScreenshot(page, 'signup_unexpected_state')
+      throw new Error(`Signup didn't show verification screen or auto-redirect. Body: ${signupResult.bodyPreview}`)
+    }
+  }
+
+  // ── Step 5: Confirm user via admin API (if signed up via UI) ──
+  if (signupViaUI) {
+    logger.info('Step 5: Confirm user via admin API')
+    const { data: newUsers } = await adminClient.auth.admin.listUsers() as { data: { users: Array<{ id: string; email?: string }> } }
+    const newUser = newUsers?.users?.find(u => u.email === email)
+    if (!newUser) throw new Error(`User ${email} not found after signup`)
+
+    const { error: updateError } = await adminClient.auth.admin.updateUserById(
+      newUser.id,
+      { email_confirm: true }
+    )
+    if (updateError) throw new Error(`Failed to confirm user: ${updateError.message}`)
+    logger.info(`  User confirmed: ${newUser.id}`)
+  }
+  await wait(500)
+
+  // ── Step 6: Login with the new account ──
+  logger.info('Step 6: Login with new account')
+  await page.goto(`${TEST_CONFIG.baseUrl}/connexion`, { waitUntil: 'networkidle2' })
+  await page.deleteCookie(...(await page.cookies()))
+  await page.evaluate(() => { try { localStorage.clear() } catch {} })
+  await page.goto(`${TEST_CONFIG.baseUrl}/connexion`, { waitUntil: 'networkidle2' })
+  await wait(2000)
+
+  const loginEmail = await page.$('input[type="email"]')
+  const loginPassword = await page.$('input[type="password"]')
+  if (!loginEmail || !loginPassword) throw new Error('Login form inputs not found')
+
+  await loginEmail.click({ clickCount: 3 })
+  await loginEmail.type(email)
+  await loginPassword.click({ clickCount: 3 })
+  await loginPassword.type(password)
+
+  const loginBtn = await page.evaluateHandle(() => {
+    return Array.from(document.querySelectorAll('button')).find(btn =>
+      (btn.textContent || '').includes('connecter')
+    )
+  })
+  if (!loginBtn) throw new Error('"Se connecter" button not found')
+  await (loginBtn as any).click()
+  await wait(5000)
+
+  // ── Step 7: Verify login succeeded ──
+  logger.info('Step 7: Verify login redirect')
+  const loginUrl = page.url()
+  const loginSuccess = !loginUrl.includes('/connexion')
+
+  if (!loginSuccess) {
+    const errorMsg = await page.evaluate(() => {
+      const el = document.querySelector('.bg-red-50')
+      return el?.textContent?.trim() || ''
+    })
+    await takeScreenshot(page, 'login_e2e_failed')
+    throw new Error(`Login failed after signup. URL: ${loginUrl}. Error: ${errorMsg}`)
+  }
+
+  logger.info(`  Login successful! Redirected to: ${loginUrl}`)
+
+  // ── Step 8: Verify protected page access ──
+  logger.info('Step 8: Verify /compte access')
+  await page.goto(`${TEST_CONFIG.baseUrl}/compte`, { waitUntil: 'networkidle2' })
+  await wait(3000)
+
+  const compteUrl = page.url()
+  if (compteUrl.includes('/connexion')) {
+    throw new Error(`/compte redirected to connexion — session not preserved after signup+login`)
+  }
+
+  const hasCompteContent = await page.evaluate(() => document.body.innerText.length > 50)
+  if (!hasCompteContent) throw new Error('/compte is blank after signup+login')
+
+  logger.info('  /compte accessible with new account')
+  await takeScreenshot(page, 'signup_then_login_success')
+  logger.info(`Full signup + login flow PASSED for ${email}`)
+}
+
+// ============================================================
 // MAIN
 // ============================================================
 export async function runAuthTests(reporter: TestReporter): Promise<void> {
@@ -726,6 +949,19 @@ export async function runAuthTests(reporter: TestReporter): Promise<void> {
     }, ctx.logger, reporter))
   } catch (error) {
     ctx.logger.error(`Auth group crashed: ${error}`)
+  } finally {
+    await closeTestContext(ctx).catch(() => {})
+  }
+
+  // GROUPE 3: Full signup → confirm → login E2E flow
+  ctx = await createTestContext(MODULE_NAME + '-signup-flow')
+
+  try {
+    reporter.addResult(await runTest('Inscription + Connexion (flow complet)', async () => {
+      await testSignupThenLogin(ctx.page, ctx.logger)
+    }, ctx.logger, reporter))
+  } catch (error) {
+    ctx.logger.error(`Signup flow group crashed: ${error}`)
   } finally {
     await closeTestContext(ctx).catch(() => {})
   }

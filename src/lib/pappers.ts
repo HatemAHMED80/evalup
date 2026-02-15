@@ -2,7 +2,6 @@
 // Documentation API : https://api.pappers.fr/documentation
 
 import { nafToSecteur } from './naf-mapping'
-import { isValidSiren } from './security/validation'
 
 // ============================================================
 // TYPES POUR L'API PAPPERS
@@ -322,15 +321,9 @@ export async function rechercherEntreprise(sirenOuSiret: string): Promise<Donnee
     )
   }
 
-  // Validation Luhn pour SIREN
-  const sirenPart = isSiren ? numero : numero.substring(0, 9)
-  if (!isValidSiren(sirenPart)) {
-    throw new PappersError(
-      'Numéro SIREN invalide (échec vérification Luhn)',
-      400,
-      'INVALID_SIREN'
-    )
-  }
+  // Note: Luhn check removed — some valid French SIRENs don't pass Luhn
+  // (e.g. La Poste, legacy numbers). Pappers validates the SIREN directly.
+
   const baseUrl = 'https://api.pappers.fr/v2/entreprise'
 
   const params = new URLSearchParams({
@@ -358,6 +351,75 @@ export async function rechercherBilans(siren: string): Promise<BilanNormalise[]>
 
   const url = `${baseUrl}?${params}`
   return fetchWithRetry(url, (data) => normaliserBilans(data.finances, data.bilans))
+}
+
+// ============================================================
+// EFFECTIF — TRANCHE INSEE
+// ============================================================
+
+const EFFECTIF_TRANCHE_MAP: Record<string, { label: string; mid: number }> = {
+  '00': { label: '0 salarié', mid: 0 },
+  '01': { label: '1 ou 2 salariés', mid: 1 },
+  '02': { label: '3 à 5 salariés', mid: 4 },
+  '03': { label: '6 à 9 salariés', mid: 7 },
+  '11': { label: '10 à 19 salariés', mid: 14 },
+  '12': { label: '20 à 49 salariés', mid: 34 },
+  '21': { label: '50 à 99 salariés', mid: 74 },
+  '22': { label: '100 à 199 salariés', mid: 149 },
+  '31': { label: '200 à 249 salariés', mid: 224 },
+  '32': { label: '250 à 499 salariés', mid: 374 },
+  '41': { label: '500 à 999 salariés', mid: 749 },
+  '42': { label: '1 000 à 1 999 salariés', mid: 1499 },
+  '51': { label: '2 000 à 4 999 salariés', mid: 3499 },
+  '52': { label: '5 000 à 9 999 salariés', mid: 7499 },
+  '53': { label: '10 000 salariés et plus', mid: 15000 },
+}
+
+/**
+ * Parse l'effectif depuis les données Pappers.
+ * Gère les codes tranche INSEE (ex: "11" → "10 à 19 salariés")
+ * et les valeurs min/max directes.
+ */
+export function parseEffectifPappers(data: {
+  tranche_effectif?: string
+  effectif_min?: number
+  effectif_max?: number
+  effectif?: string
+}): { label: string; mid: number | null } {
+  // 1. Code INSEE connu
+  const code = data.tranche_effectif?.trim()
+  if (code && EFFECTIF_TRANCHE_MAP[code]) {
+    return EFFECTIF_TRANCHE_MAP[code]
+  }
+
+  // 2. tranche_effectif est un label textuel (pas un code)
+  if (code && code.length > 2) {
+    // C'est déjà un label lisible, essayer d'extraire un mid depuis min/max
+    const mid = data.effectif_min && data.effectif_max
+      ? Math.round((data.effectif_min + data.effectif_max) / 2)
+      : null
+    return { label: code, mid }
+  }
+
+  // 3. Min/max disponibles
+  if (data.effectif_min != null && data.effectif_max != null) {
+    const mid = Math.round((data.effectif_min + data.effectif_max) / 2)
+    return { label: `${data.effectif_min} à ${data.effectif_max} salariés`, mid }
+  }
+
+  // 4. Valeur directe (champ effectif string) — garde de sécurité
+  if (data.effectif) {
+    const n = parseInt(data.effectif, 10)
+    if (!isNaN(n) && n > 10_000) {
+      // Probablement un code INSEE brut, pas un effectif réel
+      return { label: 'Non disponible', mid: null }
+    }
+    if (!isNaN(n)) {
+      return { label: `${n} salariés`, mid: n }
+    }
+  }
+
+  return { label: 'Non disponible', mid: null }
 }
 
 // ============================================================
@@ -400,10 +462,8 @@ function normaliserDonnees(data: EntreprisePappers): DonneesEntreprisePappers {
   }
 
   // Effectif
-  let effectif: number | null = dernierBilan?.effectif || null
-  if (!effectif && data.effectif_min && data.effectif_max) {
-    effectif = Math.round((data.effectif_min + data.effectif_max) / 2)
-  }
+  const effectifParsed = parseEffectifPappers(data)
+  const effectif: number | null = effectifParsed.mid ?? dernierBilan?.effectif ?? null
 
   // Adresse complète
   const adresseParts = [data.siege.adresse_ligne_1, data.siege.adresse_ligne_2].filter(Boolean)
@@ -435,7 +495,7 @@ function normaliserDonnees(data: EntreprisePappers): DonneesEntreprisePappers {
     ville: data.siege.ville,
     region: mapCodePostalToRegion(data.siege.code_postal),
     effectif,
-    trancheEffectif: data.tranche_effectif || null,
+    trancheEffectif: effectifParsed.label !== 'Non disponible' ? effectifParsed.label : (data.tranche_effectif || null),
     dirigeants,
     chiffreAffaires: dernierBilan?.chiffreAffaires || null,
     resultatNet: dernierBilan?.resultatNet || null,
@@ -629,4 +689,107 @@ function mapCodePostalToRegion(codePostal: string): string | null {
   }
 
   return regionsMap[departement] || null
+}
+
+// ============================================================
+// DOCUMENTS — COMPTES ANNUELS
+// ============================================================
+
+export interface ComptePappers {
+  date_cloture: string
+  annee: number
+  type_comptes?: string        // 'comptes_annuels', 'comptes_consolides'
+  confidentialite?: string     // 'public', 'confidentiel', 'partiellement_confidentiel'
+  token: string                // Token pour télécharger le PDF via /document/telechargement
+  nom_fichier_pdf?: string
+}
+
+/**
+ * Récupère la liste des comptes annuels disponibles pour un SIREN.
+ * Retourne les tokens nécessaires pour télécharger les documents via telechargerDocument().
+ */
+export async function rechercherComptes(siren: string): Promise<ComptePappers[]> {
+  const apiKey = process.env.PAPPERS_API_KEY
+  if (!apiKey) {
+    throw new PappersError('Clé API Pappers non configurée', 500, 'API_NOT_CONFIGURED')
+  }
+
+  const numero = siren.replace(/[\s-]/g, '')
+  if (numero.length !== 9) {
+    throw new PappersError('Format SIREN invalide', 400, 'INVALID_FORMAT')
+  }
+
+  const baseUrl = 'https://api.pappers.fr/v2/entreprise'
+  const params = new URLSearchParams({
+    api_token: apiKey,
+    siren: numero,
+    champs: 'comptes',
+  })
+
+  const url = `${baseUrl}?${params}`
+
+  return fetchWithRetry(url, (data) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const comptes = (data as any).comptes
+    if (!comptes || !Array.isArray(comptes)) return []
+
+    return comptes
+      .filter((c: ComptePappers) => c.token) // Ne garder que ceux avec un token
+      .sort((a: ComptePappers, b: ComptePappers) => b.annee - a.annee)
+      .slice(0, 3) // 3 dernières années max
+  })
+}
+
+/**
+ * Télécharge un document (PDF) depuis Pappers via son token.
+ * Le token est obtenu via rechercherComptes().
+ */
+export async function telechargerDocument(token: string): Promise<Buffer> {
+  const apiKey = process.env.PAPPERS_API_KEY
+  if (!apiKey) {
+    throw new PappersError('Clé API Pappers non configurée', 500, 'API_NOT_CONFIGURED')
+  }
+
+  const url = `https://api.pappers.fr/document/telechargement?token=${encodeURIComponent(token)}&api_token=${encodeURIComponent(apiKey)}`
+
+  let lastError: PappersError | null = null
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetch(url)
+
+      if (!response.ok) {
+        lastError = new PappersError(
+          `Erreur téléchargement document: ${response.status}`,
+          response.status,
+          response.status === 404 ? 'NOT_FOUND' : 'DOWNLOAD_ERROR'
+        )
+
+        if (RETRYABLE_STATUS_CODES.includes(response.status) && attempt < MAX_RETRIES) {
+          const delay = Math.pow(2, attempt) * 500
+          await new Promise(resolve => setTimeout(resolve, delay))
+          continue
+        }
+
+        throw lastError
+      }
+
+      const arrayBuffer = await response.arrayBuffer()
+      return Buffer.from(arrayBuffer)
+    } catch (error) {
+      if (error instanceof PappersError) {
+        if (!RETRYABLE_STATUS_CODES.includes(error.statusCode || 0)) throw error
+        lastError = error
+      } else {
+        lastError = new PappersError(`Erreur connexion: ${error}`, 500, 'CONNECTION_ERROR')
+      }
+
+      if (attempt < MAX_RETRIES) {
+        const delay = Math.pow(2, attempt) * 500
+        await new Promise(resolve => setTimeout(resolve, delay))
+      }
+    }
+  }
+
+  throw lastError || new PappersError('Erreur téléchargement après tentatives', 500, 'UNKNOWN_ERROR')
 }

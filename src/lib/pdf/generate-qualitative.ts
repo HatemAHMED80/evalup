@@ -3,6 +3,7 @@
 
 import type { RatiosFinanciers } from '@/lib/analyse/ratios'
 import type { SectorBenchmarks } from './sector-benchmarks'
+import type { QualitativeData } from '@/lib/valuation/calculator-v2'
 
 // ============================================
 // DONNÉES SECTORIELLES
@@ -218,11 +219,12 @@ export function genererSWOT(params: {
   ratios: RatiosFinanciers
   secteurCode: string
   benchmark: SectorBenchmarks
+  qualitativeData?: QualitativeData
 }): { forces: string[]; faiblesses: string[]; opportunites: string[]; menaces: string[] } {
-  const { pointsForts, pointsVigilance, ratios, secteurCode, benchmark } = params
+  const { pointsForts, pointsVigilance, ratios, secteurCode, benchmark, qualitativeData } = params
   const donnees = DONNEES_SECTEUR[secteurCode] || DONNEES_SECTEUR.default
 
-  // Forces : pointsForts + forces financières détectées
+  // Forces : pointsForts + forces financières détectées + données qualitatives du chat
   const forces = [...pointsForts]
   if (ratios.margeEbitda >= benchmark.margeEbitda.max * 0.8 && !forces.some(f => /marge|ebitda/i.test(f))) {
     forces.push('Marge EBITDA superieure a la mediane du secteur')
@@ -233,8 +235,18 @@ export function genererSWOT(params: {
   if (ratios.roe > 0.15 && !forces.some(f => /roe|capitaux/i.test(f))) {
     forces.push('Bonne rentabilite des capitaux propres')
   }
+  // Forces issues du chat
+  if (qualitativeData?.contratsCles && !forces.some(f => /contrat/i.test(f))) {
+    forces.push('Contrats long terme securisant le chiffre d\'affaires')
+  }
+  if (qualitativeData?.dependanceDirigeant === 'faible' && !forces.some(f => /dirigeant|dependance/i.test(f))) {
+    forces.push('Faible dependance au dirigeant facilitant la transmission')
+  }
+  if (qualitativeData?.concentrationClients != null && qualitativeData.concentrationClients < 20 && !forces.some(f => /client.*diversif/i.test(f))) {
+    forces.push('Base clients diversifiee reduisant le risque commercial')
+  }
 
-  // Faiblesses : pointsVigilance + faiblesses financières
+  // Faiblesses : pointsVigilance + faiblesses financières + données qualitatives du chat
   const faiblesses = [...pointsVigilance]
   if (ratios.margeNette < benchmark.margeNette.min * 1.2 && !faiblesses.some(f => /marge.*nette/i.test(f))) {
     faiblesses.push('Marge nette sous la mediane du secteur')
@@ -244,6 +256,16 @@ export function genererSWOT(params: {
   }
   if (ratios.bfrSurCa > 0.25 && !faiblesses.some(f => /bfr/i.test(f))) {
     faiblesses.push('BFR eleve pesant sur la tresorerie')
+  }
+  // Faiblesses issues du chat
+  if (qualitativeData?.litiges && !faiblesses.some(f => /litige|juridique/i.test(f))) {
+    faiblesses.push('Procedures juridiques en cours pesant sur la valorisation')
+  }
+  if (qualitativeData?.dependanceDirigeant === 'forte' && !faiblesses.some(f => /dirigeant|dependance/i.test(f))) {
+    faiblesses.push('Forte dependance au dirigeant, facteur de decote a la cession')
+  }
+  if (qualitativeData?.concentrationClients != null && qualitativeData.concentrationClients > 30 && !faiblesses.some(f => /concentration.*client/i.test(f))) {
+    faiblesses.push(`Concentration client elevee (${qualitativeData.concentrationClients}% sur le premier client)`)
   }
 
   return {
@@ -287,8 +309,9 @@ export function genererRisques(params: {
   secteurCode: string
   niveauConfiance: 'elevee' | 'moyenne' | 'faible'
   benchmark: SectorBenchmarks
+  qualitativeData?: QualitativeData
 }): { titre: string; description: string; niveau: 'faible' | 'moyen' | 'eleve' }[] {
-  const { ratios, secteurCode, niveauConfiance, benchmark } = params
+  const { ratios, secteurCode, niveauConfiance, benchmark, qualitativeData } = params
   const risques: { titre: string; description: string; niveau: 'faible' | 'moyen' | 'eleve' }[] = []
 
   // 1. Risque de rentabilité
@@ -336,14 +359,50 @@ export function genererRisques(params: {
     })
   }
 
-  // 4. Risque de dépendance (key person)
-  risques.push({
-    titre: 'Dependance au dirigeant',
-    description: 'Le degre de dependance au dirigeant actuel n\'a pas ete evalue en detail. Si l\'activite repose principalement sur le dirigeant, cela constitue un facteur de decote significatif.',
-    niveau: niveauConfiance === 'faible' ? 'eleve' : 'moyen',
-  })
+  // 4. Risque de dépendance (key person) — utilise les données du chat si disponibles
+  if (qualitativeData?.dependanceDirigeant) {
+    const niveauMap: Record<string, 'faible' | 'moyen' | 'eleve'> = {
+      faible: 'faible',
+      moyenne: 'moyen',
+      forte: 'eleve',
+    }
+    const descriptionMap: Record<string, string> = {
+      faible: 'La dependance au dirigeant est evaluee comme faible. L\'entreprise dispose d\'une organisation permettant une transition maitrisee, ce qui est un atout pour la valorisation.',
+      moyenne: 'La dependance au dirigeant est evaluee comme moyenne. Un plan de transition structure sur 6-12 mois serait recommande pour securiser la cession.',
+      forte: 'La dependance au dirigeant est evaluee comme forte. L\'activite repose significativement sur le dirigeant, ce qui constitue un facteur de decote important (15-30%) et necessite un accompagnement post-cession prolonge.',
+    }
+    risques.push({
+      titre: 'Dependance au dirigeant',
+      description: descriptionMap[qualitativeData.dependanceDirigeant],
+      niveau: niveauMap[qualitativeData.dependanceDirigeant],
+    })
+  } else {
+    risques.push({
+      titre: 'Dependance au dirigeant',
+      description: 'Le degre de dependance au dirigeant actuel n\'a pas ete evalue en detail. Si l\'activite repose principalement sur le dirigeant, cela constitue un facteur de decote significatif.',
+      niveau: niveauConfiance === 'faible' ? 'eleve' : 'moyen',
+    })
+  }
 
-  // 5. Risques sectoriels
+  // 5. Risque litiges juridiques (données du chat)
+  if (qualitativeData?.litiges) {
+    risques.push({
+      titre: 'Litiges juridiques en cours',
+      description: 'Des procedures juridiques en cours ont ete signalees. Elles peuvent generer des couts imprevus et constituer un frein pour un acquereur potentiel. Une provision adequate est recommandee.',
+      niveau: 'eleve',
+    })
+  }
+
+  // 6. Risque de concentration clients (données du chat)
+  if (qualitativeData?.concentrationClients != null && qualitativeData.concentrationClients > 30) {
+    risques.push({
+      titre: 'Concentration du portefeuille clients',
+      description: `Le premier client represente ${qualitativeData.concentrationClients}% du chiffre d'affaires. Cette dependance commerciale constitue un risque en cas de perte du client et un facteur de decote a la valorisation.`,
+      niveau: qualitativeData.concentrationClients > 50 ? 'eleve' : 'moyen',
+    })
+  }
+
+  // 7. Risques sectoriels
   const donnees = DONNEES_SECTEUR[secteurCode] || DONNEES_SECTEUR.default
   if (donnees.menaces.length > 0) {
     risques.push({
@@ -353,7 +412,7 @@ export function genererRisques(params: {
     })
   }
 
-  // 6. Risque de fiabilité des données
+  // 8. Risque de fiabilité des données
   if (niveauConfiance === 'faible') {
     risques.push({
       titre: 'Qualite des donnees limitee',

@@ -24,6 +24,11 @@ interface DiagnosticRequestBody {
   nafCode?: string
   hasPatrimoine?: boolean
   loyersNets?: number
+  remunerationDirigeant?: number
+  dettesFinancieres?: number
+  tresorerieActuelle?: number
+  concentrationClient?: number
+  mrrMensuel?: number
 }
 
 export async function POST(request: NextRequest) {
@@ -67,8 +72,11 @@ export async function POST(request: NextRequest) {
     recurring: recurring ?? 0,
     masseSalariale: masseSalariale ?? 0,
     hasPhysicalStore: ['commerce', 'industrie'].includes(activityType),
-    hasMRR: ['saas', 'marketplace'].includes(activityType),
+    hasMRR: ['saas', 'marketplace'].includes(activityType) || (body.mrrMensuel != null && body.mrrMensuel > 0),
     nafCode: body.nafCode || undefined,
+    remunerationDirigeant: body.remunerationDirigeant,
+    concentrationClient: body.concentrationClient,
+    mrrMensuel: body.mrrMensuel,
   }
 
   // Detect archetype
@@ -94,6 +102,11 @@ export async function POST(request: NextRequest) {
       effectif,
       hasPatrimoine: body.hasPatrimoine ?? false,
       loyersNets: body.loyersNets ?? null,
+      remunerationDirigeant: body.remunerationDirigeant ?? null,
+      dettesFinancieres: body.dettesFinancieres ?? null,
+      tresorerieActuelle: body.tresorerieActuelle ?? null,
+      concentrationClient: body.concentrationClient ?? null,
+      mrrMensuel: body.mrrMensuel ?? null,
     },
   })
 }

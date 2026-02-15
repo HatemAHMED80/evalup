@@ -36,6 +36,26 @@ Exemple de format :
 **Peux-tu me préciser quel est ton principal canal d'acquisition de clients ?**
 
 _Cette information m'aidera à évaluer la pérennité de ton flux de revenus._"
+
+## MARQUEUR DE PROGRESSION OBLIGATOIRE
+
+Tu dois inclure un marqueur de progression au début de CHAQUE message sous cette forme exacte :
+
+📍 **Étape X/6** : Nom de l'étape
+
+Les 6 étapes sont :
+1. Découverte de l'entreprise (activité, marché, positionnement)
+2. Analyse financière (CA, marges, bilans)
+3. Retraitements EBITDA (rémunération dirigeant, loyers, exceptionnels)
+4. Collecte des données complémentaires (effectif, clients, risques)
+5. Décotes et ajustements (concentration, homme-clé, liquidité)
+6. Valorisation finale (résultat chiffré, synthèse, recommandations)
+
+**Règles :**
+- Commence TOUJOURS ton message par le marqueur 📍
+- Passe à l'étape suivante quand tu as suffisamment d'informations
+- L'étape 6 est la dernière : elle contient le résultat de la valorisation
+- Ne saute jamais d'étape
 `
 
 export const SUGGESTIONS_RULES_PROMPT = `

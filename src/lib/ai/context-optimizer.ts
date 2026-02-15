@@ -51,7 +51,7 @@ export function estimerTokens(text: string): number {
 /**
  * Compresse un message assistant en gardant :
  * - La question posée (texte en gras ou dernière phrase interrogative)
- * - Les données structurées ([DATA_UPDATE], montants, anomalies ⚠️)
+ * - Les données structurées (montants, anomalies ⚠️)
  * - Le marqueur d'étape (📍 Étape X/6)
  * Supprime :
  * - Les explications verbose, benchmarks, paragraphes d'introduction
@@ -89,13 +89,7 @@ function compresserMessageAssistant(content: string): string {
     parts.push(...anomalies)
   }
 
-  // 4. Garder les [DATA_UPDATE] blocs
-  const dataUpdate = content.match(/\[DATA_UPDATE\][\s\S]*?\[\/DATA_UPDATE\]/i)
-  if (dataUpdate) {
-    parts.push(dataUpdate[0])
-  }
-
-  // 5. Garder les montants/ratios mentionnés dans le contexte d'analyse
+  // 4. Garder les montants/ratios mentionnés dans le contexte d'analyse
   // (ex: "Ta marge nette de 3% est en dessous de la moyenne...")
   const analyses = content.match(/(?:marge|ratio|taux|rentabilité|croissance|dette)[^.]*\d+[^.]*\./gi)
   if (analyses) {

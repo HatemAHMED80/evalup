@@ -97,15 +97,20 @@ export default function UploadPage({
   const [analyzeError, setAnalyzeError] = useState<string | null>(null)
 
   // ── Fetch evaluation info + auth check ──
-  // Si ?payment=success, le webhook Stripe n'a peut-être pas encore tourné.
-  // On poll l'API quelques fois avant de considérer que le paiement a échoué.
+  // Si ?payment=success, on vérifie le paiement directement via Stripe API
+  // (sans dépendre du webhook) puis on charge l'évaluation.
   useEffect(() => {
     const isPostPayment = searchParams.get('payment') === 'success'
-    const maxRetries = isPostPayment ? 15 : 0
-    const retryDelay = 2000 // 2s entre chaque retry (15 × 2s = 30s max)
 
-    async function fetchEvaluation(attempt = 0) {
+    async function loadEvaluation() {
       try {
+        // Si retour de paiement, vérifier et débloquer via Stripe API d'abord
+        if (isPostPayment) {
+          await fetch(`/api/evaluations/${evaluationId}/verify-payment`, {
+            method: 'POST',
+          })
+        }
+
         const res = await fetch(`/api/evaluations/${evaluationId}`)
         if (res.status === 401) {
           setAuthError('Connectez-vous pour acceder a cette page.')
@@ -118,20 +123,11 @@ export default function UploadPage({
           return
         }
         if (res.status === 402) {
-          // Webhook pas encore arrivé — retry si post-payment
-          if (attempt < maxRetries) {
-            setTimeout(() => fetchEvaluation(attempt + 1), retryDelay)
-            return // Ne pas toucher loading — on poll encore
-          }
-          // Toujours pas payé après tous les retries
           if (isPostPayment) {
-            // NE PAS rediriger vers checkout (cause une boucle infinie)
-            // L'utilisateur vient de payer — le webhook est probablement en retard
             setIsWebhookDelay(true)
-            setAuthError('Votre paiement a ete recu mais le traitement prend plus de temps que prevu.')
+            setAuthError('Le paiement n\'a pas pu etre verifie. Contactez le support.')
             setLoading(false)
           } else {
-            // Accès direct sans paiement — rediriger vers checkout
             router.replace(`/checkout?eval=${evaluationId}`)
           }
           return
@@ -144,7 +140,6 @@ export default function UploadPage({
         const data = await res.json()
         setEvaluation(data)
         setLoading(false)
-        // Nettoyer le ?payment=success de l'URL
         if (isPostPayment) {
           const url = new URL(window.location.href)
           url.searchParams.delete('payment')
@@ -155,7 +150,7 @@ export default function UploadPage({
         setLoading(false)
       }
     }
-    fetchEvaluation()
+    loadEvaluation()
   }, [evaluationId, router, searchParams])
 
   // ── File validation ──

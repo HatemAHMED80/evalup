@@ -23,9 +23,8 @@ export async function GET() {
     .not('status', 'in', '("payment_pending","refunded")')
     .order('created_at', { ascending: false })
     .limit(1)
-    .single()
 
-  const evaluation = data as { id: string; siren: string; entreprise_nom: string; status: string } | null
+  const evaluation = (data as { id: string; siren: string; entreprise_nom: string; status: string }[] | null)?.[0] ?? null
 
   if (!evaluation) {
     return NextResponse.json({ evaluation: null })

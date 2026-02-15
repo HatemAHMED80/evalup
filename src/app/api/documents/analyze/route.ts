@@ -252,17 +252,47 @@ Réponds UNIQUEMENT en JSON valide avec cette structure exacte :
         text: `Analyse ce document financier scanné (${pdfImages.length} page${pdfImages.length > 1 ? 's' : ''}). Extrais toutes les données chiffrées visibles.`,
       })
 
-      response = await anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 4096,
-        system: systemPrompt,
-        messages: [
-          {
-            role: 'user',
-            content: imageContent,
-          }
-        ],
-      })
+      try {
+        response = await anthropic.messages.create({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 4096,
+          system: systemPrompt,
+          messages: [
+            {
+              role: 'user',
+              content: imageContent,
+            }
+          ],
+        })
+      } catch (visionError) {
+        console.error('[Documents] Vision API échouée, fallback texte:', visionError)
+        // Tenter une extraction texte classique comme dernier recours
+        const fallbackText = await extractPdfText(buffer)
+        if (fallbackText.length >= 100) {
+          response = await anthropic.messages.create({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 4096,
+            system: systemPrompt,
+            messages: [
+              {
+                role: 'user',
+                content: `Analyse ce document (extraction texte, le scan OCR a échoué) :\n\n${fallbackText.substring(0, 50000)}`
+              }
+            ],
+          })
+        } else {
+          return NextResponse.json({
+            documentId: crypto.randomUUID(),
+            fileName: file.name,
+            fileSize: file.size,
+            extractedText: '',
+            analysis: {
+              error: 'Le document scanné n\'a pas pu être analysé. Essayez de le convertir en PDF texte ou de le re-scanner avec une meilleure résolution.',
+            },
+            processingMethod: 'vision_failed',
+          })
+        }
+      }
     } else {
       // Analyse classique par texte
       response = await anthropic.messages.create({

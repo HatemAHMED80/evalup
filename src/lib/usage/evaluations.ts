@@ -47,6 +47,9 @@ export interface Evaluation {
   valuation_method?: string
   stripe_payment_id?: string
   amount_paid?: number
+  extracted_financials?: Record<string, unknown> | null
+  documents_source?: string | null
+  pappers_doc_status?: string | null
   created_at: string
   paid_at?: string
   completed_at?: string
@@ -76,18 +79,19 @@ export async function getOrCreateEvaluation(
   const supabase = getSupabaseAdmin()
 
   // Chercher une evaluation existante non terminee
-  const { data: existing } = await supabase
+  // Priorité : évaluations payées/en cours > en attente de paiement
+  const { data: allExisting } = await supabase
     .from('evaluations')
     .select('*')
     .eq('user_id', userId)
     .eq('siren', siren)
-    .not('status', 'eq', 'completed')
+    .not('status', 'in', '("completed","refunded")')
     .order('created_at', { ascending: false })
-    .limit(1)
-    .single()
 
-  if (existing) {
-    return existing as Evaluation
+  if (allExisting && allExisting.length > 0) {
+    // Privilégier une évaluation déjà payée/en cours
+    const paidEval = allExisting.find(e => e.status !== 'payment_pending')
+    return (paidEval || allExisting[0]) as Evaluation
   }
 
   // Creer une nouvelle evaluation
@@ -484,6 +488,70 @@ export async function confirmPurchase(
     await markEvaluationAsPaid(purchase.evaluation_id, stripePaymentIntentId, PLANS.eval_complete.price * 100)
   } else {
     console.warn('[confirmPurchase] Purchase non trouvee pour session:', stripeCheckoutSessionId)
+  }
+}
+
+/**
+ * Vérifie le statut de paiement directement via Stripe API
+ * et met à jour l'évaluation si le paiement est confirmé.
+ * Retourne true si l'évaluation a été débloquée.
+ */
+export async function verifyAndUnlockPayment(evaluationId: string): Promise<boolean> {
+  const supabase = getSupabaseAdmin()
+
+  // Vérifier que l'évaluation est bien en attente de paiement
+  const { data: evaluation } = await supabase
+    .from('evaluations')
+    .select('status')
+    .eq('id', evaluationId)
+    .single()
+
+  if (!evaluation || evaluation.status !== 'payment_pending') {
+    return false
+  }
+
+  // Trouver l'achat associé
+  const { data: purchase } = await supabase
+    .from('purchases')
+    .select('stripe_checkout_session_id, stripe_payment_intent_id')
+    .eq('evaluation_id', evaluationId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single()
+
+  if (!purchase?.stripe_checkout_session_id) {
+    return false
+  }
+
+  // Interroger Stripe
+  try {
+    const { getStripeClient } = await import('@/lib/stripe/client')
+    const session = await getStripeClient().checkout.sessions.retrieve(
+      purchase.stripe_checkout_session_id
+    )
+
+    if (session.payment_status !== 'paid') {
+      return false
+    }
+
+    const paymentIntentId = (session.payment_intent as string) || purchase.stripe_payment_intent_id || 'verify_unlock'
+    await markEvaluationAsPaid(evaluationId, paymentIntentId, session.amount_total || 7900)
+
+    // Mettre à jour le purchase aussi
+    await supabase
+      .from('purchases')
+      .update({
+        stripe_payment_intent_id: paymentIntentId,
+        status: 'succeeded',
+        paid_at: new Date().toISOString(),
+      })
+      .eq('stripe_checkout_session_id', purchase.stripe_checkout_session_id)
+
+    console.log('[verifyAndUnlockPayment] Paiement verifie via Stripe API:', evaluationId)
+    return true
+  } catch (err) {
+    console.error('[verifyAndUnlockPayment] Erreur Stripe:', err)
+    return false
   }
 }
 

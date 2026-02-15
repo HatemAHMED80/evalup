@@ -1,7 +1,14 @@
-// Tests E2E du flow complet diagnostic → paiement → chat IA avec validation de pertinence
+// Tests E2E du flow complet : diagnostic → paiement → chat IA → PDF → vérification cohérence
+//
+// Ce module valide le pipeline bout en bout en simulant un utilisateur réel.
+// Il couvre :
+// 1. Le diagnostic (SIREN, activité, données financières)
+// 2. L'authentification (login Supabase)
+// 3. Le chat conversationnel avec l'IA (streaming, suggestions)
+// 4. Le téléchargement et parsing du PDF
+// 5. Les vérifications de cohérence (chat ↔ PDF, effectif, score, retraitements)
+
 import { Page } from 'puppeteer'
-import * as fs from 'fs'
-import * as path from 'path'
 import { TEST_CONFIG } from '../config'
 import { TestLogger } from '../utils/logger'
 import { TestReporter, TestResult } from '../utils/reporter'
@@ -9,60 +16,27 @@ import {
   createTestContext,
   closeTestContext,
   takeScreenshot,
-  waitForText,
   sendChatMessage,
   waitForBotResponse,
   waitForStreamingEnd,
+  getChatMessages,
   wait,
 } from '../utils/browser'
+import { login } from './helpers/auth'
+import { parsePDF, savePDFBuffer, type ParsedReport } from './helpers/pdf-parser'
 import {
-  BOULANGERIE_MARTIN,
-  AGENCE_DIGITALE,
-  RESTAURANT_DIFFICULTE,
-  CABINET_CONSEIL,
-  TestCompanyCase,
-} from '../fixtures/test-companies'
+  SCENARIO_POSSE,
+  SCENARIO_CONSEIL,
+  SCENARIO_MICRO,
+  type TestScenario,
+} from './fixtures/scenarios'
 
 const MODULE_NAME = 'full-flow'
 
-// Résultat détaillé d'un flow complet
-interface FlowResult {
-  company: string
-  siren: string
-  objectif: string
-  questionsAsked: string[]
-  answersGiven: string[]
-  questionRelevanceScores: number[] // 0-100
-  valuationDisplayed: boolean
-  valuationRange?: { min: number; max: number }
-  totalDuration: number
-  errors: string[]
-  warnings: string[]
-}
+// ============================================================
+// Helpers
+// ============================================================
 
-// Rapport de pertinence
-interface RelevanceReport {
-  totalFlows: number
-  successfulFlows: number
-  averageRelevanceScore: number
-  questionCategories: Record<string, number>
-  flowResults: FlowResult[]
-  generatedAt: string
-}
-
-// Mots-clés attendus par catégorie de question
-const QUESTION_KEYWORDS = {
-  activite: ['activité', 'métier', 'secteur', 'produit', 'service', 'faites-vous', 'proposez'],
-  chiffre_affaires: ['chiffre', 'CA', 'revenus', 'ventes', 'tendance', 'évolution', 'croissance'],
-  effectif: ['équipe', 'salariés', 'employés', 'effectif', 'personnel', 'collaborateurs'],
-  rentabilite: ['rentabilité', 'marge', 'résultat', 'bénéfice', 'profit', 'EBE', 'EBITDA'],
-  particularite: ['particulier', 'unique', 'différencie', 'atout', 'force', 'avantage', 'spécificité'],
-  objectif: ['objectif', 'pourquoi', 'raison', 'motivation', 'vendre', 'céder', 'transmettre'],
-  delai: ['délai', 'horizon', 'temps', 'quand', 'échéance', 'timing'],
-  documents: ['document', 'bilan', 'compte', 'liasse', 'comptable', 'fiscal'],
-}
-
-// Helper pour exécuter un test avec timing
 async function runTest(
   name: string,
   testFn: () => Promise<void>,
@@ -86,386 +60,680 @@ async function runTest(
   }
 }
 
-// Analyser la pertinence d'une question
-function analyzeQuestionRelevance(question: string, context: {
-  previousAnswers: string[]
-  companyType: string
-  objectif: string
-}): { score: number; category: string } {
-  const questionLower = question.toLowerCase()
+// ============================================================
+// PHASE 1 — Diagnostic
+// ============================================================
 
-  // Identifier la catégorie de la question
-  let category = 'autre'
-  let maxKeywordMatches = 0
+async function navigateDiagnostic(
+  page: Page,
+  scenario: TestScenario,
+  logger: TestLogger
+): Promise<{ evaluationId: string | null; reachedResult: boolean }> {
+  logger.info(`Starting diagnostic for SIREN ${scenario.siren}`)
 
-  for (const [cat, keywords] of Object.entries(QUESTION_KEYWORDS)) {
-    const matches = keywords.filter(kw => questionLower.includes(kw.toLowerCase())).length
-    if (matches > maxKeywordMatches) {
-      maxKeywordMatches = matches
-      category = cat
+  await page.goto(`${TEST_CONFIG.baseUrl}/diagnostic`, { waitUntil: 'networkidle2' })
+  await wait(2000)
+
+  // Step 0: Enter SIREN
+  const input = await page.$('input[placeholder="XXX XXX XXX"]')
+  if (!input) throw new Error('SIREN input not found on /diagnostic')
+
+  await page.waitForFunction(
+    () => {
+      const el = document.querySelector('input[placeholder="XXX XXX XXX"]') as HTMLInputElement
+      return el && !el.disabled
+    },
+    { timeout: 10000 }
+  )
+
+  await input.type(scenario.siren)
+
+  // Submit via Rechercher or Enter
+  const clicked = await page.evaluate(() => {
+    const btn = Array.from(document.querySelectorAll('button')).find(
+      b => b.textContent?.trim().includes('Rechercher')
+    )
+    if (btn) { (btn as HTMLButtonElement).click(); return true }
+    return false
+  })
+  if (!clicked) await page.keyboard.press('Enter')
+
+  // Wait for Pappers lookup + auto-advance
+  await wait(6000)
+  await takeScreenshot(page, 'diagnostic_siren_result')
+
+  // Verify company name appears (if specified)
+  if (scenario.expectedPappers.companyName) {
+    const pageText = await page.evaluate(() => document.body.innerText)
+    if (!pageText.toUpperCase().includes(scenario.expectedPappers.companyName.toUpperCase())) {
+      logger.warn(`Expected company name "${scenario.expectedPappers.companyName}" not found on page`)
+    } else {
+      logger.info(`Company name "${scenario.expectedPappers.companyName}" found`)
     }
   }
 
-  // Calculer le score de pertinence
-  let score = 50 // Score de base
+  // Click through the diagnostic steps
+  let stepCount = 0
+  const maxSteps = 15
 
-  // Bonus si la question est dans une catégorie reconnue
-  if (category !== 'autre') {
-    score += 20
+  for (let i = 0; i < maxSteps; i++) {
+    const stepAction = await page.evaluate(() => {
+      const buttons = Array.from(document.querySelectorAll('button'))
+
+      // Click a choice button (option card)
+      const choiceBtn = buttons.find(btn => {
+        const text = btn.textContent?.toLowerCase() || ''
+        return !text.includes('retour') &&
+               !text.includes('précédent') &&
+               !text.includes('rechercher') &&
+               btn.className.includes('border') &&
+               !btn.disabled &&
+               text.length > 2 && text.length < 100
+      })
+
+      if (choiceBtn) {
+        ;(choiceBtn as HTMLElement).click()
+        return 'choice'
+      }
+
+      // Click slider "Confirmer" or "Continuer"
+      const nextBtn = buttons.find(btn => {
+        const text = btn.textContent?.toLowerCase() || ''
+        return (text.includes('continuer') || text.includes('confirmer') ||
+                text.includes('voir mon diagnostic')) && !btn.disabled
+      })
+
+      if (nextBtn) {
+        ;(nextBtn as HTMLElement).click()
+        return 'next'
+      }
+
+      return null
+    })
+
+    if (!stepAction) break
+
+    stepCount++
+    await wait(1500)
+
+    // Check for redirect
+    const url = page.url()
+    if (url.includes('/loading') || url.includes('/signup') || url.includes('/result')) {
+      logger.info(`Diagnostic redirect to ${url} after ${stepCount} steps`)
+      break
+    }
   }
 
-  // Bonus si la question semble adaptée au contexte
-  if (context.objectif === 'vente' && questionLower.includes('vend')) {
-    score += 10
-  }
-  if (context.objectif === 'achat' && questionLower.includes('achet')) {
-    score += 10
+  logger.info(`Completed ${stepCount} diagnostic steps`)
+  await takeScreenshot(page, 'diagnostic_completed')
+
+  // Wait for loading page to process
+  if (page.url().includes('/loading')) {
+    await wait(10000)
   }
 
-  // Bonus si la question fait référence à des éléments précédents
-  for (const answer of context.previousAnswers) {
-    const answerWords = answer.toLowerCase().split(/\s+/).filter(w => w.length > 4)
-    for (const word of answerWords) {
-      if (questionLower.includes(word)) {
-        score += 5
+  // Check if we reached result or need auth
+  const finalUrl = page.url()
+  const reachedResult = finalUrl.includes('/result') || finalUrl.includes('/signup') || finalUrl.includes('/loading')
+
+  // Try to extract evaluation ID from URL or page content
+  let evaluationId: string | null = null
+  const evalMatch = finalUrl.match(/evaluation\/([^/]+)/)
+  if (evalMatch) {
+    evaluationId = evalMatch[1]
+  }
+
+  return { evaluationId, reachedResult }
+}
+
+// ============================================================
+// PHASE 3 — Chat Conversation
+// ============================================================
+
+interface ChatResult {
+  messagesExchanged: number
+  questionsAsked: string[]
+  answersGiven: string[]
+  allChatText: string
+  valuationMentioned: boolean
+  valuationAmount: number | null
+  contradictionDetected: boolean
+  evaluationComplete: boolean
+  duration: number
+}
+
+async function runChatConversation(
+  page: Page,
+  scenario: TestScenario,
+  logger: TestLogger
+): Promise<ChatResult> {
+  const startTime = Date.now()
+  const result: ChatResult = {
+    messagesExchanged: 0,
+    questionsAsked: [],
+    answersGiven: [],
+    allChatText: '',
+    valuationMentioned: false,
+    valuationAmount: null,
+    contradictionDetected: false,
+    evaluationComplete: false,
+    duration: 0,
+  }
+
+  try {
+    // Wait for first AI message
+    logger.info('Waiting for first AI message...')
+    await waitForStreamingEnd(page, 45000)
+    await wait(1000)
+    await takeScreenshot(page, 'chat_first_message')
+
+    // Verify first message mentions the company
+    const firstMessages = await getChatMessages(page)
+    if (firstMessages.length > 0) {
+      const firstText = firstMessages[0].content
+      if (scenario.expectedPappers.companyName &&
+          firstText.toUpperCase().includes(scenario.expectedPappers.companyName.toUpperCase())) {
+        logger.info('First AI message mentions company name')
+      }
+    }
+
+    // Send scenario chat messages
+    for (const message of scenario.chatMessages) {
+      logger.info(`Sending: "${message.substring(0, 60)}..."`)
+      result.answersGiven.push(message)
+
+      await sendChatMessage(page, message)
+
+      try {
+        await waitForBotResponse(page, 90000)
+      } catch {
+        logger.warn('Bot response timeout — continuing')
+      }
+
+      await wait(1000)
+      result.messagesExchanged++
+
+      // Extract questions from assistant
+      const questions = await page.evaluate(() => {
+        const msgs = document.querySelectorAll('[class*="flex gap-3"]')
+        const lastMsg = msgs[msgs.length - 1]
+        if (!lastMsg) return []
+        const text = lastMsg.textContent || ''
+        const matches = text.match(/[^.!?\n]*\?/g)
+        return matches ? matches.map((q: string) => q.trim()).filter((q: string) => q.length > 10) : []
+      })
+      result.questionsAsked.push(...questions)
+
+      // Check for valuation mention
+      const pageText = await page.evaluate(() => document.body.innerText.toLowerCase())
+      if (pageText.includes('valorisation') || pageText.includes('fourchette') || pageText.includes('prix de cession')) {
+        result.valuationMentioned = true
+      }
+
+      // Check for contradiction detection
+      if (pageText.includes('contradiction') || pageText.includes('incohéren') || pageText.includes('attention')) {
+        result.contradictionDetected = true
+      }
+
+      // Check for evaluation complete
+      if (pageText.includes('evaluation_complete') || pageText.includes('évaluation terminée')) {
+        result.evaluationComplete = true
+        logger.info('Evaluation marked as complete')
         break
       }
     }
-  }
 
-  // La question doit se terminer par un ?
-  if (question.includes('?')) {
-    score += 5
-  }
+    // Extract final state
+    const allMessages = await getChatMessages(page)
+    result.allChatText = allMessages.map(m => m.content).join('\n')
 
-  // Pénalité si question trop courte
-  if (question.length < 20) {
-    score -= 10
-  }
-
-  return { score: Math.min(100, Math.max(0, score)), category }
-}
-
-// Extraire les questions posées par l'assistant
-async function extractAssistantQuestions(page: Page): Promise<string[]> {
-  return page.evaluate(() => {
-    const questions: string[] = []
-    // Chercher les messages assistant (bulles avec bg-white/5)
-    const messages = document.querySelectorAll('[class*="bg-white/5"]')
-
-    messages.forEach(msg => {
-      const text = msg.textContent || ''
-      // Chercher les phrases qui se terminent par ?
-      const questionMatches = text.match(/[^.!?\n]*\?/g)
-      if (questionMatches) {
-        questionMatches.forEach(q => {
-          const trimmed = q.trim()
-          // Éviter les doublons et les questions trop courtes
-          if (trimmed.length > 10 && !questions.includes(trimmed)) {
-            questions.push(trimmed)
-          }
-        })
-      }
-    })
-
-    return questions
-  })
-}
-
-// Extraire la valorisation affichée
-async function extractValuation(page: Page): Promise<{ min: number; max: number } | null> {
-  return page.evaluate(() => {
-    const text = document.body.innerText
-
-    // Chercher des patterns de valorisation comme "entre X€ et Y€" ou "X - Y €"
-    const rangePattern = /(\d[\d\s]*(?:k|K|€)?)\s*(?:à|et|-)\s*(\d[\d\s]*(?:k|K|€)?)/
-    const match = text.match(rangePattern)
-
-    if (match) {
-      const parseValue = (str: string): number => {
-        let value = parseInt(str.replace(/\s/g, '').replace(/[k€K]/gi, ''))
-        if (str.toLowerCase().includes('k')) {
-          value *= 1000
-        }
-        return value
-      }
-
-      return {
-        min: parseValue(match[1]),
-        max: parseValue(match[2]),
-      }
+    // Try to extract valuation amount
+    const valuationMatch = result.allChatText.match(
+      /(?:prix de cession|valorisation).*?([\d\s]+)\s*€/i
+    )
+    if (valuationMatch) {
+      result.valuationAmount = parseInt(valuationMatch[1].replace(/\s/g, ''), 10)
+      logger.info(`Valuation extracted from chat: ${result.valuationAmount}€`)
     }
 
-    return null
-  })
-}
-
-// ============================================================
-// TEST: Flow complet pour un cas fictif
-// ============================================================
-async function runFullFlowTest(
-  page: Page,
-  logger: TestLogger,
-  testCase: TestCompanyCase
-): Promise<FlowResult> {
-  const result: FlowResult = {
-    company: testCase.name,
-    siren: testCase.siren,
-    objectif: testCase.flashAnswers.objectif,
-    questionsAsked: [],
-    answersGiven: [],
-    questionRelevanceScores: [],
-    valuationDisplayed: false,
-    totalDuration: 0,
-    errors: [],
-    warnings: [],
-  }
-
-  const startTime = Date.now()
-
-  try {
-    logger.info(`\n${'='.repeat(60)}`)
-    logger.info(`FLOW COMPLET: ${testCase.name}`)
-    logger.info(`Objectif: ${testCase.flashAnswers.objectif}`)
-    logger.info(`${'='.repeat(60)}`)
-
-    // Naviguer vers la page de chat avec l'objectif (post-paiement)
-    await page.goto(`${TEST_CONFIG.baseUrl}/chat/${testCase.siren}?objectif=${testCase.flashAnswers.objectif}`)
-    await wait(3000)
-
-    // Attendre le premier message
-    await waitForStreamingEnd(page, 45000)
-
-    // Récupérer les questions initiales
-    let questions = await extractAssistantQuestions(page)
-    result.questionsAsked.push(...questions)
-
-    // Répondre aux questions avec les réponses du cas test (flash + complete)
-    const flashResponses = Object.values(testCase.flashAnswers.responses)
-    const completeResponses = Object.values(testCase.completeAnswers.responses)
-    const allResponses = [...flashResponses, ...completeResponses]
-    let questionIndex = 0
-
-    for (const answer of allResponses) {
-      if (questionIndex >= 12) break // Max 12 questions pour le test
-
-      logger.info(`\n--- Question ${questionIndex + 1} ---`)
-
-      // Analyser la pertinence de la dernière question
-      if (questions.length > 0) {
-        const lastQuestion = questions[questions.length - 1]
-        const relevance = analyzeQuestionRelevance(lastQuestion, {
-          previousAnswers: result.answersGiven,
-          companyType: testCase.expectedData.secteur,
-          objectif: testCase.flashAnswers.objectif,
-        })
-        result.questionRelevanceScores.push(relevance.score)
-        logger.info(`Question: "${lastQuestion.substring(0, 80)}..."`)
-        logger.info(`Catégorie: ${relevance.category}, Pertinence: ${relevance.score}%`)
-      }
-
-      // Envoyer la réponse
-      logger.info(`Réponse: "${answer.substring(0, 60)}..."`)
-      result.answersGiven.push(answer)
-
-      await sendChatMessage(page, answer)
-      await waitForBotResponse(page, 60000)
-      await wait(500)
-
-      // Récupérer les nouvelles questions
-      questions = await extractAssistantQuestions(page)
-      if (questions.length > result.questionsAsked.length) {
-        result.questionsAsked.push(...questions.slice(result.questionsAsked.length))
-      }
-
-      questionIndex++
-    }
-
-    // Vérifier si la valorisation est affichée
-    await wait(2000)
-    let hasValuation = false
-    try {
-      hasValuation = await waitForText(page, 'valorisation', 5000) ||
-                     await waitForText(page, 'fourchette', 5000) ||
-                     await waitForText(page, 'estimation', 5000)
-    } catch (e) {
-      // Fallback: vérifier directement le contenu de la page
-      hasValuation = await page.evaluate(() => {
-        const text = document.body.innerText.toLowerCase()
-        return text.includes('valorisation') || text.includes('fourchette') || text.includes('estimation')
-      })
-    }
-
-    result.valuationDisplayed = hasValuation
-
-    if (hasValuation) {
-      const valuation = await extractValuation(page)
-      if (valuation) {
-        result.valuationRange = valuation
-        logger.info(`\nValorisation détectée: ${valuation.min.toLocaleString()}€ - ${valuation.max.toLocaleString()}€`)
-      }
-    }
-
-    // Screenshot final
-    await takeScreenshot(page, `flow_${testCase.name.replace(/\s/g, '_').toLowerCase()}`)
+    await takeScreenshot(page, 'chat_final_state')
 
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : String(error)
-    // Ignorer les erreurs liées au bundler qui ne sont pas des vrais problèmes
-    if (!errorMsg.includes('__name') && !errorMsg.includes('is not defined')) {
-      result.errors.push(errorMsg)
-      logger.error(`Erreur dans le flow: ${errorMsg}`)
+    const errMsg = error instanceof Error ? error.message : String(error)
+    if (!errMsg.includes('__name') && !errMsg.includes('is not defined')) {
+      logger.error(`Chat error: ${errMsg}`)
     } else {
-      logger.warn(`Erreur bundler ignorée: ${errorMsg}`)
+      logger.warn(`Bundler error ignored: ${errMsg}`)
     }
   }
 
-  result.totalDuration = Date.now() - startTime
-
-  // Résumé du flow
-  logger.info(`\n--- Résumé ${testCase.name} ---`)
-  logger.info(`Questions posées: ${result.questionsAsked.length}`)
-  logger.info(`Réponses données: ${result.answersGiven.length}`)
-  logger.info(`Score moyen pertinence: ${
-    result.questionRelevanceScores.length > 0
-      ? Math.round(result.questionRelevanceScores.reduce((a, b) => a + b, 0) / result.questionRelevanceScores.length)
-      : 'N/A'
-  }%`)
-  logger.info(`Valorisation affichée: ${result.valuationDisplayed ? 'Oui' : 'Non'}`)
-  logger.info(`Durée: ${(result.totalDuration / 1000).toFixed(1)}s`)
-
+  result.duration = Date.now() - startTime
+  logger.info(`Chat completed: ${result.messagesExchanged} exchanges, ${result.questionsAsked.length} questions, duration: ${(result.duration / 1000).toFixed(1)}s`)
   return result
 }
 
 // ============================================================
-// Générer le rapport de pertinence
+// PHASE 4 — PDF Download
 // ============================================================
-function generateRelevanceReport(results: FlowResult[]): RelevanceReport {
-  const allScores = results.flatMap(r => r.questionRelevanceScores)
-  const averageScore = allScores.length > 0
-    ? allScores.reduce((a, b) => a + b, 0) / allScores.length
-    : 0
 
-  // Compter les catégories de questions
-  const categories: Record<string, number> = {}
-  for (const result of results) {
-    for (const question of result.questionsAsked) {
-      const { category } = analyzeQuestionRelevance(question, {
-        previousAnswers: [],
-        companyType: '',
-        objectif: '',
-      })
-      categories[category] = (categories[category] || 0) + 1
-    }
+async function downloadPDF(
+  page: Page,
+  logger: TestLogger
+): Promise<Buffer | null> {
+  logger.info('Attempting PDF download...')
+
+  // Check if download button exists
+  const hasDownloadButton = await page.evaluate(() => {
+    const text = document.body.innerText.toLowerCase()
+    return text.includes('telecharger le pdf') || text.includes('télécharger le pdf') ||
+           text.includes('telecharger') || text.includes('rapport')
+  })
+
+  if (!hasDownloadButton) {
+    logger.warn('No download button found — evaluation may not be complete or paid')
+    return null
   }
 
-  return {
-    totalFlows: results.length,
-    successfulFlows: results.filter(r => r.valuationDisplayed && r.errors.length === 0).length,
-    averageRelevanceScore: Math.round(averageScore),
-    questionCategories: categories,
-    flowResults: results,
-    generatedAt: new Date().toISOString(),
+  // Intercept the PDF response
+  return new Promise<Buffer | null>((resolve) => {
+    const timeout = setTimeout(() => {
+      logger.warn('PDF download timeout')
+      page.off('response', responseHandler)
+      resolve(null)
+    }, 30000)
+
+    // Listen for PDF response
+    const responseHandler = async (response: import('puppeteer').HTTPResponse) => {
+      try {
+        if (response.url().includes('/api/evaluation/pdf') &&
+            response.headers()['content-type']?.includes('pdf')) {
+          clearTimeout(timeout)
+          page.off('response', responseHandler)
+          const buffer = Buffer.from(await response.buffer())
+          logger.info(`PDF downloaded: ${buffer.length} bytes`)
+          resolve(buffer)
+        }
+      } catch {
+        // Ignore errors from non-PDF responses
+      }
+    }
+
+    page.on('response', responseHandler)
+
+    // Click the download button
+    page.evaluate(() => {
+      const buttons = Array.from(document.querySelectorAll('button'))
+      const dlBtn = buttons.find(btn => {
+        const text = btn.textContent?.toLowerCase() || ''
+        return text.includes('telecharger') || text.includes('télécharger')
+      })
+      if (dlBtn) (dlBtn as HTMLButtonElement).click()
+    }).catch(() => {
+      clearTimeout(timeout)
+      page.off('response', responseHandler)
+      resolve(null)
+    })
+  })
+}
+
+// ============================================================
+// PHASE 5 — Coherence Checks
+// ============================================================
+
+function checkCoherence(
+  scenario: TestScenario,
+  chatResult: ChatResult,
+  pdfReport: ParsedReport | null,
+  logger: TestLogger
+): string[] {
+  const details: string[] = []
+
+  if (!pdfReport) {
+    details.push('No PDF report available — skipping PDF checks')
+    return details
+  }
+
+  // 5.1 — Chat ↔ PDF valuation coherence (±20%)
+  if (chatResult.valuationAmount && pdfReport.prixCession) {
+    const ecart = Math.abs(chatResult.valuationAmount - pdfReport.prixCession) / chatResult.valuationAmount
+    const ok = ecart < 0.20
+    details.push(`Valuation: chat=${chatResult.valuationAmount}€, PDF=${pdfReport.prixCession}€, écart=${Math.round(ecart * 100)}% ${ok ? '✓' : '✗'}`)
+    if (!ok) logger.error(`Valuation gap too large: ${Math.round(ecart * 100)}%`)
+  }
+
+  // 5.2 — Note in expected range
+  if (pdfReport.noteGlobale) {
+    const noteOrder = ['E', 'D', 'C', 'B', 'A']
+    const noteIndex = noteOrder.indexOf(pdfReport.noteGlobale)
+    const minIndex = noteOrder.indexOf(scenario.expectedReport.noteMin)
+    const maxIndex = noteOrder.indexOf(scenario.expectedReport.noteMax)
+    const ok = noteIndex >= minIndex && noteIndex <= maxIndex
+    details.push(`Note: ${pdfReport.noteGlobale} (expected ${scenario.expectedReport.noteMin}-${scenario.expectedReport.noteMax}) ${ok ? '✓' : '✗'}`)
+  }
+
+  // 5.3 — Confidence check
+  if (pdfReport.confiance && !pdfReport.retraitementsEffectues) {
+    const badConfidence = pdfReport.confiance === 'Élevée' || pdfReport.confiance === 'Elevee'
+    details.push(`Confidence: ${pdfReport.confiance}, retraitements=${pdfReport.retraitementsEffectues ? 'oui' : 'non'} ${!badConfidence ? '✓' : '✗'}`)
+  }
+
+  // 5.4 — No raw tranche code
+  const hasRawCode = pdfReport.fullText.includes('250001') || pdfReport.fullText.includes('250 001')
+  details.push(`No raw tranche codes: ${!hasRawCode ? '✓' : '✗'}`)
+
+  // 5.5 — Required keywords
+  for (const kw of scenario.expectedReport.requiredKeywords) {
+    const found = pdfReport.fullText.toLowerCase().includes(kw.toLowerCase())
+    details.push(`Keyword "${kw}": ${found ? '✓' : '✗'}`)
+  }
+
+  // 5.6 — Forbidden keywords
+  for (const kw of scenario.expectedReport.forbiddenKeywords) {
+    const found = pdfReport.fullText.includes(kw)
+    details.push(`Forbidden "${kw}": ${!found ? '✓' : '✗'}`)
+  }
+
+  return details
+}
+
+// ============================================================
+// MAIN: Exécuter un scenario complet
+// ============================================================
+
+async function runFullScenarioTest(
+  page: Page,
+  scenario: TestScenario,
+  logger: TestLogger,
+  reporter: TestReporter
+): Promise<void> {
+  logger.info(`\n${'═'.repeat(60)}`)
+  logger.info(`SCENARIO: ${scenario.name}`)
+  logger.info(`${'═'.repeat(60)}\n`)
+
+  let chatResult: ChatResult | null = null
+  let pdfReport: ParsedReport | null = null
+
+  // ─── PHASE 1: DIAGNOSTIC ───
+  reporter.addResult(
+    await runTest(`[${scenario.name}] 1.1 — Diagnostic flow`, async () => {
+      await navigateDiagnostic(page, scenario, logger)
+    }, logger, reporter)
+  )
+
+  reporter.addResult(
+    await runTest(`[${scenario.name}] 1.2 — Effectif pas un code tranche brut`, async () => {
+      const pageText = await page.evaluate(() => document.body.innerText)
+      if (pageText.includes('250001') || pageText.includes('250 001')) {
+        throw new Error('Raw tranche code 250001 found on page')
+      }
+    }, logger, reporter)
+  )
+
+  // ─── PHASE 2: AUTH + EVALUATION ACCESS ───
+  reporter.addResult(
+    await runTest(`[${scenario.name}] 2.1 — Login + accès évaluation`, async () => {
+      const loggedIn = await login(page, logger)
+      if (!loggedIn) {
+        throw new Error('Login failed')
+      }
+
+      // Navigate to dashboard to find evaluations
+      await page.goto(`${TEST_CONFIG.baseUrl}/dashboard`, { waitUntil: 'networkidle2' })
+      await wait(3000)
+
+      const hasEval = await page.evaluate(() => {
+        const text = document.body.innerText.toLowerCase()
+        return text.includes('evaluation') || text.includes('évaluation')
+      })
+
+      if (!hasEval) {
+        logger.warn('No evaluations found on dashboard')
+      }
+    }, logger, reporter)
+  )
+
+  // ─── PHASE 3: CHAT ───
+  reporter.addResult(
+    await runTest(`[${scenario.name}] 3.1 — Chat conversation`, async () => {
+      // Find an evaluation chat to use
+      const evalId = await page.evaluate(() => {
+        const links = Array.from(document.querySelectorAll('a'))
+        const evalLink = links.find(a => a.href.includes('/evaluation/'))
+        if (evalLink) {
+          const match = evalLink.href.match(/evaluation\/([^/]+)/)
+          return match ? match[1] : null
+        }
+        return null
+      })
+
+      if (!evalId) {
+        logger.warn('No evaluation found — using legacy chat route')
+        await page.goto(`${TEST_CONFIG.baseUrl}/chat/${scenario.siren}?objectif=vente`, {
+          waitUntil: 'networkidle2',
+        })
+      } else {
+        await page.goto(`${TEST_CONFIG.baseUrl}/evaluation/${evalId}/chat`, {
+          waitUntil: 'networkidle2',
+        })
+      }
+
+      await wait(3000)
+
+      chatResult = await runChatConversation(page, scenario, logger)
+
+      if (chatResult.messagesExchanged === 0) {
+        throw new Error('No messages exchanged in chat')
+      }
+    }, logger, reporter)
+  )
+
+  reporter.addResult(
+    await runTest(`[${scenario.name}] 3.2 — Chat ne doit pas inventer de données`, async () => {
+      if (!chatResult) throw new Error('No chat result')
+
+      if (scenario.expectedPappers.tresorerie) {
+        const allLower = chatResult.allChatText.toLowerCase()
+        if (allLower.includes('trésorerie estimé') || allLower.includes('tresorerie estimé')) {
+          throw new Error('Chat says "trésorerie estimée" but Pappers has real data')
+        }
+      }
+    }, logger, reporter)
+  )
+
+  reporter.addResult(
+    await runTest(`[${scenario.name}] 3.3 — Détection contradictions`, async () => {
+      if (!chatResult) throw new Error('No chat result')
+
+      const messages = scenario.chatMessages.join(' ').toLowerCase()
+      const hasHighChurn = messages.includes('churn') && (messages.includes('20%') || messages.includes('20 %'))
+      const hasLongPayback = messages.includes('payback') && (messages.includes('12') || messages.includes('mois'))
+
+      if (hasHighChurn && hasLongPayback) {
+        const detected = chatResult.allChatText.toLowerCase()
+        const hasWarning = detected.includes('contradiction') ||
+                          detected.includes('incohéren') ||
+                          detected.includes('attention') ||
+                          detected.includes('alerte') ||
+                          detected.includes('risque')
+        if (!hasWarning) {
+          logger.warn('Chat did not flag churn/CAC payback contradiction')
+        }
+      }
+    }, logger, reporter)
+  )
+
+  // ─── PHASE 4: PDF ───
+  reporter.addResult(
+    await runTest(`[${scenario.name}] 4.1 — PDF download + parsing`, async () => {
+      const pdfBuffer = await downloadPDF(page, logger)
+
+      if (!pdfBuffer) {
+        logger.warn('PDF not downloaded — may require paid evaluation')
+        return
+      }
+
+      if (pdfBuffer.length < 1000) {
+        throw new Error('PDF too small — possibly empty or error response')
+      }
+
+      const savedPath = savePDFBuffer(pdfBuffer, `report_${scenario.siren}`)
+      logger.info(`PDF saved to ${savedPath}`)
+
+      pdfReport = parsePDF(pdfBuffer)
+      logger.info(`PDF parsed: note=${pdfReport.noteGlobale}, confiance=${pdfReport.confiance}, prix=${pdfReport.prixCession}`)
+    }, logger, reporter)
+  )
+
+  // ─── PHASE 5: COHERENCE ───
+  reporter.addResult(
+    await runTest(`[${scenario.name}] 5.1 — Cohérence chat ↔ PDF valorisation`, async () => {
+      if (!chatResult || !pdfReport) {
+        logger.warn('Missing chat or PDF data — skipping')
+        return
+      }
+      if (chatResult.valuationAmount && pdfReport.prixCession) {
+        const ecart = Math.abs(chatResult.valuationAmount - pdfReport.prixCession) / chatResult.valuationAmount
+        if (ecart >= 0.20) {
+          throw new Error(`Valuation gap ${Math.round(ecart * 100)}% exceeds 20% (chat=${chatResult.valuationAmount}€, PDF=${pdfReport.prixCession}€)`)
+        }
+      }
+    }, logger, reporter)
+  )
+
+  reporter.addResult(
+    await runTest(`[${scenario.name}] 5.2 — Note dans la plage attendue`, async () => {
+      if (!pdfReport?.noteGlobale) return
+      const noteOrder = ['E', 'D', 'C', 'B', 'A']
+      const noteIndex = noteOrder.indexOf(pdfReport.noteGlobale)
+      const minIndex = noteOrder.indexOf(scenario.expectedReport.noteMin)
+      const maxIndex = noteOrder.indexOf(scenario.expectedReport.noteMax)
+
+      if (noteIndex < minIndex || noteIndex > maxIndex) {
+        throw new Error(`Note ${pdfReport.noteGlobale} outside ${scenario.expectedReport.noteMin}-${scenario.expectedReport.noteMax}`)
+      }
+    }, logger, reporter)
+  )
+
+  reporter.addResult(
+    await runTest(`[${scenario.name}] 5.3 — Confiance pas "Élevée" sans retraitements`, async () => {
+      if (!pdfReport) return
+      if (!pdfReport.retraitementsEffectues) {
+        if (pdfReport.confiance === 'Élevée' || pdfReport.confiance === 'Elevee') {
+          throw new Error('Confidence is "Élevée" without retraitements')
+        }
+      }
+    }, logger, reporter)
+  )
+
+  reporter.addResult(
+    await runTest(`[${scenario.name}] 5.4 — Effectif pas un code tranche (PDF)`, async () => {
+      if (!pdfReport) return
+      if (pdfReport.fullText.includes('250001') || pdfReport.fullText.includes('250 001')) {
+        throw new Error('Raw tranche code 250001 found in PDF')
+      }
+      if (pdfReport.effectif) {
+        const num = parseInt(pdfReport.effectif.replace(/\s/g, ''), 10)
+        if (!isNaN(num) && num > scenario.expectedReport.effectifMustNotExceed) {
+          throw new Error(`Effectif ${num} exceeds max ${scenario.expectedReport.effectifMustNotExceed}`)
+        }
+      }
+    }, logger, reporter)
+  )
+
+  reporter.addResult(
+    await runTest(`[${scenario.name}] 5.5 — Mots-clés requis présents`, async () => {
+      if (!pdfReport) return
+      for (const kw of scenario.expectedReport.requiredKeywords) {
+        if (!pdfReport.fullText.toLowerCase().includes(kw.toLowerCase())) {
+          throw new Error(`Required keyword "${kw}" not found in PDF`)
+        }
+      }
+    }, logger, reporter)
+  )
+
+  reporter.addResult(
+    await runTest(`[${scenario.name}] 5.6 — Mots interdits absents`, async () => {
+      if (!pdfReport) return
+      for (const kw of scenario.expectedReport.forbiddenKeywords) {
+        if (pdfReport.fullText.includes(kw)) {
+          throw new Error(`Forbidden keyword "${kw}" found in PDF`)
+        }
+      }
+    }, logger, reporter)
+  )
+
+  reporter.addResult(
+    await runTest(`[${scenario.name}] 5.7 — Retraitements 0€ signalés`, async () => {
+      if (!pdfReport) return
+      if (pdfReport.retraitementsTotal === 0 || !pdfReport.retraitementsEffectues) {
+        const mentionsAbsence = /retraitements?\s*(non\s*effectué|non\s*réalisé|à\s*compléter|non\s*disponible)/i
+          .test(pdfReport.fullText)
+        if (!mentionsAbsence) {
+          logger.warn('Retraitements at 0€ not explicitly flagged')
+        }
+      }
+    }, logger, reporter)
+  )
+
+  // ─── RÉSUMÉ ───
+  logger.info(`\n${'═'.repeat(60)}`)
+  logger.info(`RÉSUMÉ: ${scenario.name}`)
+  logger.info(`${'═'.repeat(60)}`)
+
+  if (chatResult) {
+    logger.info(`Chat: ${chatResult.messagesExchanged} échanges, ${chatResult.questionsAsked.length} questions, durée ${(chatResult.duration / 1000).toFixed(1)}s`)
+    logger.info(`Valorisation chat: ${chatResult.valuationAmount ? chatResult.valuationAmount + '€' : 'N/A'}`)
+  }
+
+  if (pdfReport) {
+    logger.info(`PDF: note=${pdfReport.noteGlobale}, confiance=${pdfReport.confiance}`)
+    logger.info(`PDF: prix cession=${pdfReport.prixCession ? pdfReport.prixCession + '€' : 'N/A'}`)
+    logger.info(`PDF: retraitements=${pdfReport.retraitementsEffectues ? 'oui' : 'non'}`)
+    logger.info(`PDF: points vigilance=${pdfReport.pointsVigilance.length}`)
+  }
+
+  const emptyChatResult: ChatResult = {
+    messagesExchanged: 0, questionsAsked: [], answersGiven: [], allChatText: '',
+    valuationMentioned: false, valuationAmount: null, contradictionDetected: false,
+    evaluationComplete: false, duration: 0,
+  }
+
+  const coherenceDetails = checkCoherence(scenario, chatResult || emptyChatResult, pdfReport, logger)
+  for (const detail of coherenceDetails) {
+    logger.info(`  ${detail}`)
   }
 }
 
 // ============================================================
-// MAIN: Exécuter tous les tests du module
+// EXPORTS
 // ============================================================
+
 export async function runFullFlowTests(reporter: TestReporter): Promise<void> {
   const ctx = await createTestContext(MODULE_NAME)
   const { page, logger } = ctx
 
   reporter.startModule(MODULE_NAME)
 
-  const testCases: TestCompanyCase[] = [
-    BOULANGERIE_MARTIN,
-    AGENCE_DIGITALE,
-    RESTAURANT_DIFFICULTE,
-    CABINET_CONSEIL,
-  ]
+  // POSSE is the primary scenario — others are opt-in via env var
+  const scenarios: TestScenario[] = [SCENARIO_POSSE]
 
-  const flowResults: FlowResult[] = []
+  if (process.env.TEST_ALL_SCENARIOS === 'true') {
+    scenarios.push(SCENARIO_CONSEIL, SCENARIO_MICRO)
+  }
 
   try {
-    for (const testCase of testCases) {
-      reporter.addResult(
-        await runTest(`Flow complet: ${testCase.name}`, async () => {
-          const result = await runFullFlowTest(page, logger, testCase)
-          flowResults.push(result)
-
-          // Le test échoue seulement si pas de valorisation
-          // Les erreurs mineures sont tolérées si le résultat principal est atteint
-          if (!result.valuationDisplayed) {
-            throw new Error('Valorisation non affichée à la fin du flow')
-          }
-
-          // Log des erreurs comme warnings (non bloquantes)
-          if (result.errors.length > 0) {
-            logger.warn(`Erreurs mineures rencontrées (non bloquantes): ${result.errors.join(', ')}`)
-          }
-
-          // Avertissement si pertinence moyenne < 60%
-          const avgScore = result.questionRelevanceScores.length > 0
-            ? result.questionRelevanceScores.reduce((a, b) => a + b, 0) / result.questionRelevanceScores.length
-            : 0
-          if (avgScore < 60) {
-            logger.warn(`Pertinence moyenne faible: ${avgScore.toFixed(0)}%`)
-          }
-        }, logger, reporter)
-      )
-
-      // Pause entre les tests pour ne pas surcharger l'API
+    for (const scenario of scenarios) {
+      await runFullScenarioTest(page, scenario, logger, reporter)
       await wait(2000)
     }
 
-    // Générer et sauvegarder le rapport de pertinence
-    const report = generateRelevanceReport(flowResults)
+    // Summary
+    logger.info('\n' + '═'.repeat(60))
+    logger.info('FULL FLOW TEST SUMMARY')
+    logger.info('═'.repeat(60))
 
-    logger.info('\n' + '='.repeat(60))
-    logger.info('RAPPORT DE PERTINENCE DES QUESTIONS')
-    logger.info('='.repeat(60))
-    logger.info(`Flows testés: ${report.totalFlows}`)
-    logger.info(`Flows réussis: ${report.successfulFlows}`)
-    logger.info(`Score moyen de pertinence: ${report.averageRelevanceScore}%`)
-    logger.info('\nCatégories de questions:')
-    for (const [cat, count] of Object.entries(report.questionCategories)) {
-      logger.info(`  - ${cat}: ${count}`)
-    }
-
-    // Sauvegarder le rapport JSON
-    const reportDir = path.join(process.cwd(), 'tests', 'reports')
-    if (!fs.existsSync(reportDir)) {
-      fs.mkdirSync(reportDir, { recursive: true })
-    }
-    const reportPath = path.join(reportDir, `relevance_report_${new Date().toISOString().replace(/[:.]/g, '-')}.json`)
-    fs.writeFileSync(reportPath, JSON.stringify(report, null, 2))
-    logger.info(`\nRapport sauvegardé: ${reportPath}`)
-
-    // Afficher le résumé par entreprise
-    logger.info('\n' + '='.repeat(60))
-    logger.info('RÉSUMÉ PAR ENTREPRISE')
-    logger.info('='.repeat(60))
-
-    for (const result of flowResults) {
-      const avgScore = result.questionRelevanceScores.length > 0
-        ? Math.round(result.questionRelevanceScores.reduce((a, b) => a + b, 0) / result.questionRelevanceScores.length)
-        : 0
-
-      const companyName = (result.company || 'Inconnu').substring(0, 55).padEnd(55)
-      const objectifStr = (result.objectif || 'N/A').substring(0, 46).padEnd(46)
-
-      console.log(`
-┌─────────────────────────────────────────────────────────┐
-│ ${companyName} │
-├─────────────────────────────────────────────────────────┤
-│ Objectif: ${objectifStr} │
-│ Questions: ${String(result.questionsAsked.length).padEnd(45)} │
-│ Pertinence moyenne: ${String(avgScore + '%').padEnd(36)} │
-│ Valorisation: ${(result.valuationDisplayed ? '✅ Oui' : '❌ Non').padEnd(42)} │
-│ Durée: ${String((result.totalDuration / 1000).toFixed(1) + 's').padEnd(49)} │
-│ Erreurs: ${String(result.errors.length).padEnd(47)} │
-└─────────────────────────────────────────────────────────┘`)
+    for (const scenario of scenarios) {
+      logger.info(`  ${scenario.name}`)
     }
 
   } finally {

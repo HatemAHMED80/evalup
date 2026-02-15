@@ -40,7 +40,7 @@ export default function CompteLayout({
             </span>
           </Link>
           <Button variant="outline" size="sm" asChild>
-            <Link href="/app">Retour a l&apos;app</Link>
+            <Link href="/dashboard">Retour a l&apos;app</Link>
           </Button>
         </div>
       </header>

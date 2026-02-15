@@ -8,7 +8,7 @@
 
 import { getPromptForArchetype, type ArchetypePromptContext } from './archetype-prompts'
 import { RETRAITEMENTS_PROMPT } from './modules/retraitements'
-import { DATA_UPDATE_PROMPT } from './modules/data-update'
+// Sidebar collects data directly — no DATA_UPDATE prompt needed
 import { DECOTES_PROMPT, RISQUES_PROMPT, FONDS_COMMERCE_PROMPT } from './modules/decotes'
 import {
   CONVERSATION_RULES_PROMPT,
@@ -22,6 +22,7 @@ import {
 } from './modules/rules'
 import { SYSTEM_PROMPTS, PEDAGOGY_PROMPTS, type UserParcours, type PedagogyLevel } from './modules/parcours'
 import { EVALUATION_FINALE_PROMPT } from './modules/evaluation-finale'
+import { COHERENCE_RULES_PROMPT } from './modules/coherence-rules'
 import type { ConversationContext, BilanAnnuel, ExtractedExercice } from '../anthropic'
 import { ARCHETYPES } from '../valuation/archetypes'
 import { getMultiplesForArchetype, type ArchetypeMultiples } from '../valuation/multiples'
@@ -51,6 +52,39 @@ function getAnneeReference(): number {
   const now = new Date()
   const currentYear = now.getFullYear()
   return now.getMonth() >= 5 ? currentYear : currentYear - 1
+}
+
+function getObjectifQuestions(objectif?: string): string {
+  if (!objectif) return ''
+  const questions: Record<string, string> = {
+    associe: `### Questions spécifiques — Rachat/sortie d'associé
+- "Quelle est la répartition actuelle du capital entre les associés ?"
+- "Y a-t-il un pacte d'associés ou une clause de sortie/buy-out dans les statuts ?"
+- "L'associé sortant a-t-il un compte courant d'associé ? Si oui, quel montant ?"
+- "Les statuts prévoient-ils une méthode de valorisation spécifique ?"`,
+    vente: `### Questions spécifiques — Cession
+- "As-tu déjà identifié des acquéreurs potentiels ou mandaté un conseil M&A ?"
+- "Quelle est ta disponibilité pour un accompagnement post-cession (earn-out, transition) ?"
+- "Quel est ton horizon de temps pour la cession ?"`,
+    achat: `### Questions spécifiques — Acquisition
+- "As-tu déjà identifié la cible ou plusieurs cibles potentielles ?"
+- "Quel est ton budget d'acquisition (fonds propres + dette envisagée) ?"
+- "Prévois-tu de garder le dirigeant actuel en place ?"`,
+    financement: `### Questions spécifiques — Levée de fonds / Financement
+- "Quel montant cherches-tu à lever et pour quel usage principal ?"
+- "À quel stade en es-tu ? (pré-seed, seed, série A, etc.)"
+- "As-tu déjà levé des fonds ? Si oui, à quelle valorisation (pre ou post-money) ?"
+- "Quelle dilution maximale es-tu prêt à accepter ?"`,
+    divorce: `### Questions spécifiques — Séparation de patrimoine
+- "Quel est le régime matrimonial (communauté, séparation de biens) ?"
+- "Les deux conjoints sont-ils impliqués dans l'entreprise ?"
+- "Y a-t-il un accord amiable en cours ou est-ce contentieux ?"`,
+    transmission: `### Questions spécifiques — Transmission familiale
+- "À qui souhaites-tu transmettre (enfants, autre membre famille) ?"
+- "Le repreneur est-il déjà impliqué dans l'entreprise ?"
+- "As-tu déjà consulté un notaire ou fiscaliste sur le montage (donation, pacte Dutreil) ?"`,
+  }
+  return questions[objectif] || ''
 }
 
 function formatEntreprise(entreprise: ConversationContext['entreprise']): string {
@@ -363,6 +397,30 @@ function replaceTemplateVars(
   const extractedDocDataBlock = formatExtractedExercices(context)
   const hasExtractedData = !!context.extractedDocData?.exercices?.length
 
+  // Données diagnostic enrichies (Phase 2 — champs optionnels)
+  const remuDirigeant = diag?.remunerationDirigeant
+  const dettes = diag?.dettesFinancieres
+  const treso = diag?.tresorerieActuelle
+  const concentration = diag?.concentrationClient
+  const mrr = diag?.mrrMensuel
+
+  // Instructions conditionnelles : si déjà renseigné dans le diagnostic, CONFIRMER plutôt que reposer
+  const dejaRenseigne: string[] = []
+  if (remuDirigeant != null) dejaRenseigne.push(`- Rémunération dirigeant : ${remuDirigeant.toLocaleString('fr-FR')} €/an (source: diagnostic). CONFIRME cette donnée plutôt que de la reposer.`)
+  if (dettes != null) dejaRenseigne.push(`- Dettes financières : ${dettes.toLocaleString('fr-FR')} € (source: diagnostic). CONFIRME plutôt que de reposer.`)
+  if (treso != null) dejaRenseigne.push(`- Trésorerie : ${treso.toLocaleString('fr-FR')} € (source: diagnostic). CONFIRME plutôt que de reposer.`)
+  if (concentration != null) dejaRenseigne.push(`- Concentration client (top 3) : ${concentration}% (source: diagnostic). CONFIRME plutôt que de reposer.`)
+  if (mrr != null) dejaRenseigne.push(`- MRR : ${mrr.toLocaleString('fr-FR')} €/mois → ARR : ${(mrr * 12).toLocaleString('fr-FR')} €/an (source: diagnostic). CONFIRME plutôt que de reposer.`)
+  // Alertes confirmées par l'utilisateur dans le formulaire diagnostic
+  const confirmedAlerts = (diag as Record<string, unknown> | undefined)?.confirmedAlerts as string[] | undefined
+  if (confirmedAlerts?.length) {
+    dejaRenseigne.push(`\n### Alertes confirmées par l'utilisateur\nL'utilisateur a vu et confirmé ces écarts dans le formulaire :\n${confirmedAlerts.map((a: string) => `- ${a}`).join('\n')}\nTu peux demander une explication BRÈVE une seule fois, puis passe à la suite.`)
+  }
+
+  const dejaRenseigneBlock = dejaRenseigne.length > 0
+    ? `\n\n### Données déjà collectées (diagnostic)\nCes informations ont été renseignées par l'utilisateur dans le diagnostic. Tu peux les CONFIRMER brièvement mais ne les repose PAS :\n${dejaRenseigne.join('\n')}`
+    : ''
+
   return prompt
     .replace(/\{\{companyName\}\}/g, entreprise?.nom || 'Non renseigné')
     .replace(/\{\{siren\}\}/g, entreprise?.siren || 'Non renseigné')
@@ -370,6 +428,12 @@ function replaceTemplateVars(
     .replace(/\{\{ebitda\}\}/g, ebitda.toLocaleString('fr-FR'))
     .replace(/\{\{growth\}\}/g, String(growth))
     .replace(/\{\{recurring\}\}/g, String(recurring))
+    .replace(/\{\{remunerationDirigeant\}\}/g, remuDirigeant != null ? remuDirigeant.toLocaleString('fr-FR') : 'Non renseigné')
+    .replace(/\{\{dettesFinancieres\}\}/g, dettes != null ? dettes.toLocaleString('fr-FR') : 'Non renseigné')
+    .replace(/\{\{tresorerieActuelle\}\}/g, treso != null ? treso.toLocaleString('fr-FR') : 'Non renseigné')
+    .replace(/\{\{concentrationClient\}\}/g, concentration != null ? String(concentration) : 'Non renseigné')
+    .replace(/\{\{mrrMensuel\}\}/g, mrr != null ? mrr.toLocaleString('fr-FR') : 'Non renseigné')
+    .replace(/\{\{dejaRenseigneBlock\}\}/g, dejaRenseigneBlock)
     .replace(/\{\{pappersData\}\}/g, pappersData)
     .replace(/\{\{multiplesData\}\}/g, multiplesData)
     .replace(/\{\{extractedDocData\}\}/g, extractedDocData)
@@ -457,13 +521,61 @@ export function buildArchetypePrompt(options: BuildPromptOptions): string {
   sections.push(NO_REPEAT_RULES_PROMPT)
   sections.push(YEAR_REFERENCE_RULES_PROMPT.replace(/\{\{ANNEE_REFERENCE\}\}/g, String(anneeReference)))
   sections.push(ANOMALY_RULES_PROMPT)
+  sections.push(COHERENCE_RULES_PROMPT)
   sections.push(RETRAITEMENTS_PROMPT)
-  sections.push(DATA_UPDATE_PROMPT)
+  // Sidebar collects data — no DATA_UPDATE prompt
   sections.push(DECOTES_PROMPT)
   sections.push(RISQUES_PROMPT)
 
   if (includeFondsCommerce) {
     sections.push(FONDS_COMMERCE_PROMPT)
+  }
+
+  // Mode guide : la sidebar collecte les donnees, le chat guide et analyse
+  sections.push(`### Role : Guide et analyste
+
+IMPORTANT : L'utilisateur dispose d'un panneau de donnees (sidebar a droite) ou il saisit directement ses chiffres. Les donnees Pappers y sont deja pre-remplies.
+
+**Donnees gerees par la sidebar (NE PAS demander dans le chat) :**
+- Chiffre d'affaires, Resultat d'exploitation, Resultat net, Amortissements (par annee)
+- EBITDA (calcule automatiquement)
+- Tresorerie, Dettes financieres, Capitaux propres, Creances clients, Dettes fournisseurs, Stocks, Provisions
+- Remuneration dirigeant, Loyers, Credit-bail, Charges/produits exceptionnels
+- Dependance dirigeant, Concentration clients, Participation minoritaire, Litiges, Contrats cles
+- MRR, Churn, NRR, CAC, Runway, GMV (si archetype SaaS/marketplace)
+- Objectif de la valorisation (vente, achat, associe, etc.)
+
+**Ce que tu dois faire :**
+1. **Guider** : Expliquer l'importance de chaque donnee pour la valorisation et inviter l'utilisateur a completer les champs dans la sidebar
+2. **Analyser** : Commenter les metriques au fur et a mesure qu'elles sont renseignees
+3. **Alerter** : Signaler les incoherences, les risques, les points d'attention
+4. **Repondre** : Repondre aux questions de l'utilisateur sur la valorisation
+
+**Ce que tu ne dois PAS faire :**
+- Ne demande PAS les chiffres financiers (CA, EBITDA, tresorerie, dettes, etc.) — redirige vers la sidebar : "Vous pouvez renseigner ce montant dans le panneau a droite"
+- Ne demande PAS l'objectif de valorisation — il est selectionnable dans la sidebar
+- Ne genere PAS de blocs de donnees structurees dans tes messages
+- Ne fais JAMAIS de valorisation finale dans le chat — c'est le role du rapport PDF
+- NE PARLE PAS des documents a uploader. Le panneau de donnees contient deja une zone d'upload. Si l'utilisateur n'a pas de documents, ce n'est pas grave — il peut saisir les donnees manuellement.
+- NE LISTE PAS les types de documents (liasse fiscale, bilans, etc.). C'est inutile et verbeux.
+
+**Apres la confirmation de l'objectif, ton message doit etre COURT (3-4 lignes max) :**
+- Confirme l'objectif
+- Indique que les donnees Pappers sont pre-remplies dans le panneau
+- Demande de verifier et completer avec les donnees recentes si disponibles
+- Exemple : "Compris, objectif : vente. J'ai pre-rempli les donnees depuis les bilans publies dans le panneau de donnees. Verifiez-les et ajoutez vos chiffres recents si vous les avez. Je vous guide au fur et a mesure."
+
+**Ce que tu PEUX faire dans le chat :**
+- Poser des questions qualitatives que la sidebar ne couvre pas (contexte marche, projet de cession, historique, equipe, avantages concurrentiels, etc.)
+- Demander des precisions sur des incoherences detectees
+- Donner des fourchettes indicatives ("avec ces metriques, vous seriez dans une fourchette de X a Y") avec un caveat
+- Poser des questions sur la structure financiere non couverte par la sidebar (emprunts hors bilan, garanties, etc.)
+- Encourager l'utilisateur a completer les champs critiques manquants dans la sidebar`)
+
+  // Questions spécifiques à l'objectif
+  const objectifQuestions = getObjectifQuestions(context.objectif)
+  if (objectifQuestions) {
+    sections.push(objectifQuestions)
   }
 
   // Données injectées — contexte de l'entreprise
@@ -483,6 +595,8 @@ ${docSection}
 
 **Ce que tu sais déjà (réponses précédentes) :**
 ${formatResponses(context.responses)}
+
+⚠️ **CROSS-VALIDATION** : Si les données déclarées par l'utilisateur divergent de plus de 20% des données Pappers (CA, effectif, dettes, trésorerie), signale l'écart et demande une explication. Les écarts peuvent être légitimes (croissance récente, bilan ancien) mais doivent être documentés.
 `)
 
   return sections.join('\n\n---\n\n')

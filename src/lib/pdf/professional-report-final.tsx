@@ -689,6 +689,24 @@ const ValuationSection = ({ data }: { data: ProfessionalReportData }) => {
           </>
         )}
 
+        {/* Notes de cohérence (Gate 4) */}
+        {data.validationNotes && data.validationNotes.length > 0 && (
+          <>
+            <Text style={styles.sectionSubtitle}>Notes de coherence</Text>
+            <View style={[styles.card, { borderLeftWidth: 4, borderLeftColor: COLORS.warning }]}>
+              <Text style={{ fontSize: 9, fontWeight: 'bold', color: COLORS.gray700, marginBottom: 6 }}>
+                Points d'attention identifies lors de la generation :
+              </Text>
+              {data.validationNotes.map((note, i) => (
+                <View key={i} style={styles.bulletPoint}>
+                  <Text style={[styles.bullet, { color: COLORS.warning }]}>!</Text>
+                  <Text style={styles.bulletText}>{cleanText(note)}</Text>
+                </View>
+              ))}
+            </View>
+          </>
+        )}
+
         <Footer company={data.entreprise.nom} pageNum={26} totalPages={32} />
       </Page>
     </>

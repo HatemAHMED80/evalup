@@ -123,7 +123,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const evalAccess = await checkEvaluationAccess(userId, evalSiren)
+    let evalAccess = await checkEvaluationAccess(userId, evalSiren)
+
+    // Si paiement requis, vérifier directement via Stripe API et débloquer si payé
+    if (!evalAccess.canContinue && evalAccess.needsPayment && evalAccess.evaluation?.id) {
+      const evalIdForVerify = evalAccess.evaluation.id
+      try {
+        const { verifyAndUnlockPayment } = await import('@/lib/usage/evaluations')
+        const unlocked = await verifyAndUnlockPayment(evalIdForVerify)
+        if (unlocked) {
+          evalAccess = await checkEvaluationAccess(userId, evalSiren)
+        }
+      } catch (verifyError) {
+        console.error('[Chat] verifyAndUnlockPayment a échoué:', {
+          evaluationId: evalIdForVerify,
+          error: verifyError,
+        })
+        // Ne pas crash — laisser le flow continuer vers la réponse 402
+      }
+    }
 
     // Si l'utilisateur ne peut pas continuer -> bloquer
     if (!evalAccess.canContinue) {
@@ -436,9 +454,17 @@ export async function POST(request: NextRequest) {
             // Si c'est une erreur 404 (modèle non trouvé), essayer le suivant
             if (status === 404 || errorMessage.includes('not_found')) {
               console.warn(`[API] Modèle ${modelId} non disponible, essai du suivant...`)
-              fullResponse = '' // Reset la réponse pour le prochain essai
-              stream = null
-              continue
+              // Ne reset que si aucun chunk n'a déjà été envoyé au client
+              if (fullResponse.length === 0) {
+                stream = null
+                continue
+              }
+              // Des chunks ont déjà été envoyés — on ne peut plus fallback proprement
+              // Envoyer un message d'erreur inline et fermer le stream
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: '\n\n[Erreur temporaire du service. Veuillez renvoyer votre message.]' })}\n\n`))
+              controller.enqueue(encoder.encode(`data: [DONE]\n\n`))
+              controller.close()
+              return
             }
 
             // Pour les autres erreurs, propager

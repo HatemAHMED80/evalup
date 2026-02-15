@@ -130,7 +130,18 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 
     // Fallback : si confirmPurchase n'a pas pu mettre à jour l'évaluation
     // (ex: purchase record manquant), on met à jour directement via metadata
-    await markEvaluationAsPaid(evaluationId, paymentIntentId, session.amount_total || 7900)
+    try {
+      await markEvaluationAsPaid(evaluationId, paymentIntentId, session.amount_total || 7900)
+    } catch (markError) {
+      console.error('[Webhook] CRITICAL: markEvaluationAsPaid a échoué — le client a payé mais l\'évaluation n\'est pas débloquée', {
+        evaluationId,
+        paymentIntentId,
+        sessionId: session.id,
+        error: markError,
+      })
+      // Ne pas throw — renvoyer 200 à Stripe pour éviter les retries inutiles
+      // L'utilisateur peut débloquer via verifyAndUnlockPayment côté chat
+    }
 
     console.log('Achat unique confirme:', {
       sessionId: session.id,

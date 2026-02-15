@@ -299,6 +299,77 @@ export interface Database {
           updated_at?: string
         }
       }
+      evaluations: {
+        Row: {
+          id: string
+          user_id: string
+          siren: string
+          entreprise_nom: string | null
+          archetype_id: string | null
+          diagnostic_data: Json | null
+          type: string
+          status: string
+          questions_count: number
+          documents_count: number
+          valuation_low: number | null
+          valuation_high: number | null
+          valuation_method: string | null
+          stripe_payment_id: string | null
+          amount_paid: number | null
+          extracted_financials: Json | null
+          documents_source: string | null
+          pappers_doc_status: string | null
+          created_at: string
+          paid_at: string | null
+          completed_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          siren: string
+          entreprise_nom?: string | null
+          archetype_id?: string | null
+          diagnostic_data?: Json | null
+          type?: string
+          status?: string
+          questions_count?: number
+          documents_count?: number
+          valuation_low?: number | null
+          valuation_high?: number | null
+          valuation_method?: string | null
+          stripe_payment_id?: string | null
+          amount_paid?: number | null
+          extracted_financials?: Json | null
+          documents_source?: string | null
+          pappers_doc_status?: string | null
+          created_at?: string
+          paid_at?: string | null
+          completed_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          siren?: string
+          entreprise_nom?: string | null
+          archetype_id?: string | null
+          diagnostic_data?: Json | null
+          type?: string
+          status?: string
+          questions_count?: number
+          documents_count?: number
+          valuation_low?: number | null
+          valuation_high?: number | null
+          valuation_method?: string | null
+          stripe_payment_id?: string | null
+          amount_paid?: number | null
+          extracted_financials?: Json | null
+          documents_source?: string | null
+          pappers_doc_status?: string | null
+          created_at?: string
+          paid_at?: string | null
+          completed_at?: string | null
+        }
+      }
       profiles: {
         Row: {
           id: string

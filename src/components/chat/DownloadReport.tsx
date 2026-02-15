@@ -94,8 +94,9 @@ export function DownloadReport({ context }: DownloadReportProps) {
     }
   }
 
-  // Affichage pour utilisateurs non-Pro
-  if (!isPremium) {
+  // Le PDF est accessible si l'utilisateur a payé l'évaluation OU est abonné Pro
+  const canDownload = isPremium || context.isPaid
+  if (!canDownload) {
     return (
       <div className="relative">
         <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded-[var(--radius-xl)] p-6 mb-4">

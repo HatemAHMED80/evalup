@@ -552,5 +552,18 @@ function fmtK(n: number): string {
   return `${prefix}${abs.toFixed(0)}€`
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Wrapper pour EvaluationData (Phase 2)
+// ─────────────────────────────────────────────────────────────────────────────
+
+import type { EvaluationData } from '../evaluation/evaluation-data'
+import { evaluationDataToFinancialData, evaluationDataToQualitativeData } from './evaluation-adapter'
+
+export function calculateFromEvaluationData(data: EvaluationData): ValuationResult {
+  const financialData = evaluationDataToFinancialData(data)
+  const qualitativeData = evaluationDataToQualitativeData(data)
+  return calculateValuation(data.archetype, financialData, qualitativeData)
+}
+
 // Exports pour les tests
 export { getSalaireNormatif, normaliserEbitda, calculerDecotes, appliquerDecotes, WEIGHTS }

@@ -9,17 +9,19 @@ function CheckoutContent() {
   const router = useRouter()
   const [_isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [errorCode, setErrorCode] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
+  const [retryCooldown, setRetryCooldown] = useState(false)
 
   const sirenParam = searchParams.get('siren')
   const evalId = searchParams.get('eval')
   const planId = searchParams.get('plan') || 'eval_complete'
   const archetypeId = searchParams.get('archetype')
 
-  // Fallback: read SIREN from sessionStorage if not in URL
+  // Fallback: read SIREN from sessionStorage (or localStorage backup) if not in URL
   const siren = sirenParam || (() => {
     try {
-      const raw = sessionStorage.getItem('diagnostic_data')
+      const raw = sessionStorage.getItem('diagnostic_data') || localStorage.getItem('diagnostic_data_backup')
       if (raw) {
         const d = JSON.parse(raw)
         return (d.siren || '').replace(/\D/g, '') || null
@@ -40,7 +42,7 @@ function CheckoutContent() {
 
       let diagnosticData: Record<string, unknown> | null = null
       try {
-        const raw = sessionStorage.getItem('diagnostic_data')
+        const raw = sessionStorage.getItem('diagnostic_data') || localStorage.getItem('diagnostic_data_backup')
         if (raw) diagnosticData = JSON.parse(raw)
       } catch { /* ignore */ }
 
@@ -66,6 +68,7 @@ function CheckoutContent() {
           router.push(`/connexion?redirect=${returnUrl}`)
           return
         }
+        if (data.code) setErrorCode(data.code)
         throw new Error(data.error || 'Erreur lors du paiement')
       }
 
@@ -106,11 +109,15 @@ function CheckoutContent() {
   }, [siren, initiateCheckout, retryCount])
 
   const handleRetry = () => {
+    if (retryCooldown) return
+    setRetryCooldown(true)
     setRetryCount(c => c + 1)
+    setTimeout(() => setRetryCooldown(false), 30000)
   }
 
   if (error) {
     const isNetworkError = error.includes('connection') || error.includes('retried') || error.includes('trop de temps') || error.includes('network')
+    const needsDiagnosticRedo = errorCode === 'EVAL_CREATION_FAILED' || error.includes('relancer le diagnostic')
     return (
       <div className="min-h-screen bg-[#1a1a2e] flex items-center justify-center p-4">
         <div className="bg-white/5 border border-red-500/30 rounded-2xl p-8 max-w-md w-full text-center">
@@ -120,12 +127,21 @@ function CheckoutContent() {
           <h1 className="text-xl font-bold text-white mb-2">Erreur</h1>
           <p className="text-white/60 mb-6">{error}</p>
           <div className="flex gap-3 justify-center">
-            {isNetworkError && (
+            {needsDiagnosticRedo && (
               <button
-                onClick={handleRetry}
+                onClick={() => router.push('/diagnostic')}
                 className="px-6 py-3 bg-[#c9a227] hover:bg-[#d4ad2e] text-[#1a1a2e] font-semibold rounded-xl transition-colors"
               >
-                Réessayer
+                Refaire le diagnostic
+              </button>
+            )}
+            {isNetworkError && !needsDiagnosticRedo && (
+              <button
+                onClick={handleRetry}
+                disabled={retryCooldown}
+                className={`px-6 py-3 font-semibold rounded-xl transition-colors ${retryCooldown ? 'bg-gray-500 text-gray-300 cursor-not-allowed' : 'bg-[#c9a227] hover:bg-[#d4ad2e] text-[#1a1a2e]'}`}
+              >
+                {retryCooldown ? 'Patientez...' : 'Réessayer'}
               </button>
             )}
             <button
