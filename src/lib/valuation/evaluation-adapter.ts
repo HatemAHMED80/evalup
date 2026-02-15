@@ -51,6 +51,12 @@ export function evaluationDataToFinancialData(data: EvaluationData): FinancialDa
     }
   }
 
+  // Pour patrimoine/patrimoine_dominant : total actif depuis les composants du bilan
+  let assets: number | undefined
+  if (data.archetype === 'patrimoine' || data.archetype === 'patrimoine_dominant') {
+    assets = (last?.stocks ?? 0) + (last?.creancesClients ?? 0) + (last?.tresorerie ?? 0)
+  }
+
   return {
     revenue: last?.ca ?? 0,
     ebitda: last?.ebitda ?? 0,
@@ -58,6 +64,7 @@ export function evaluationDataToFinancialData(data: EvaluationData): FinancialDa
     equity: last?.capitauxPropres ?? 0,
     cash: last?.tresorerie ?? 0,
     debt: last?.dettesFinancieres ?? 0,
+    assets,
     growth: growth ?? undefined,
     recurring: data.qualitative.recurring ?? undefined,
     retraitements: Object.keys(retraitements).length > 0 ? retraitements : undefined,

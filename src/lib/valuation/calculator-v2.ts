@@ -83,12 +83,12 @@ export interface ValuationResult {
 // -----------------------------------------------------------------------------
 
 const TRANCHES_SALAIRE: Array<{ min: number; max: number; salaire: number }> = [
-  { min: 0, max: 500_000, salaire: 45_000 },
-  { min: 500_000, max: 1_000_000, salaire: 60_000 },
-  { min: 1_000_000, max: 2_000_000, salaire: 80_000 },
-  { min: 2_000_000, max: 5_000_000, salaire: 100_000 },
-  { min: 5_000_000, max: 10_000_000, salaire: 130_000 },
-  { min: 10_000_000, max: 20_000_000, salaire: 160_000 },
+  { min: 0, max: 500_000, salaire: 50_000 },
+  { min: 500_000, max: 1_000_000, salaire: 70_000 },
+  { min: 1_000_000, max: 2_000_000, salaire: 90_000 },
+  { min: 2_000_000, max: 5_000_000, salaire: 110_000 },
+  { min: 5_000_000, max: 10_000_000, salaire: 140_000 },
+  { min: 10_000_000, max: 20_000_000, salaire: 170_000 },
   { min: 20_000_000, max: Infinity, salaire: 200_000 },
 ]
 
@@ -248,18 +248,18 @@ function appliquerDecotes(valeur: number, decotes: Decote[]): number {
 
 const WEIGHTS: Record<string, [number, number]> = {
   saas_hyper:             [80, 20],
-  saas_mature:            [70, 30],
+  saas_mature:            [40, 60],
   saas_decline:           [80, 20],
   marketplace:            [60, 40],
   ecommerce:              [40, 60],
   conseil:                [80, 20],
-  services_recurrents:    [70, 30],
+  services_recurrents:    [80, 20],
   commerce_retail:        [60, 40],
   industrie:              [75, 25],
-  patrimoine:             [100, 0],
-  patrimoine_dominant:    [100, 0],
+  patrimoine:             [20, 80],
+  patrimoine_dominant:    [20, 80],
   deficit_structurel:     [70, 30],
-  masse_salariale_lourde: [70, 30],
+  masse_salariale_lourde: [90, 10],
   micro_solo:             [70, 30],
   pre_revenue:            [0, 0],
 }
@@ -281,7 +281,8 @@ function getPrimaryMetric(archetype: string, data: FinancialData, ebitdaNorm: nu
     case 'masse_salariale_lourde':
       return ebitdaNorm
     case 'marketplace':
-      return data.gmv ?? data.revenue
+      // GMV (volume total) → fallback ARR (commissions annualisées) → fallback CA Pappers
+      return data.gmv ?? data.arr ?? (data.mrr ? data.mrr * 12 : data.revenue)
     case 'ecommerce':
       return data.revenue
     case 'patrimoine':
@@ -305,7 +306,8 @@ function getSecondaryMetric(archetype: string, data: FinancialData, ebitdaNorm: 
     case 'saas_decline':
       return data.revenue
     case 'marketplace':
-      return data.netRevenue ?? data.revenue
+      // CA net (commissions) → fallback ARR → fallback CA Pappers
+      return data.arr ?? data.netRevenue ?? data.revenue
     case 'ecommerce':
       return ebitdaNorm > 0 ? ebitdaNorm : 0
     case 'conseil':
@@ -469,17 +471,20 @@ export function calculateValuation(
   financialData: FinancialData,
   qualitativeData?: QualitativeData,
 ): ValuationResult {
-  // Pre-revenue : pas de calcul automatique
+  // Pre-revenue : VE = 0 (pas de multiples), mais bridge tréso/dette calculé
   if (archetype === 'pre_revenue') {
+    const netDebt = calculateNetDebt(financialData)
+    // Equity = VE - DFN ; quand VE=0, equity = tréso nette (si positive)
+    const equityFromBridge = Math.max(0, -netDebt)
     return {
       archetype,
       methodUsed: getMethodLabel(archetype),
-      valuationRange: { low: 0, median: 0, high: 0 },
+      valuationRange: { low: 0, median: equityFromBridge, high: equityFromBridge },
       adjustments: [],
       decotes: [],
       enterpriseValue: { low: 0, median: 0, high: 0 },
-      netDebt: 0,
-      equityValue: { low: 0, median: 0, high: 0 },
+      netDebt,
+      equityValue: { low: 0, median: equityFromBridge, high: equityFromBridge },
       confidenceScore: 0,
     }
   }
@@ -502,10 +507,30 @@ export function calculateValuation(
   const secondaryMetric = getSecondaryMetric(archetype, financialData, ebitdaNormalise)
 
   // 4. Calculer la VE
-  const enterpriseValue = calculateVE(archetype, primaryMetric, secondaryMetric, multiples)
+  let enterpriseValue = calculateVE(archetype, primaryMetric, secondaryMetric, multiples)
+
+  // micro_solo + remu=0 + CA<100k : EBITDA et RN sont fictifs (salaire déguisé)
+  // Plafonner la VE pour refléter la non-transférabilité
+  if (archetype === 'micro_solo'
+      && financialData.retraitements?.salaireDirigeant === 0
+      && financialData.revenue < 100_000) {
+    const capVE = Math.max(0, ebitdaNormalise)
+    enterpriseValue = {
+      low: Math.min(enterpriseValue.low, 0),
+      median: Math.min(enterpriseValue.median, capVE),
+      high: Math.min(enterpriseValue.high, Math.max(capVE, 5_000)),
+    }
+  }
 
   // 5. Calculer la dette nette
-  const netDebt = calculateNetDebt(financialData)
+  // Pour patrimoine/patrimoine_dominant : la tréso est un actif (déjà dans VE via ANR),
+  // donc on ne la soustrait PAS de la dette dans le bridge
+  let netDebt: number
+  if (archetype === 'patrimoine' || archetype === 'patrimoine_dominant') {
+    netDebt = financialData.debt + (financialData.retraitements?.creditBailRestant ?? 0)
+  } else {
+    netDebt = calculateNetDebt(financialData)
+  }
 
   // 6. Equity avant décotes = VE - DFN
   const equityBeforeDecotes: Range = {

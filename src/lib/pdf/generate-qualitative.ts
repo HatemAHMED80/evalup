@@ -102,6 +102,27 @@ const DONNEES_SECTEUR: Record<string, DonneesSecteur> = {
     clientele: 'Consommateurs finaux (B2C), mix de clientele locale et en ligne. Panier moyen et frequence d\'achat varient selon le segment.',
     fournisseurs: 'Grossistes, importateurs, fabricants. Les achats representent 55-70% du CA selon le type de commerce.',
   },
+  ecommerce: {
+    tendances: [
+      'Croissance soutenue du e-commerce en France (+10% par an)',
+      'Montee des couts d\'acquisition client (Meta Ads, Google Ads, TikTok)',
+      'Pression reglementaire sur la logistique (emballages, retours, bilan carbone)',
+      'Consolidation du marche via rachat de marques D2C par des groupes',
+    ],
+    opportunites: [
+      'Expansion internationale facilitee par le modele 100% digital',
+      'Developpement wholesale et corners en magasins physiques',
+      'Abonnements et modeles recurrents pour stabiliser le chiffre d\'affaires',
+    ],
+    menaces: [
+      'Hausse des couts d\'acquisition (CPM et CPC en croissance constante)',
+      'Dependance aux plateformes publicitaires (Meta, Google, TikTok)',
+      'Concurrence des marketplaces (Amazon, Temu) sur les prix',
+      'Volatilite de la demande et saisonnalite forte',
+    ],
+    clientele: 'Consommateurs finaux (B2C), principalement acquis via les canaux digitaux (reseaux sociaux, SEO, email). La fidelisation et le taux de reachat sont des metriques cles de valorisation.',
+    fournisseurs: 'Fabricants, fournisseurs de matieres premieres, prestataires logistiques (3PL), solutions e-commerce (Shopify, PrestaShop). Les couts logistiques representent 15-25% du CA.',
+  },
   services: {
     tendances: [
       'Acceleration de la demande en conseil en transformation digitale',
@@ -229,7 +250,8 @@ export function genererSWOT(params: {
   if (ratios.margeEbitda >= benchmark.margeEbitda.max * 0.8 && !forces.some(f => /marge|ebitda/i.test(f))) {
     forces.push('Marge EBITDA superieure a la mediane du secteur')
   }
-  if (ratios.detteNetteEbitda < 1.5 && !forces.some(f => /dette|endettement/i.test(f))) {
+  // detteNetteEbitda n'est significatif que si l'EBITDA est positif
+  if (ratios.margeEbitda > 0 && ratios.detteNetteEbitda < 1.5 && !forces.some(f => /dette|endettement/i.test(f))) {
     forces.push('Endettement maitrise permettant des investissements')
   }
   if (ratios.roe > 0.15 && !forces.some(f => /roe|capitaux/i.test(f))) {
@@ -430,6 +452,7 @@ const BENCHMARKS_NOMS: Record<string, string> = {
   saas: 'SaaS / Tech',
   restaurant: 'Restauration',
   commerce: 'Commerce / Retail',
+  ecommerce: 'E-commerce / D2C',
   services: 'Services / Conseil',
   industrie: 'Industrie / Production',
   btp: 'BTP / Construction',

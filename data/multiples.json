@@ -12,9 +12,9 @@
     },
     "saas_mature": {
       "primaryMultiple": { "metric": "EBITDA", "low": 10, "median": 15, "high": 20 },
-      "secondaryMultiple": { "metric": "ARR", "low": 4, "median": 7, "high": 10 },
+      "secondaryMultiple": { "metric": "ARR", "low": 5, "median": 8, "high": 12 },
       "damodaranSector": "Software (System & Application)",
-      "source": "Software (System & Application) — Damodaran, croissance 5-40%"
+      "source": "Software (System & Application) — Damodaran, croissance 5-40%, ARR ajusté récurrence >80%"
     },
     "saas_decline": {
       "primaryMultiple": { "metric": "EBITDA", "low": 4, "median": 6, "high": 8 },
@@ -29,22 +29,22 @@
       "source": "Software (Internet) — Damodaran, ajusté pour take rate et effet réseau"
     },
     "ecommerce": {
-      "primaryMultiple": { "metric": "CA", "low": 1, "median": 2, "high": 3 },
-      "secondaryMultiple": { "metric": "EBITDA", "low": 6, "median": 9, "high": 12 },
+      "primaryMultiple": { "metric": "CA", "low": 0.3, "median": 0.6, "high": 1 },
+      "secondaryMultiple": { "metric": "EBITDA", "low": 4, "median": 6, "high": 8 },
       "damodaranSector": "Retail (Online)",
-      "source": "Retail (Online) — Damodaran, ajusté marge brute et marque"
+      "source": "Retail (Online) — Damodaran, ajusté PME France (décote 50-60% vs public US)"
     },
     "conseil": {
-      "primaryMultiple": { "metric": "EBITDA", "low": 3.5, "median": 5, "high": 7 },
+      "primaryMultiple": { "metric": "EBITDA", "low": 3, "median": 5, "high": 6 },
       "secondaryMultiple": { "metric": "CA", "low": 0.5, "median": 0.8, "high": 1.2 },
       "damodaranSector": "Business & Consumer Services",
-      "source": "Business & Consumer Services — Damodaran, ajusté CRA France (cabinets 3-6×, ESN 5-8×)"
+      "source": "Business & Consumer Services — Damodaran, ajusté CRA France (cabinets 3-6×)"
     },
     "services_recurrents": {
-      "primaryMultiple": { "metric": "EBITDA", "low": 5, "median": 7, "high": 10 },
-      "secondaryMultiple": { "metric": "CA récurrent", "low": 2, "median": 3, "high": 4 },
+      "primaryMultiple": { "metric": "EBITDA", "low": 5, "median": 7, "high": 8 },
+      "secondaryMultiple": { "metric": "CA récurrent", "low": 1, "median": 1.5, "high": 2 },
       "damodaranSector": "Business & Consumer Services",
-      "source": "Business & Consumer Services — Damodaran, prime récurrence >60%"
+      "source": "Business & Consumer Services — Damodaran, prime récurrence >60%, secondaires ajustés (services physiques ≠ SaaS)"
     },
     "commerce_retail": {
       "primaryMultiple": { "metric": "EBITDA", "low": 3, "median": 4.5, "high": 6 },
@@ -53,10 +53,10 @@
       "source": "Retail (General) — Damodaran, ajusté fonds de commerce France"
     },
     "industrie": {
-      "primaryMultiple": { "metric": "EBITDA", "low": 4, "median": 5.5, "high": 7 },
+      "primaryMultiple": { "metric": "EBITDA", "low": 4, "median": 5, "high": 6.5 },
       "secondaryMultiple": { "metric": "CA", "low": 0.4, "median": 0.6, "high": 0.9 },
       "damodaranSector": "Machinery",
-      "source": "Machinery — Damodaran, ajusté capex et actifs corporels"
+      "source": "Machinery — Damodaran, ajusté capex et actifs corporels, décote PME France"
     },
     "patrimoine": {
       "primaryMultiple": { "metric": "ANR", "low": 0.7, "median": 0.85, "high": 1 },

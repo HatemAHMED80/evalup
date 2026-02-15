@@ -47,6 +47,15 @@ export const BENCHMARKS: Record<string, SectorBenchmarks> = {
     multipleCA: { min: 0.3, max: 0.7 },
     multipleEbitda: { min: 3, max: 5 },
   },
+  ecommerce: {
+    nom: 'E-commerce / D2C',
+    margeNette: { min: 0.03, median: 0.08, max: 0.15 },
+    margeEbitda: { min: 0.05, median: 0.12, max: 0.20 },
+    croissanceCA: { min: 0.0, median: 0.15, max: 0.40 },
+    dso: { min: 0, median: 10, max: 25 },
+    multipleCA: { min: 0.3, max: 1.0 },
+    multipleEbitda: { min: 4, max: 8 },
+  },
   services: {
     nom: 'Services / Conseil',
     margeNette: { min: 0.05, median: 0.10, max: 0.15 },
@@ -119,6 +128,10 @@ export function compareWithBenchmark(
  */
 export function getSectorFromNaf(codeNaf: string): string {
   if (!codeNaf) return 'default'
+
+  // Check specific NAF sub-codes first (e.g., 47.91Z = vente à distance → ecommerce)
+  const naf4 = codeNaf.substring(0, 5)
+  if (naf4 === '47.91' || naf4 === '47.99') return 'ecommerce'
 
   const code = codeNaf.substring(0, 2)
 

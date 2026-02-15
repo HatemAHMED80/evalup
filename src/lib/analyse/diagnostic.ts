@@ -228,6 +228,7 @@ export function ajusterScoreDiagnostic(
     if (input.revenue < 100_000) {
       // Micro non valorisable : EBITDA = salaire déguisé, transférabilité nulle
       plafond = Math.min(plafond, 40)
+      plancher = Math.max(plancher, 35) // D min — réserver E aux entreprises en défaillance
       ajustements.push({ label: 'Micro non valorisable', points: -10, reason: 'CA < 100k€ + rémunération 0€ — EBITDA fictif, transférabilité nulle' })
     } else if (input.masseSalariale != null && input.masseSalariale <= 5) {
       // Solo > 100k avec rému 0 : EBITDA non représentatif
@@ -290,9 +291,23 @@ export function ajusterScoreDiagnostic(
     ajustements.push({ label: 'Entreprise établie', points: +5, reason: 'Plus de 10 ans avec croissance positive' })
   }
 
+  // Croissance >= 20% (soutenue) → +3
+  if (input.growth != null && input.growth >= 20 && input.growth <= 40) {
+    ajustements.push({ label: 'Croissance soutenue', points: +3, reason: `Croissance ${input.growth}% — rythme soutenu` })
+  }
+
   // Concentration client < 10% → +3
   if (input.concentrationClient != null && input.concentrationClient < 10) {
     ajustements.push({ label: 'Base client diversifiée', points: +3, reason: 'Concentration < 10%, portefeuille diversifié' })
+  }
+
+  // SaaS mature performant : recurring + MRR + EBITDA positif → plancher A
+  if (input.recurring != null && input.recurring > 80
+    && input.mrrMensuel != null && input.mrrMensuel > 0
+    && input.ebitda != null && input.ebitda > 0
+    && input.revenue != null && input.revenue >= 500_000) {
+    plancher = Math.max(plancher, 80)
+    ajustements.push({ label: 'SaaS mature performant', points: 0, reason: `Plancher A : récurrence ${input.recurring}% + MRR + EBITDA positif — modèle éprouvé` })
   }
 
   // P1: Hyper-croissance avec MRR (SaaS/Marketplace)
@@ -308,6 +323,16 @@ export function ajusterScoreDiagnostic(
       plancher = Math.max(plancher, 65)
       ajustements.push({ label: 'Croissance SaaS/Marketplace', points: 0, reason: `Plancher B : croissance ${input.growth}% avec MRR — modèle en phase d'investissement` })
     }
+  }
+
+  // P3: Startup en phase d'investissement (pré-revenu / early-stage)
+  // EBITDA négatif + trésorerie significative + croissance → plancher D
+  if (input.ebitda != null && input.ebitda < 0
+    && input.tresorerieActuelle != null && input.tresorerieActuelle > 100_000
+    && input.growth != null && input.growth > 0) {
+    plancher = Math.max(plancher, 35)
+    const runwayMois = Math.round((input.tresorerieActuelle / Math.abs(input.ebitda)) * 12)
+    ajustements.push({ label: 'Startup en investissement', points: 0, reason: `Plancher D : trésorerie ${Math.round(input.tresorerieActuelle / 1000)}k€, runway ~${runwayMois} mois — EBITDA négatif attendu en phase d'amorçage` })
   }
 
   // Calcul final

@@ -164,6 +164,8 @@ export interface ProfessionalReportData {
     damodaranSector: string
     source: string
   }
+  // Matrice de sensibilité : base alternative (ARR pour SaaS, EBITDA par défaut)
+  sensitivityBase?: { value: number; label: string }
   // Métadonnées
   dateGeneration: string
   analyste?: string

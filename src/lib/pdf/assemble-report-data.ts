@@ -43,14 +43,51 @@ function convertBilan(b: BilanContext): BilanV2 {
 // HELPERS QUALITATIFS
 // ============================================
 
-function genererPointsForts(ratios: RatiosFinanciers, benchmark: SectorBenchmarks, qual?: QualitativeData): string[] {
+/** Contexte du diagnostic pour filtrer forces/vigilances */
+interface DiagnosticContext {
+  remunerationDirigeant?: number
+  revenue?: number
+  growth?: number
+  masseSalariale?: number
+  ebitda?: number
+  tresorerie?: number
+  recurring?: number
+  anciennete?: number
+  // SaaS/startup metrics
+  churnMensuel?: number
+  nrr?: number
+  runway?: number
+}
+
+function genererPointsForts(ratios: RatiosFinanciers, benchmark: SectorBenchmarks, qual?: QualitativeData, diagCtx?: DiagnosticContext): string[] {
   const points: string[] = []
-  if (ratios.margeEbitda > benchmark.margeEbitda.median) points.push('Marge EBITDA au-dessus de la mediane sectorielle')
-  if (ratios.margeNette > 0.05) points.push('Rentabilite nette satisfaisante')
+  // Quand remu=0, les marges et la rentabilité sont fictives (salaire non déduit)
+  const remuZero = diagCtx?.remunerationDirigeant === 0
+  if (!remuZero && ratios.margeEbitda > benchmark.margeEbitda.median) points.push('Marge EBITDA au-dessus de la mediane sectorielle')
+  if (!remuZero && ratios.margeNette > 0.05) points.push('Rentabilite nette satisfaisante')
   if (ratios.ratioEndettement < 0.5) points.push('Faible endettement financier')
-  if (ratios.roe > 0.15) points.push('Bonne rentabilite des capitaux propres')
-  if (ratios.liquiditeGenerale > 1.5) points.push('Tresorerie solide')
-  if (ratios.dso < benchmark.dso.median) points.push('Bonne gestion des delais clients')
+  if (!remuZero && ratios.roe > 0.15) points.push('Bonne rentabilite des capitaux propres')
+  // Trésorerie solide : ne pas afficher quand EBITDA < 0 (la tréso est du runway, pas une force)
+  if (ratios.liquiditeGenerale > 1.5 && !(diagCtx?.ebitda != null && diagCtx.ebitda < 0)) {
+    points.push('Tresorerie solide')
+  }
+  // Gestion des délais clients — pas pertinent quand CA < 100k (DSO sans signification)
+  if (!(diagCtx?.revenue != null && diagCtx.revenue < 100_000) && ratios.dso < benchmark.dso.median) {
+    points.push('Bonne gestion des delais clients')
+  }
+  // Forces contextuelles depuis le diagnostic
+  if (diagCtx?.growth != null && diagCtx.growth >= 20) {
+    points.push(`Croissance forte du chiffre d'affaires (+${Math.round(diagCtx.growth)}%)`)
+  }
+  if (diagCtx?.recurring != null && diagCtx.recurring >= 60) {
+    points.push(`Recurrence elevee (${Math.round(diagCtx.recurring)}% du CA)`)
+  }
+  if (diagCtx?.revenue != null && diagCtx.revenue > 5_000_000) {
+    points.push('Chiffre d\'affaires significatif')
+  }
+  if (diagCtx?.anciennete != null && diagCtx.anciennete > 10) {
+    points.push(`Entreprise etablie (${diagCtx.anciennete} ans d'anciennete)`)
+  }
   // Données qualitatives du chat
   if (qual?.contratsCles) points.push('Contrats long terme securises avec les clients cles')
   if (qual?.dependanceDirigeant === 'faible') points.push('Faible dependance au dirigeant, equipe autonome')
@@ -61,18 +98,69 @@ function genererPointsForts(ratios: RatiosFinanciers, benchmark: SectorBenchmark
   return points
 }
 
-function genererPointsVigilance(ratios: RatiosFinanciers, benchmark: SectorBenchmarks, qual?: QualitativeData): string[] {
+function genererPointsVigilance(ratios: RatiosFinanciers, benchmark: SectorBenchmarks, qual?: QualitativeData, diagCtx?: DiagnosticContext): string[] {
   const points: string[] = []
-  if (ratios.margeNette < 0.02) points.push('Marge nette faible')
-  if (ratios.ratioEndettement > 1.5) points.push('Endettement financier eleve')
-  if (ratios.dso > benchmark.dso.max) points.push('Delais de paiement clients eleves')
-  if (ratios.bfrSurCa > 0.25) points.push('BFR important pesant sur la tresorerie')
-  if (ratios.margeEbitda < benchmark.margeEbitda.min) points.push('Marge EBITDA sous la moyenne sectorielle')
+  // Pour pré-revenu (CA < 50k), les ratios du bilan sont non-représentatifs (CP estimé, marges extrêmes)
+  // → ne pas afficher les vigilances ratio-based qui seraient artificiellement catastrophiques
+  const isPreRevenue = diagCtx?.revenue != null && diagCtx.revenue > 0 && diagCtx.revenue < 50_000 && diagCtx?.ebitda != null && diagCtx.ebitda < 0
+  if (!isPreRevenue && ratios.margeNette < 0.02) points.push('Marge nette faible')
+  if (!isPreRevenue && ratios.ratioEndettement > 1.5) points.push('Endettement financier eleve')
+  else if (!isPreRevenue && ratios.ratioEndettement > 0.7) points.push('Endettement financier significatif')
+  if (!isPreRevenue && ratios.dso > benchmark.dso.max) points.push('Delais de paiement clients eleves')
+  if (!isPreRevenue && ratios.bfrSurCa > 0.25) points.push('BFR important pesant sur la tresorerie')
+  if (!isPreRevenue && ratios.margeEbitda < benchmark.margeEbitda.min) points.push('Marge EBITDA sous la moyenne sectorielle')
   // Données qualitatives du chat
   if (qual?.litiges) points.push('Litiges juridiques en cours signales')
   if (qual?.dependanceDirigeant === 'forte') points.push('Forte dependance au dirigeant actuel')
   if (qual?.concentrationClients != null && qual.concentrationClients > 30) {
     points.push(`Concentration clients elevee (top client = ${qual.concentrationClients}% du CA)`)
+  }
+  // Vigilances obligatoires depuis le diagnostic contextuel
+  if (diagCtx?.remunerationDirigeant === 0) {
+    points.push('EBITDA non representatif — remuneration dirigeant a 0€')
+    if (diagCtx.masseSalariale != null && diagCtx.masseSalariale <= 5) {
+      points.push('Activite non transferable en l\'etat (dirigeant = unique producteur)')
+    }
+  }
+  if (diagCtx?.revenue != null && diagCtx.revenue < 100_000 && diagCtx.revenue > 0) {
+    points.push('Micro-entreprise (CA < 100k€) — valorisation limitee')
+  }
+  if (diagCtx?.growth != null && diagCtx.growth <= 0) {
+    points.push(`Chiffre d'affaires en stagnation ou decroissance (${diagCtx.growth}%)`)
+  }
+  // Récurrence faible (quand la donnée est fournie)
+  if (diagCtx?.recurring != null && diagCtx.recurring > 0 && diagCtx.recurring < 35) {
+    points.push(`Recurrence faible (${Math.round(diagCtx.recurring)}% du CA) — revenus peu previsibles`)
+  }
+  // Masse salariale élevée
+  if (diagCtx?.masseSalariale != null && diagCtx.masseSalariale >= 60) {
+    points.push(`Masse salariale elevee (${Math.round(diagCtx.masseSalariale)}% du CA) — marge structurellement faible`)
+  }
+  // Burn rate et runway pour startups / entreprises en perte
+  if (diagCtx?.ebitda != null && diagCtx.ebitda < 0 && diagCtx?.tresorerie != null && diagCtx.tresorerie > 0) {
+    const burnAnnuel = Math.abs(diagCtx.ebitda)
+    const runwayMois = diagCtx.runway ?? Math.round((diagCtx.tresorerie / burnAnnuel) * 12)
+    points.push(`Burn rate annuel de ${Math.round(burnAnnuel / 1000)}k€ — runway estime a ${runwayMois} mois`)
+    if (runwayMois < 12) {
+      points.push('Runway critique (< 12 mois) — levee de fonds ou restructuration necessaire')
+    }
+  } else if (diagCtx?.runway != null && diagCtx.runway <= 12) {
+    // Runway déclaré explicitement (sans burn rate calculable)
+    points.push(`Runway limite (${diagCtx.runway} mois)`)
+  }
+  // Churn mensuel élevé (SaaS/startup)
+  if (diagCtx?.churnMensuel != null && diagCtx.churnMensuel > 10) {
+    points.push(`Churn mensuel critique (${diagCtx.churnMensuel}%/mois) — perte de clients rapide`)
+  } else if (diagCtx?.churnMensuel != null && diagCtx.churnMensuel > 5) {
+    points.push(`Churn mensuel eleve (${diagCtx.churnMensuel}%/mois)`)
+  }
+  // Net Revenue Retention sous 100% (contraction)
+  if (diagCtx?.nrr != null && diagCtx.nrr < 100) {
+    points.push(`Net Revenue Retention sous 100% (${diagCtx.nrr}%) — revenus en contraction nette`)
+  }
+  // Pré-revenu explicite
+  if (diagCtx?.revenue != null && diagCtx.revenue > 0 && diagCtx.revenue < 50_000 && diagCtx?.ebitda != null && diagCtx.ebitda < 0) {
+    points.push('Pre-revenu — valorisation par multiples non applicable')
   }
   if (points.length === 0) points.push('Aucun point de vigilance majeur identifie')
   return points
@@ -102,8 +190,8 @@ function parseEffectif(effectifStr?: string | number): number {
   // Nombre direct ("3", "12")
   if (/^\d+$/.test(trimmed)) return parseInt(trimmed, 10)
 
-  // Plage : "10 a 19 salaries", "20 à 49", etc.
-  const rangeMatch = trimmed.match(/(\d+)\s*[àa]\s*(\d+)/)
+  // Plage : "10 a 19 salaries", "20 à 49", "2-5", etc.
+  const rangeMatch = trimmed.match(/(\d+)\s*[-àa]\s*(\d+)/)
   if (rangeMatch) {
     return Math.round((parseInt(rangeMatch[1]) + parseInt(rangeMatch[2])) / 2)
   }
@@ -230,6 +318,16 @@ export function assembleReportData(context: ConversationContext, validationWarni
   // Métriques SaaS/Marketplace depuis le chat
   const saas = context.saasMetrics
 
+  // Pour patrimoine/patrimoine_dominant : total actif depuis les composants du bilan
+  // La tréso est un actif (pas un élément du bridge), les immo/stocks/créances aussi
+  let assets: number | undefined
+  if (archetypeId === 'patrimoine' || archetypeId === 'patrimoine_dominant') {
+    assets = (bilanRecent.immobilisationsCorporelles ?? 0)
+      + (bilanRecent.stocks ?? 0)
+      + (bilanRecent.creancesClients ?? 0)
+      + cash
+  }
+
   const financialData: FinancialData = {
     revenue: bilanRecent.chiffreAffaires,
     ebitda: ebitdaComptable,
@@ -237,6 +335,7 @@ export function assembleReportData(context: ConversationContext, validationWarni
     equity: bilanRecent.capitauxPropres,
     cash,
     debt,
+    assets,
     growth: context.diagnosticData?.growth,
     recurring: context.diagnosticData?.recurring,
     retraitements,
@@ -244,7 +343,10 @@ export function assembleReportData(context: ConversationContext, validationWarni
     // Fallback MRR/ARR depuis le diagnostic si pas de données chat
     arr: saas?.arr ?? (saas?.mrr ? saas.mrr * 12 : undefined) ?? (context.diagnosticData?.mrrMensuel ? context.diagnosticData.mrrMensuel * 12 : undefined),
     mrr: saas?.mrr ?? context.diagnosticData?.mrrMensuel,
-    gmv: saas?.gmv,
+    // Marketplace : GMV depuis le chat ou dérivé du diagnostic (revenue diagnostic = GMV si ≠ CA Pappers)
+    gmv: saas?.gmv ?? (archetypeId === 'marketplace' && context.diagnosticData?.revenue && context.diagnosticData.revenue > bilanRecent.chiffreAffaires
+      ? context.diagnosticData.revenue
+      : undefined),
   }
 
   // Construire les données qualitatives (décotes : illiquidité, minoritaire, etc.)
@@ -284,8 +386,8 @@ export function assembleReportData(context: ConversationContext, validationWarni
       masseSalariale: context.diagnosticData?.masseSalariale,
       concentrationClient: context.diagnosticData?.concentrationClient,
       remunerationDirigeant: context.diagnosticData?.remunerationDirigeant,
-      dettesFinancieres: context.diagnosticData?.dettesFinancieres,
-      tresorerieActuelle: context.diagnosticData?.tresorerieActuelle,
+      dettesFinancieres: context.diagnosticData?.dettesFinancieres ?? debt,
+      tresorerieActuelle: context.diagnosticData?.tresorerieActuelle ?? cash,
       mrrMensuel: context.diagnosticData?.mrrMensuel,
     },
     {
@@ -336,9 +438,31 @@ export function assembleReportData(context: ConversationContext, validationWarni
   if (remuDirigeant === 0 && bilanRecent.chiffreAffaires < 100_000 && bilanRecent.chiffreAffaires > 0) {
     niveauConfiance = 'faible'
   }
+  // Gate 6 : patrimoine — actifs à la valeur comptable (non réévalués) → plafonner à Moyenne
+  if ((archetypeId === 'patrimoine' || archetypeId === 'patrimoine_dominant') && niveauConfiance === 'elevee') {
+    niveauConfiance = 'moyenne'
+  }
+  // Gate 7 : concentration client > 50% → incertitude majeure sur pérennité du CA
+  const concentrationPct = qualitativeData?.concentrationClients
+  if (concentrationPct != null && concentrationPct > 50 && niveauConfiance === 'elevee') {
+    niveauConfiance = 'moyenne'
+  }
 
-  const pointsForts = genererPointsForts(ratios, benchmark, qualitativeData)
-  const pointsVigilance = genererPointsVigilance(ratios, benchmark, qualitativeData)
+  const diagCtx: DiagnosticContext = {
+    remunerationDirigeant: context.diagnosticData?.remunerationDirigeant,
+    revenue: context.diagnosticData?.revenue,
+    growth: context.diagnosticData?.growth,
+    masseSalariale: context.diagnosticData?.masseSalariale,
+    ebitda: context.diagnosticData?.ebitda,
+    tresorerie: context.diagnosticData?.tresorerieActuelle ?? cash,
+    recurring: context.diagnosticData?.recurring,
+    anciennete: ancienneteAnnees || undefined,
+    churnMensuel: context.saasMetrics?.churnMensuel,
+    nrr: context.saasMetrics?.nrr,
+    runway: context.saasMetrics?.runway,
+  }
+  const pointsForts = genererPointsForts(ratios, benchmark, qualitativeData, diagCtx)
+  const pointsVigilance = genererPointsVigilance(ratios, benchmark, qualitativeData, diagCtx)
 
   const swot = genererSWOT({
     pointsForts,
@@ -497,6 +621,17 @@ export function assembleReportData(context: ConversationContext, validationWarni
       damodaranSector: multiples.damodaranSector,
       source: multiples.source,
     } : undefined,
+    // Matrice de sensibilité : utiliser la métrique primaire réelle au lieu d'EBITDA
+    sensitivityBase: (() => {
+      if ((archetypeId === 'saas_hyper' || archetypeId === 'saas_mature') && financialData.arr) {
+        return { value: financialData.arr, label: 'ARR' }
+      }
+      if (archetypeId === 'marketplace') {
+        const gmvVal = financialData.gmv ?? financialData.arr
+        if (gmvVal) return { value: gmvVal, label: financialData.gmv ? 'GMV' : 'ARR' }
+      }
+      return undefined
+    })(),
     dateGeneration: new Date().toLocaleDateString('fr-FR', {
       year: 'numeric', month: 'long', day: 'numeric',
     }),
@@ -625,9 +760,31 @@ export function assembleFromEvaluationData(
   if (validationWarnings && validationWarnings.length >= 4) {
     niveauConfiance = 'faible'
   }
+  // Gate patrimoine : actifs à la valeur comptable (non réévalués) → plafonner à Moyenne
+  if ((archetypeId === 'patrimoine' || archetypeId === 'patrimoine_dominant') && niveauConfiance === 'elevee') {
+    niveauConfiance = 'moyenne'
+  }
+  // Gate concentration > 50% → incertitude majeure
+  const concentrationPctV2 = qualV2?.concentrationClients
+  if (concentrationPctV2 != null && concentrationPctV2 > 50 && niveauConfiance === 'elevee') {
+    niveauConfiance = 'moyenne'
+  }
 
-  const pointsForts = genererPointsForts(ratios, benchmark, qualV2)
-  const pointsVigilance = genererPointsVigilance(ratios, benchmark, qualV2)
+  const diagCtxV2: DiagnosticContext = {
+    remunerationDirigeant: data.qualitative.remunerationDirigeant ?? undefined,
+    revenue: last.ca ?? undefined,
+    growth: data.qualitative.croissanceActuelle ?? undefined,
+    masseSalariale: undefined,
+    ebitda: last.ebitda ?? undefined,
+    tresorerie: last.tresorerie ?? undefined,
+    recurring: data.qualitative.recurring ?? undefined,
+    anciennete: ancienneteAnnees || undefined,
+    churnMensuel: data.saasMetrics?.churnMensuel ?? undefined,
+    nrr: data.saasMetrics?.nrr ?? undefined,
+    runway: data.saasMetrics?.runway ?? undefined,
+  }
+  const pointsForts = genererPointsForts(ratios, benchmark, qualV2, diagCtxV2)
+  const pointsVigilance = genererPointsVigilance(ratios, benchmark, qualV2, diagCtxV2)
 
   const swot = genererSWOT({
     pointsForts,
@@ -791,6 +948,18 @@ export function assembleFromEvaluationData(
           source: multiples.source,
         }
       : undefined,
+    // Matrice de sensibilité : utiliser la métrique primaire réelle au lieu d'EBITDA
+    sensitivityBase: (() => {
+      const arrValue = data.saasMetrics?.arr ?? (data.saasMetrics?.mrr ? data.saasMetrics.mrr * 12 : undefined)
+      if ((archetypeId === 'saas_hyper' || archetypeId === 'saas_mature') && arrValue) {
+        return { value: arrValue, label: 'ARR' }
+      }
+      if (archetypeId === 'marketplace') {
+        const gmvVal = data.saasMetrics?.gmv ?? arrValue
+        if (gmvVal) return { value: gmvVal, label: data.saasMetrics?.gmv ? 'GMV' : 'ARR' }
+      }
+      return undefined
+    })(),
     dateGeneration: new Date().toLocaleDateString('fr-FR', {
       year: 'numeric',
       month: 'long',

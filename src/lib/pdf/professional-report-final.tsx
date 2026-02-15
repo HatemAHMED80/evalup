@@ -718,14 +718,16 @@ const ValuationSection = ({ data }: { data: ProfessionalReportData }) => {
 // ============================================
 
 const SensitivityAnalysis = ({ data }: { data: ProfessionalReportData }) => {
-  const baseEbitda = data.ebitdaNormalise.ebitdaNormalise
+  // Use ARR for SaaS profiles, EBITDA otherwise
+  const baseMetric = data.sensitivityBase?.value ?? data.ebitdaNormalise.ebitdaNormalise
+  const metricLabel = data.sensitivityBase?.label ?? 'EBITDA'
   const baseMultiple = data.methodes.find(m => m.multiple)?.multiple
-    || (baseEbitda > 0 ? data.valeurEntreprise.moyenne / baseEbitda : 5)
+    || (baseMetric > 0 ? data.valeurEntreprise.moyenne / baseMetric : 5)
 
-  const ebitdaVariations = [-0.20, -0.10, 0, 0.10, 0.20]
+  const metricVariations = [-0.20, -0.10, 0, 0.10, 0.20]
   const multipleVariations = [-1.0, -0.5, 0, 0.5, 1.0]
 
-  const ebitdaLabels = ['-20%', '-10%', 'Base', '+10%', '+20%']
+  const metricLabels = ['-20%', '-10%', 'Base', '+10%', '+20%']
   const multipleLabels = multipleVariations.map(mv => {
     const m = baseMultiple + mv
     return `${m.toFixed(1)}x`
@@ -739,14 +741,14 @@ const SensitivityAnalysis = ({ data }: { data: ProfessionalReportData }) => {
       <View style={[styles.card, styles.cardPrimary, { marginBottom: 12 }]}>
         <Text style={styles.cardTitle}>Matrice de sensibilite</Text>
         <Text style={styles.paragraph}>
-          Cette matrice illustre l'impact de variations de l'EBITDA normalise et du multiple
+          Cette matrice illustre l'impact de variations {metricLabel === 'EBITDA' ? "de l'EBITDA normalise" : `de l'${metricLabel}`} et du multiple
           de valorisation sur la Valeur d'Entreprise. La cellule centrale represente le scenario de base.
         </Text>
       </View>
 
       <View style={styles.row}>
         <View style={styles.col2}>
-          <KPICard label="EBITDA normalise (base)" value={formatCurrency(baseEbitda)} />
+          <KPICard label={`${metricLabel} (base)`} value={formatCurrency(baseMetric)} />
         </View>
         <View style={styles.col2}>
           <KPICard label="Multiple de base" value={`${baseMultiple.toFixed(1)}x`} />
@@ -754,7 +756,7 @@ const SensitivityAnalysis = ({ data }: { data: ProfessionalReportData }) => {
       </View>
 
       <Text style={{ fontSize: 9, fontWeight: 'bold', color: COLORS.gray700, marginBottom: 6, marginTop: 10 }}>
-        Valeur d'Entreprise selon EBITDA (lignes) x Multiple (colonnes)
+        Valeur d'Entreprise selon {metricLabel} (lignes) x Multiple (colonnes)
       </Text>
 
       {/* Matrice 5x5 */}
@@ -763,7 +765,7 @@ const SensitivityAnalysis = ({ data }: { data: ProfessionalReportData }) => {
         <View style={{ flexDirection: 'row', backgroundColor: COLORS.primary }}>
           <View style={{ width: 65, padding: 4, justifyContent: 'center' }}>
             <Text style={{ fontSize: 7, fontWeight: 'bold', color: COLORS.white, textAlign: 'center' }}>
-              EBITDA \ Mult.
+              {metricLabel} \ Mult.
             </Text>
           </View>
           {multipleLabels.map((label, j) => (
@@ -776,21 +778,21 @@ const SensitivityAnalysis = ({ data }: { data: ProfessionalReportData }) => {
         </View>
 
         {/* Data rows */}
-        {ebitdaVariations.map((ev, i) => (
+        {metricVariations.map((ev, i) => (
           <View key={i} style={{
             flexDirection: 'row',
             backgroundColor: i % 2 === 1 ? COLORS.gray50 : COLORS.white,
           }}>
             <View style={{ width: 65, padding: 4, justifyContent: 'center', backgroundColor: COLORS.gray100 }}>
               <Text style={{ fontSize: 7, fontWeight: 'bold', color: COLORS.gray900, textAlign: 'center' }}>
-                {ebitdaLabels[i]}
+                {metricLabels[i]}
               </Text>
               <Text style={{ fontSize: 6, color: COLORS.gray500, textAlign: 'center' }}>
-                {formatCurrency(baseEbitda * (1 + ev))}
+                {formatCurrency(baseMetric * (1 + ev))}
               </Text>
             </View>
             {multipleVariations.map((mv, j) => {
-              const ve = baseEbitda * (1 + ev) * Math.max(baseMultiple + mv, 0)
+              const ve = baseMetric * (1 + ev) * Math.max(baseMultiple + mv, 0)
               const isBase = i === 2 && j === 2
               return (
                 <View key={j} style={{
@@ -814,8 +816,8 @@ const SensitivityAnalysis = ({ data }: { data: ProfessionalReportData }) => {
         <Text style={styles.disclaimerTitle}>Lecture</Text>
         <Text style={styles.disclaimerText}>
           La cellule centrale ({formatCurrency(data.valeurEntreprise.moyenne)}) correspond au scenario de base.
-          Une variation de +10% de l'EBITDA avec le meme multiple donnerait {formatCurrency(baseEbitda * 1.1 * baseMultiple)}.
-          A l'inverse, une baisse du multiple de 0.5x sur l'EBITDA de base donnerait {formatCurrency(baseEbitda * (baseMultiple - 0.5))}.
+          Une variation de +10% {metricLabel === 'EBITDA' ? "de l'EBITDA" : `de l'${metricLabel}`} avec le meme multiple donnerait {formatCurrency(baseMetric * 1.1 * baseMultiple)}.
+          A l'inverse, une baisse du multiple de 0.5x sur {metricLabel === 'EBITDA' ? "l'EBITDA" : `l'${metricLabel}`} de base donnerait {formatCurrency(baseMetric * (baseMultiple - 0.5))}.
         </Text>
       </View>
 
