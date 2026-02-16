@@ -15,54 +15,39 @@
 - [x] `assemble-report-data.ts` — vigilance masse salariale > 60%
 - [x] `calculator-v2.ts` — patrimoine weights [100,0] -> [20,80] (capitalisation loyers)
 - [x] `assemble-report-data.ts` — gate confiance patrimoine -> Moyenne (actifs non reevalues)
+- [x] `data/multiples.json` — corrige industrie EBITDA 5.5->5, ecommerce CA 2->0.6, conseil high 7->6, services_recurrents high 10->8 + secondary
+- [x] `assemble-report-data.ts` — endettement 2 tiers (>0.7 significatif, >1.5 eleve)
+- [x] `assemble-report-data.ts` — recurring force >= 60, growth force >= 20, anciennete > 10 ans, CA > 5M
+- [x] `assemble-report-data.ts` — gate DSO force derriere revenue >= 100k
+- [x] `assemble-report-data.ts` — gate tresorerie solide quand EBITDA < 0
+- [x] `assemble-report-data.ts` — gate isPreRevenue sur toutes vigilances ratio-based
+- [x] `assemble-report-data.ts` — vigilances SaaS (churn, NRR, runway) + pre-revenu explicite
+- [x] `assemble-report-data.ts` — fallback tresorerieActuelle/dettesFinancieres sur bilan
+- [x] `assemble-report-data.ts` — gate confiance concentration > 50% (Gate 7, 2 paths)
+- [x] `assemble-report-data.ts` — sensitivityBase ARR pour SaaS dans matrice sensibilite
+- [x] `diagnostic.ts` — bonus croissance 20-40%, plancher SaaS mature A (80)
+- [x] `calculator-v2.ts` — saas_mature weights [40,60]
+- [x] `sector-benchmarks.ts` — secteur ecommerce + NAF routing
+- [x] `generate-qualitative.ts` — ecommerce dans DONNEES_SECTEUR + BENCHMARKS_NOMS
+- [x] `tests/generate-reports.ts` — runway saasMetrics + nafCode diagInput
+
+---
+
+## Deja fait (session actuelle)
+
+- [x] `data/multiples.json` — ajout commerce_gros (EBITDA 3-3.5-4x, CA 0.2-0.4-0.6x)
+- [x] `archetypes.ts` — definition commerce_gros + routing NAF 46.xx dans detectArchetype
+- [x] `calculator-v2.ts` — WEIGHTS commerce_gros [75,25] + getPrimaryMetric + getSecondaryMetric + getMethodLabel + calculateConfidence
+- [x] `sector-benchmarks.ts` — benchmark commerce_gros + NAF 46 -> commerce_gros
+- [x] `generate-qualitative.ts` — commerce_gros dans DONNEES_SECTEUR + BENCHMARKS_NOMS
+- [x] `generate-reports.ts` — ARCHETYPE_MAP commerce_gros: 'commerce_gros' + nafCode
+
+## Verifie (pas de changement necessaire)
+
+- [x] ROCKETFLOW pappers.ca=400k vs diagnostic.revenue=800k : coherent (SaaS hyper 95%, 400k->800k en 1 an)
 
 ---
 
 ## A faire
 
-### 1. Archetype commerce_gros (DISTRIPHARMA)
-
-**Source :** audit commerce_gros — NAF 46.46Z route vers commerce_retail au lieu de commerce_gros
-
-- [ ] `data/multiples.json` — ajouter entree `commerce_gros` (EBITDA 3-3.5-4x, CA 0.2-0.4-0.6x)
-- [ ] `src/lib/valuation/archetypes.ts` — ajouter definition archetype commerce_gros (name, icon, methods, etc.)
-- [ ] `src/lib/valuation/archetypes.ts` detectArchetype — routing NAF 46.xx via `nafCode` param (deja dans DiagnosticInput, jamais utilise)
-- [ ] `src/lib/valuation/calculator-v2.ts` — WEIGHTS commerce_gros [75,25] + getPrimaryMetric + getSecondaryMetric
-- [ ] `tests/generate-reports.ts` — ARCHETYPE_MAP commerce_gros: 'commerce_gros' (au lieu de 'commerce_retail')
-
-### 2. Gate confiance concentration > 50% (DISTRIPHARMA + ROCKETFLOW)
-
-**Source :** concentration client > 50% du CA = incertitude majeure sur perennite
-
-- [ ] `src/lib/pdf/assemble-report-data.ts` — assembleReportData path : si `concentrationClients > 50` → cap confiance a Moyenne
-- [ ] `src/lib/pdf/assemble-report-data.ts` — assembleFromEvaluationData path : idem
-
-### 3. Forces enrichment (DISTRIPHARMA + ROCKETFLOW)
-
-**Source :** forces SWOT trop generiques, ne refletent pas les metriques cles du profil
-
-- [ ] `src/lib/pdf/assemble-report-data.ts` DiagnosticContext — ajouter champ `recurring?: number`
-- [ ] `src/lib/pdf/assemble-report-data.ts` genererPointsForts — "Croissance forte" quand growth > 20%
-- [ ] `src/lib/pdf/assemble-report-data.ts` genererPointsForts — "Recurrence elevee" quand recurring > 60%
-- [ ] `src/lib/pdf/assemble-report-data.ts` genererPointsForts — "CA significatif" quand revenue > 5M
-- [ ] Passer `recurring` dans diagCtx des deux paths d'assemblage
-
-### 4. Gate "Tresorerie solide" quand EBITDA < 0 (ROCKETFLOW)
-
-**Source :** pour pre_revenue/startup, la tresorerie est du runway, pas une force
-
-- [ ] `src/lib/pdf/assemble-report-data.ts` genererPointsForts — ne pas afficher "Tresorerie solide" quand `diagCtx.ebitda < 0`
-
-### 5. Matrice de sensibilite ARR pour SaaS (ROCKETFLOW)
-
-**Source :** matrice calcule EBITDA x multiple pour TOUS les profils, meme SaaS ou la VE est basee sur ARR
-
-- [ ] `src/lib/pdf/professional-report.tsx` ProfessionalReportData — ajouter champ optionnel `sensitivityBase?: { value: number; label: string }`
-- [ ] `src/lib/pdf/assemble-report-data.ts` — populer sensitivityBase avec ARR pour saas_hyper/saas_mature, EBITDA pour les autres
-- [ ] `src/lib/pdf/professional-report-final.tsx` — utiliser `data.sensitivityBase` au lieu de `data.ebitdaNormalise.ebitdaNormalise` comme base de la matrice
-
-### 6. Donnees de test a aligner (ROCKETFLOW)
-
-**Source :** pappers.ca = 400k mais diagnostic.revenue = 800k — desalignement en amont
-
-- [ ] `tests/fixtures/scenarios.ts` — verifier coherence pappers.ca vs diagnostic.revenue pour saas_hyper
+*(Tous les items de l'audit sont traites)*

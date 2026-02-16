@@ -52,6 +52,12 @@
       "damodaranSector": "Retail (General)",
       "source": "Retail (General) — Damodaran, ajusté fonds de commerce France"
     },
+    "commerce_gros": {
+      "primaryMultiple": { "metric": "EBITDA", "low": 3, "median": 3.5, "high": 4 },
+      "secondaryMultiple": { "metric": "CA", "low": 0.2, "median": 0.4, "high": 0.6 },
+      "damodaranSector": "Retail (General) / Wholesale",
+      "source": "Retail (General) — Damodaran, ajusté commerce de gros France (marges fines, volume élevé)"
+    },
     "industrie": {
       "primaryMultiple": { "metric": "EBITDA", "low": 4, "median": 5, "high": 6.5 },
       "secondaryMultiple": { "metric": "CA", "low": 0.4, "median": 0.6, "high": 0.9 },

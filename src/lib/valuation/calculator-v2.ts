@@ -255,6 +255,7 @@ const WEIGHTS: Record<string, [number, number]> = {
   conseil:                [80, 20],
   services_recurrents:    [80, 20],
   commerce_retail:        [60, 40],
+  commerce_gros:          [75, 25],
   industrie:              [75, 25],
   patrimoine:             [20, 80],
   patrimoine_dominant:    [20, 80],
@@ -277,6 +278,7 @@ function getPrimaryMetric(archetype: string, data: FinancialData, ebitdaNorm: nu
     case 'conseil':
     case 'services_recurrents':
     case 'commerce_retail':
+    case 'commerce_gros':
     case 'industrie':
     case 'masse_salariale_lourde':
       return ebitdaNorm
@@ -312,6 +314,7 @@ function getSecondaryMetric(archetype: string, data: FinancialData, ebitdaNorm: 
       return ebitdaNorm > 0 ? ebitdaNorm : 0
     case 'conseil':
     case 'commerce_retail':
+    case 'commerce_gros':
     case 'industrie':
     case 'masse_salariale_lourde':
     case 'micro_solo':
@@ -411,6 +414,7 @@ function getMethodLabel(archetype: string): string {
     case 'conseil': return 'Multiple EBITDA retraité'
     case 'services_recurrents': return 'Multiple EBITDA + CA récurrent'
     case 'commerce_retail': return 'Multiple EBITDA + fonds de commerce'
+    case 'commerce_gros': return 'Multiple EBITDA (commerce de gros)'
     case 'industrie': return 'Multiple EBITDA + validation ANR'
     case 'patrimoine': return 'ANR (Actif Net Réévalué)'
     case 'patrimoine_dominant': return 'ANR avec décote liquidité'
@@ -443,7 +447,7 @@ function calculateConfidence(
 
   const ebitdaBased = [
     'saas_mature', 'saas_decline', 'conseil', 'services_recurrents',
-    'commerce_retail', 'industrie', 'masse_salariale_lourde',
+    'commerce_retail', 'commerce_gros', 'industrie', 'masse_salariale_lourde',
   ]
   if (ebitdaBased.includes(archetype) && !data.retraitements) score -= 10
   if (ebitdaBased.includes(archetype) && data.ebitda <= 0) score -= 20

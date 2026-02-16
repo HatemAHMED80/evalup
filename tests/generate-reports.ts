@@ -22,7 +22,7 @@ const ARCHETYPE_MAP: Record<string, string> = {
   services_recurrents: 'services_recurrents',
   masse_salariale_lourde: 'masse_salariale_lourde',
   commerce_retail: 'commerce_retail',
-  commerce_gros: 'commerce_retail',
+  commerce_gros: 'commerce_gros',
   industrie_asset_heavy: 'industrie',
   immobilier_fonciere: 'patrimoine',
   micro_rentable: 'micro_solo',
@@ -74,6 +74,7 @@ function buildConversationContext(scenario: TestScenario): ConversationContext {
     hasMRR: d.mrrMensuel != null && d.mrrMensuel > 0,
     hasPatrimoine: d.hasPatrimoine,
     loyersNets: d.loyersNets,
+    nafCode: p.naf,
   }
 
   const realArchetypeId = ARCHETYPE_MAP[scenario.archetype] || detectArchetype(diagInput).id

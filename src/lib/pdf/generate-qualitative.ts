@@ -102,6 +102,27 @@ const DONNEES_SECTEUR: Record<string, DonneesSecteur> = {
     clientele: 'Consommateurs finaux (B2C), mix de clientele locale et en ligne. Panier moyen et frequence d\'achat varient selon le segment.',
     fournisseurs: 'Grossistes, importateurs, fabricants. Les achats representent 55-70% du CA selon le type de commerce.',
   },
+  commerce_gros: {
+    tendances: [
+      'Concentration du secteur via rachat de distributeurs par des groupes internationaux',
+      'Digitalisation des commandes B2B (EDI, marketplaces professionnelles)',
+      'Pression sur les marges liee a la transparence des prix',
+      'Renforcement des reglementations sectorielles (tracabilite, normes sanitaires)',
+    ],
+    opportunites: [
+      'Developpement de services a valeur ajoutee (logistique, conseil, formation)',
+      'Expansion geographique via le e-commerce B2B',
+      'Contrats exclusifs avec des marques ou fabricants',
+    ],
+    menaces: [
+      'Desintermediation par les fabricants vendant en direct',
+      'Pression prix des centrales d\'achat et groupements',
+      'Concurrence des plateformes B2B (Amazon Business, Ankorstore)',
+      'Hausse des couts logistiques et de stockage',
+    ],
+    clientele: 'Professionnels (B2B) : detaillants, restaurateurs, artisans, collectivites. Relations commerciales recurrentes avec commandes regulieres et conditions negociees.',
+    fournisseurs: 'Fabricants, importateurs, producteurs. Les achats representent 75-90% du CA (marges fines structurelles). La relation fournisseur est cle pour la competitivite.',
+  },
   ecommerce: {
     tendances: [
       'Croissance soutenue du e-commerce en France (+10% par an)',
@@ -452,6 +473,7 @@ const BENCHMARKS_NOMS: Record<string, string> = {
   saas: 'SaaS / Tech',
   restaurant: 'Restauration',
   commerce: 'Commerce / Retail',
+  commerce_gros: 'Commerce de Gros / Distribution',
   ecommerce: 'E-commerce / D2C',
   services: 'Services / Conseil',
   industrie: 'Industrie / Production',

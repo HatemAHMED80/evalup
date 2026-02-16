@@ -482,6 +482,60 @@ export const ARCHETYPES: Record<string, Archetype> = {
     ],
   },
 
+  commerce_gros: {
+    id: 'commerce_gros',
+    name: 'Commerce de Gros / Distribution',
+    icon: '📦',
+    color: '#D63031',
+    primaryMethod: "Multiple d'EBITDA (prudent)",
+    secondaryMethod: 'Multiple de CA en validation',
+    metricBase: 'EBITDA retraité',
+    whyThisMethod:
+      "Le commerce de gros opère avec des marges structurellement fines (2–5 % d'EBITDA) sur des volumes élevés. Le multiple d'EBITDA (3x–4x) est bas car la valeur ajoutée est limitée et la dépendance aux fournisseurs/clients est forte. Le CA sert de cross-check (0.2x–0.6x).",
+    commonMistakes: [
+      {
+        mistake: 'Confondre CA brut et marge commerciale',
+        impact: 'Le CA de 15M€ masque une marge de 4% — la rentabilité réelle est très faible',
+        icon: '📊',
+      },
+      {
+        mistake: 'Ignorer la concentration fournisseur',
+        impact: 'Si 1–2 fournisseurs représentent > 50% des achats, risque de rupture majeur',
+        icon: '🏭',
+      },
+      {
+        mistake: 'Ne pas provisionner les stocks obsolètes',
+        impact: 'Stocks à rotation lente = passif caché (valoriser au prix de liquidation)',
+        icon: '📦',
+      },
+    ],
+    keyFactors: [
+      { factor: 'Contrats exclusifs fournisseurs', impact: 'Barrière à l\'entrée forte', direction: 'up' },
+      { factor: 'Base clients récurrente', impact: 'Prédictibilité du CA', direction: 'up' },
+      { factor: 'Logistique propriétaire', impact: 'Avantage coût sur la distribution', direction: 'up' },
+      { factor: 'Multi-gamme / multi-marques', impact: 'Diversification du risque', direction: 'up' },
+      { factor: 'Concentration client > 50%', impact: 'Risque de perte brutale du CA', direction: 'down' },
+      { factor: 'Marge nette < 2%', impact: 'Vulnérabilité à tout choc de coûts', direction: 'down' },
+      { factor: 'Stocks à rotation lente', impact: 'Capital immobilisé improductif', direction: 'down' },
+      { factor: 'Pression prix des centrales d\'achat', impact: 'Érosion continue des marges', direction: 'down' },
+    ],
+    reportIncludes: [
+      'Valorisation EBITDA retraité (prudent)',
+      'Analyse de la marge commerciale et tendance',
+      'Répartition CA par client et concentration',
+      'Analyse des contrats fournisseurs',
+      'Valorisation des stocks (rotation, obsolescence)',
+      'Comparables transactions distribution/gros',
+    ],
+    requiredDataFlash: ['CA', 'EBITDA', 'Marge commerciale', 'Top clients'],
+    requiredDataComplete: [
+      'Répartition fournisseurs',
+      'Rotation des stocks',
+      'Contrats exclusifs',
+      'Carnet de commandes',
+    ],
+  },
+
   industrie: {
     id: 'industrie',
     name: 'Industrie / Manufacturing',
@@ -1064,6 +1118,11 @@ export function detectArchetype(data: DiagnosticInput): string {
   // Règle 14 : Récurrence > 60% + service physique → #7
   if (recurring > 60) {
     return 'services_recurrents'
+  }
+
+  // Règle 14b : Commerce de gros (NAF 46.xx) → commerce_gros
+  if (data.nafCode && data.nafCode.startsWith('46')) {
+    return 'commerce_gros'
   }
 
   // Règle 15 : Commerce physique / PDV → #8
