@@ -206,10 +206,18 @@ Réponds UNIQUEMENT en JSON valide avec cette structure exacte :
   "chiffresExtraits": {
     "ca": number ou null,
     "resultatNet": number ou null,
+    "resultatExploitation": number ou null,
     "ebitda": number ou null,
     "tresorerie": number ou null,
-    "dettes": number ou null,
-    "autresDonnees": {} (objet avec d'autres données pertinentes extraites)
+    "dettes": number ou null (dettes financieres uniquement, pas fournisseurs),
+    "autresDonnees": {
+      "capitauxPropres": number ou null,
+      "stocks": number ou null,
+      "creancesClients": number ou null,
+      "dettesFournisseurs": number ou null,
+      "dotationsAmortissements": number ou null,
+      "provisions": number ou null
+    }
   },
   "pointsCles": ["string"],
   "anomalies": [

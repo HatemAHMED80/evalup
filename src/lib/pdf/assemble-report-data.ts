@@ -5,9 +5,10 @@
 import type { ConversationContext } from '@/lib/anthropic'
 import type { BilanAnnuel as BilanV2 } from '@/lib/evaluation/types'
 import type { ProfessionalReportData } from './professional-report'
-import { calculateValuation, calculateFromEvaluationData } from '@/lib/valuation/calculator-v2'
+import { calculateValuation } from '@/lib/valuation/calculator-v2'
+import { evaluationDataToFinancialData, evaluationDataToQualitativeData } from '@/lib/valuation/evaluation-adapter'
 import type { FinancialData, ValuationResult, Retraitements, QualitativeData } from '@/lib/valuation/calculator-v2'
-import { getArchetype } from '@/lib/valuation/archetypes'
+import { getArchetype, revalidateArchetype } from '@/lib/valuation/archetypes'
 import { getMultiplesForArchetype } from '@/lib/valuation/multiples'
 import { genererDiagnostic, ajusterScoreDiagnostic } from '@/lib/analyse/diagnostic'
 import { calculerRatios, type RatiosFinanciers } from '@/lib/analyse/ratios'
@@ -307,7 +308,7 @@ export function assembleReportData(context: ConversationContext, validationWarni
   }
 
   // 1. Préparer les données pour le calculateur V2
-  const archetypeId = context.archetype || 'services_recurrents'
+  const initialArchetypeId = context.archetype || 'services_recurrents'
   const ebitdaComptable = bilanRecent.resultatExploitation + (bilanRecent.dotationsAmortissements ?? 0)
   const debt = bilanRecent.empruntsEtablissementsCredit ?? 0
   const cash = bilanRecent.disponibilites ?? 0
@@ -317,6 +318,26 @@ export function assembleReportData(context: ConversationContext, validationWarni
 
   // Métriques SaaS/Marketplace depuis le chat
   const saas = context.saasMetrics
+
+  // 0. Revalider l'archétype à la lumière des données financières réelles
+  const revalidation = revalidateArchetype({
+    initialArchetype: initialArchetypeId,
+    revenue: bilanRecent.chiffreAffaires,
+    ebitda: ebitdaComptable,
+    growth: context.diagnosticData?.growth,
+    recurring: context.diagnosticData?.recurring,
+    masseSalariale: context.diagnosticData?.masseSalariale,
+    hasMRR: !!(saas?.mrr || context.diagnosticData?.mrrMensuel),
+    hasARR: !!saas?.arr,
+    hasAssets: !!(bilanRecent.immobilisationsCorporelles),
+    hasGMV: !!saas?.gmv,
+    equity: bilanRecent.capitauxPropres,
+    debt,
+    cash,
+    effectif: context.diagnosticData?.effectif ? parseInt(context.diagnosticData.effectif) : undefined,
+    nafCode: context.entreprise.codeNaf,
+  })
+  const archetypeId = revalidation.archetype
 
   // Pour patrimoine/patrimoine_dominant : total actif depuis les composants du bilan
   // La tréso est un actif (pas un élément du bridge), les immo/stocks/créances aussi
@@ -354,6 +375,11 @@ export function assembleReportData(context: ConversationContext, validationWarni
 
   // 2. Calculer la valorisation V2 (avec retraitements + décotes)
   const valuation = calculateValuation(archetypeId, financialData, qualitativeData)
+
+  // Ajouter un warning si l'archétype a été revalidé
+  if (revalidation.changed && revalidation.reason) {
+    validationWarnings = validationWarnings ? [...validationWarnings, revalidation.reason] : [revalidation.reason]
+  }
 
   // 3. Diagnostic financier + ratios + ajustement contextuel
   const secteurCode = getSectorFromNaf(entreprise.codeNaf)
@@ -632,6 +658,7 @@ export function assembleReportData(context: ConversationContext, validationWarni
       }
       return undefined
     })(),
+    objectif: context.objectif,
     dateGeneration: new Date().toLocaleDateString('fr-FR', {
       year: 'numeric', month: 'long', day: 'numeric',
     }),
@@ -657,10 +684,7 @@ export function assembleFromEvaluationData(
     throw new Error('Aucun bilan disponible pour generer le rapport')
   }
 
-  // 1. Calculer la valorisation via le nouvel adaptateur
-  const valuation = calculateFromEvaluationData(data)
-
-  // 2. Construire un BilanV2 pour le diagnostic/ratios
+  // 1. Construire un BilanV2 pour le diagnostic/ratios
   const bilanV2: BilanV2 = {
     annee: last.year,
     chiffreAffaires: last.ca ?? 0,
@@ -676,10 +700,39 @@ export function assembleFromEvaluationData(
     provisionsRisques: last.provisions ?? 0,
   }
 
-  const archetypeId = data.archetype
   const ebitdaComptable = bilanV2.resultatExploitation + (bilanV2.dotationsAmortissements ?? 0)
   const debt = bilanV2.empruntsEtablissementsCredit ?? 0
   const cash = bilanV2.disponibilites ?? 0
+
+  // 0. Revalider l'archétype à la lumière des données financières réelles
+  const revalidation = revalidateArchetype({
+    initialArchetype: data.archetype,
+    revenue: bilanV2.chiffreAffaires,
+    ebitda: ebitdaComptable,
+    growth: data.qualitative.croissanceActuelle ?? undefined,
+    recurring: data.qualitative.recurring ?? undefined,
+    masseSalariale: undefined,
+    hasMRR: !!(data.saasMetrics?.mrr),
+    hasARR: !!(data.saasMetrics?.arr),
+    hasAssets: !!(bilanV2.immobilisationsCorporelles),
+    hasGMV: !!(data.saasMetrics?.gmv),
+    equity: bilanV2.capitauxPropres,
+    debt,
+    cash,
+    nafCode: data.entreprise.nafCode,
+  })
+  const archetypeId = revalidation.archetype
+
+  // Ajouter un warning si l'archétype a été revalidé
+  if (revalidation.changed && revalidation.reason) {
+    validationWarnings = validationWarnings ? [...validationWarnings, revalidation.reason] : [revalidation.reason]
+  }
+
+  // Recalculer la valorisation avec l'archétype revalidé
+  // (on ne peut pas utiliser calculateFromEvaluationData car elle utilise data.archetype directement)
+  const financialDataV2 = evaluationDataToFinancialData(data)
+  const qualitativeDataV2 = evaluationDataToQualitativeData(data)
+  const valuation = calculateValuation(archetypeId, financialDataV2, qualitativeDataV2)
 
   // 3. Diagnostic + ratios
   const secteurCode = getSectorFromNaf(data.entreprise.nafCode)
@@ -960,6 +1013,7 @@ export function assembleFromEvaluationData(
       }
       return undefined
     })(),
+    objectif: (data.objectif || undefined) as ProfessionalReportData['objectif'],
     dateGeneration: new Date().toLocaleDateString('fr-FR', {
       year: 'numeric',
       month: 'long',

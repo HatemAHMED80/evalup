@@ -18,6 +18,8 @@ export const RATE_LIMITS = {
   stripeCheckout: { requests: 10, window: 3600 },
   // API Pappers: 30 par minute
   pappersApi: { requests: 30, window: 60 },
+  // Inline signup (diagnostic → checkout): 5 par heure par IP
+  inlineSignup: { requests: 5, window: 3600 },
   // Generic fallback
   default: { requests: 100, window: 60 },
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 interface MessageBubbleProps {
@@ -12,7 +12,11 @@ interface MessageBubbleProps {
     documents?: Array<{ name: string; type: string; size: number }>
   }
   isStreaming?: boolean
+  typewriter?: boolean
+  onTypewriterDone?: () => void
   onSuggestionClick?: (suggestion: string) => void
+  completeness?: number
+  onValidateData?: () => void
 }
 
 // Types pour le parsing
@@ -28,6 +32,7 @@ interface ParsedContent {
   question: string | null
   suggestions: string[]
   numericFields: NumericField[]
+  hasValidateButton: boolean
 }
 
 // Parser pour extraire les différentes sections du contenu
@@ -37,6 +42,7 @@ function parseContent(content: string): ParsedContent {
   let question: string | null = null
   let suggestions: string[] = []
   let numericFields: NumericField[] = []
+  let hasValidateButton = false
 
   // Nettoyer le contenu des code blocks qui contiennent les suggestions
   // Le modèle met parfois les suggestions dans un bloc ```
@@ -119,22 +125,70 @@ function parseContent(content: string): ParsedContent {
     mainContent = mainContent.replace(/\[QUESTION\][\s\S]*?\[\/QUESTION\]/m, '').trim()
   }
 
-  return { mainContent, context, question, suggestions, numericFields }
+  // Detecter le bouton de validation [VALIDATE_DATA]
+  if (mainContent.includes('[VALIDATE_DATA]')) {
+    hasValidateButton = true
+    mainContent = mainContent.replace('[VALIDATE_DATA]', '').trim()
+  }
+
+  return { mainContent, context, question, suggestions, numericFields, hasValidateButton }
 }
 
 export function MessageBubble({
   message,
   isStreaming = false,
+  typewriter = false,
+  onTypewriterDone,
   onSuggestionClick,
+  completeness,
+  onValidateData,
 }: MessageBubbleProps) {
   const isUser = message.role === 'user'
   const [selectedSuggestions, setSelectedSuggestions] = useState<string[]>([])
   const [numericValues, setNumericValues] = useState<Record<string, string>>({})
 
+  // Typewriter effect — stable refs to avoid dependency churn
+  const [charIndex, setCharIndex] = useState(typewriter ? 0 : -1)
+  const typewriterDoneRef = useRef(false)
+  const onTypewriterDoneRef = useRef(onTypewriterDone)
+  onTypewriterDoneRef.current = onTypewriterDone
+
+  // Interval: runs once, increments charIndex until done
+  useEffect(() => {
+    if (!typewriter) return
+    const contentLen = message.content.length
+    const timer = setInterval(() => {
+      setCharIndex(prev => {
+        const next = prev + 1
+        if (next >= contentLen) {
+          clearInterval(timer)
+          return contentLen
+        }
+        return next
+      })
+    }, 35)
+    return () => clearInterval(timer)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typewriter])
+
+  // Completion detection: fires callback once when typewriter finishes
+  useEffect(() => {
+    if (typewriter && charIndex >= message.content.length && !typewriterDoneRef.current) {
+      typewriterDoneRef.current = true
+      onTypewriterDoneRef.current?.()
+    }
+  }, [typewriter, charIndex, message.content.length])
+
+  const isTypewriting = typewriter && charIndex >= 0 && charIndex < message.content.length
+  const displayContent = typewriter ? message.content.slice(0, Math.max(0, charIndex)) : message.content
+
+  // Detect onboarding message for serif styling
+  const isOnboarding = message.id === 'initial' || message.id === 'onboarding-1'
+
   // Extraire les différentes sections du contenu
-  const { mainContent, context, question, suggestions, numericFields } = isUser
-    ? { mainContent: message.content, context: null, question: null, suggestions: [], numericFields: [] }
-    : parseContent(message.content.replace('[EVALUATION_COMPLETE]', ''))
+  const { mainContent, context, question, suggestions, numericFields, hasValidateButton } = isUser
+    ? { mainContent: message.content, context: null, question: null, suggestions: [], numericFields: [], hasValidateButton: false }
+    : parseContent(displayContent.replace('[EVALUATION_COMPLETE]', ''))
 
   // Toggle une suggestion
   const toggleSuggestion = (suggestion: string) => {
@@ -224,7 +278,7 @@ export function MessageBubble({
 
       {/* Contenu */}
       <div className="flex-1 min-w-0 pt-1">
-        <div className="prose prose-sm max-w-none">
+        <div className={`prose prose-sm max-w-none ${isOnboarding ? 'font-serif text-[15px] leading-[1.8]' : ''}`} style={isOnboarding ? { fontFamily: "Georgia, 'Times New Roman', serif" } : undefined}>
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{
@@ -276,8 +330,8 @@ export function MessageBubble({
             </p>
           )}
 
-          {/* Curseur clignotant pendant le streaming */}
-          {isStreaming && (
+          {/* Curseur clignotant pendant le streaming ou typewriter */}
+          {(isStreaming || isTypewriting) && (
             <span className="inline-block w-2 h-4 bg-[var(--accent)] ml-0.5 animate-pulse rounded-sm" />
           )}
         </div>
@@ -315,6 +369,31 @@ export function MessageBubble({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" />
                 </svg>
               </button>
+            )}
+          </div>
+        )}
+
+        {/* Bouton de validation des donnees */}
+        {hasValidateButton && !isStreaming && (
+          <div className="mt-5">
+            <button
+              onClick={() => onValidateData?.()}
+              disabled={completeness !== undefined && completeness < 60}
+              className={`w-full px-6 py-3.5 rounded-xl text-base font-semibold transition-all flex items-center justify-center gap-2 ${
+                completeness !== undefined && completeness >= 60
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/20'
+                  : 'bg-[var(--bg-tertiary)] text-[var(--text-tertiary)] cursor-not-allowed'
+              }`}
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Valider mes données — {completeness ?? 0}%
+            </button>
+            {completeness !== undefined && completeness < 60 && (
+              <p className="text-xs text-[var(--text-tertiary)] mt-2 text-center">
+                Complétez les données financières et qualitatives pour atteindre 60%
+              </p>
             )}
           </div>
         )}

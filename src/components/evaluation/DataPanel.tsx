@@ -45,7 +45,7 @@ function formatNumber(value: number): string {
   return fmt.format(value)
 }
 
-type Tab = 'financier' | 'qualitatif' | 'saas'
+type Tab = 'financier' | 'qualitatif' | 'saas'  // still used by categoryTabs
 
 // Color helpers
 function completenessColor(pct: number): string {
@@ -75,7 +75,6 @@ export function DataPanel({
   onFieldChange,
 }: DataPanelProps) {
   const panel = useMemo(() => contextToPanel(context), [context])
-  const [activeTab, setActiveTab] = useState<Tab>('financier')
   const fieldRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   // Years
@@ -136,9 +135,58 @@ export function DataPanel({
 
   const handleDocumentAdded = useCallback(
     (doc: UploadedDocument) => {
-      onContextChange((prev) => ({ ...prev, documents: [...prev.documents, doc] }))
+      onContextChange((prev) => {
+        const updated = { ...prev, documents: [...prev.documents, doc] }
+
+        // Auto-remplir le tableau depuis les chiffres extraits
+        const analysis = doc.analysis
+        if (analysis && !analysis.parseError && analysis.chiffresExtraits) {
+          const year = analysis.annee || defaultYear
+          const extracted = analysis.chiffresExtraits
+          const currentPanel = contextToPanel(updated)
+          const bilan = currentPanel.financials[year] || {
+            annee: year, chiffre_affaires: null, resultat_net: null,
+            resultat_exploitation: null, dotations_amortissements: null,
+            stocks: null, creances_clients: null, tresorerie: null,
+            capitaux_propres: null, dettes_financieres: null,
+            dettes_fournisseurs: null, provisions: null,
+          }
+
+          // Only fill fields that are currently null (don't overwrite user data)
+          if (extracted.ca != null && bilan.chiffre_affaires == null) bilan.chiffre_affaires = extracted.ca
+          if (extracted.resultatNet != null && bilan.resultat_net == null) bilan.resultat_net = extracted.resultatNet
+          if (extracted.tresorerie != null && bilan.tresorerie == null) bilan.tresorerie = extracted.tresorerie
+          if (extracted.dettes != null && bilan.dettes_financieres == null) bilan.dettes_financieres = extracted.dettes
+
+          // EBITDA → derive resultat_exploitation if possible
+          if (extracted.ebitda != null && bilan.resultat_exploitation == null) {
+            if (bilan.dotations_amortissements != null) {
+              bilan.resultat_exploitation = extracted.ebitda - bilan.dotations_amortissements
+            } else {
+              // Store EBITDA as RE approximation (will be refined later)
+              bilan.resultat_exploitation = extracted.ebitda
+            }
+          }
+
+          // Extra data from autresDonnees
+          const autres = extracted.autresDonnees
+          if (autres) {
+            if (autres.capitauxPropres != null && bilan.capitaux_propres == null) bilan.capitaux_propres = autres.capitauxPropres
+            if (autres.stocks != null && bilan.stocks == null) bilan.stocks = autres.stocks
+            if (autres.creancesClients != null && bilan.creances_clients == null) bilan.creances_clients = autres.creancesClients
+            if (autres.dettesFournisseurs != null && bilan.dettes_fournisseurs == null) bilan.dettes_fournisseurs = autres.dettesFournisseurs
+            if (autres.dotationsAmortissements != null && bilan.dotations_amortissements == null) bilan.dotations_amortissements = autres.dotationsAmortissements
+            if (autres.resultatExploitation != null && bilan.resultat_exploitation == null) bilan.resultat_exploitation = autres.resultatExploitation
+          }
+
+          currentPanel.financials[year] = bilan
+          return panelToContext(currentPanel, updated)
+        }
+
+        return updated
+      })
     },
-    [onContextChange]
+    [onContextChange, defaultYear]
   )
 
   const handleObjectifChange = useCallback(
@@ -179,12 +227,20 @@ export function DataPanel({
   const clientLifetime = churn != null && churn > 0 ? Math.round(1 / (churn / 100)) : null
 
   // Field definitions
-  const CR_FIELDS: { key: keyof EditableBilan; label: string; type: 'currency' | 'number' }[] = [
-    { key: 'chiffre_affaires', label: "Chiffre d'affaires", type: 'currency' },
-    { key: 'resultat_exploitation', label: "Resultat d'exploitation", type: 'currency' },
-    { key: 'resultat_net', label: 'Resultat net', type: 'currency' },
-    { key: 'dotations_amortissements', label: 'Amortissements', type: 'currency' },
-  ]
+  const isCurrentYear = selectedYear === currentYear
+
+  const CR_FIELDS: { key: keyof EditableBilan; label: string; type: 'currency' | 'number' }[] = isCurrentYear
+    ? [
+        { key: 'chiffre_affaires', label: "CA previsionnel", type: 'currency' },
+        { key: 'resultat_exploitation', label: "RE previsionnel", type: 'currency' },
+        { key: 'resultat_net', label: 'Resultat net previsionnel', type: 'currency' },
+      ]
+    : [
+        { key: 'chiffre_affaires', label: "Chiffre d'affaires", type: 'currency' },
+        { key: 'resultat_exploitation', label: "Resultat d'exploitation", type: 'currency' },
+        { key: 'resultat_net', label: 'Resultat net', type: 'currency' },
+        { key: 'dotations_amortissements', label: 'Amortissements', type: 'currency' },
+      ]
 
   const BILAN_FIELDS: { key: keyof EditableBilan; label: string; type: 'currency' | 'number' }[] = [
     { key: 'tresorerie', label: 'Tresorerie', type: 'currency' },
@@ -324,7 +380,7 @@ export function DataPanel({
                     transition: 'all 0.15s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
                   }}
                 >
-                  {y}
+                  {y}{y === currentYear ? ' (en cours)' : ''}
                   {hasPappers && (
                     <span style={{ width: 5, height: 5, borderRadius: '50%', background: isActive ? '#6688dd' : '#2a3355' }} />
                   )}
@@ -334,38 +390,29 @@ export function DataPanel({
           </div>
         )}
 
-        {/* Category tabs */}
-        <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.025)' }}>
-          {categoryTabs.map((tab) => {
-            const isActive = tab.id === activeTab
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                style={{
-                  flex: 1, padding: '8px 0 10px', border: 'none', cursor: 'pointer', background: 'transparent',
-                  fontSize: 11, letterSpacing: 0.3, textTransform: 'capitalize',
-                  fontWeight: isActive ? 600 : 500,
-                  color: isActive ? '#b0b4cc' : '#2d3250',
-                  borderBottom: isActive ? '2px solid #7799ff' : '2px solid transparent',
-                  transition: 'all 0.15s',
-                }}
-              >
-                {tab.label}
-              </button>
-            )
-          })}
+        {/* Completeness chips */}
+        <div style={{ display: 'flex', gap: 6, marginTop: 8, paddingBottom: 8, borderBottom: '1px solid rgba(255,255,255,0.025)' }}>
+          {categoryTabs.map((tab) => (
+            <span
+              key={tab.id}
+              style={{
+                fontSize: 9, padding: '3px 8px', borderRadius: 10,
+                background: tab.comp >= 60 ? 'rgba(68,170,102,0.15)' : 'rgba(255,255,255,0.03)',
+                color: tab.comp >= 60 ? '#44aa66' : '#555',
+                fontWeight: 600, letterSpacing: 0.3,
+              }}
+            >
+              {tab.label} {tab.comp}%
+            </span>
+          ))}
         </div>
       </div>
 
       {/* ═══ BODY (scrollable) ═══ */}
       <div className="flex-1 overflow-y-auto overscroll-contain" style={{ padding: '8px 10px' }}>
 
-        {/* ─── FINANCIER TAB ─── */}
-        {activeTab === 'financier' && (
-          <>
-            <SectionCard title="COMPTE DE RESULTAT" filled={crFilled} total={CR_FIELDS.length}>
+        {/* ─── FINANCIER ─── */}
+            <SectionCard title={isCurrentYear ? `EXPLOITATION ${currentYear} (EN COURS)` : 'COMPTE DE RESULTAT'} filled={crFilled} total={CR_FIELDS.length}>
               {bilan && CR_FIELDS.map(({ key, label, type }) => {
                 const pappers = pappersForYear(selectedYear)
                 const fieldId = `${selectedYear}-${key}`
@@ -412,7 +459,7 @@ export function DataPanel({
               </div>
             )}
 
-            <SectionCard title="BILAN" filled={bilanFilled} total={BILAN_FIELDS.length}>
+            {!isCurrentYear && <SectionCard title="BILAN" filled={bilanFilled} total={BILAN_FIELDS.length}>
               {bilan && BILAN_FIELDS.map(({ key, label, type }) => {
                 const pappers = pappersForYear(selectedYear)
                 const fieldId = `${selectedYear}-${key}`
@@ -435,15 +482,11 @@ export function DataPanel({
                   />
                 )
               })}
-            </SectionCard>
+            </SectionCard>}
 
             <MissingFields fields={missingFinancier} onFocus={scrollToField} />
-          </>
-        )}
 
-        {/* ─── QUALITATIF TAB ─── */}
-        {activeTab === 'qualitatif' && (
-          <>
+        {/* ─── QUALITATIF ─── */}
             <SectionCard title="RETRAITEMENTS" filled={
               [panel.retraitements.salaireDirigeant, panel.retraitements.loyerAnnuel, panel.retraitements.chargesExceptionnelles]
                 .filter(v => v != null).length
@@ -470,11 +513,8 @@ export function DataPanel({
               <FieldRow label="Litiges en cours" value={panel.qualitativeData.litiges ?? null} onChange={(v) => updateQualitative('litiges', v as boolean | null)} type="boolean" />
               <FieldRow label="Contrats cles" value={panel.qualitativeData.contratsCles ?? null} onChange={(v) => updateQualitative('contratsCles', v as boolean | null)} type="boolean" />
             </SectionCard>
-          </>
-        )}
-
-        {/* ─── SAAS TAB ─── */}
-        {activeTab === 'saas' && showSaaS && (
+        {/* ─── SAAS ─── */}
+        {showSaaS && (
           <>
             <SectionCard title="METRIQUES SAAS" filled={
               [panel.saasMetrics.mrr, panel.saasMetrics.churnMensuel, panel.saasMetrics.nrr, panel.saasMetrics.cac]

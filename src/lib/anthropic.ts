@@ -27,7 +27,15 @@ export interface UploadedDocument {
 export interface DocumentAnalysis {
   typeDocument?: string
   annee?: number
-  chiffresExtraits?: Record<string, number>
+  chiffresExtraits?: {
+    ca?: number | null
+    resultatNet?: number | null
+    resultatExploitation?: number | null
+    ebitda?: number | null
+    tresorerie?: number | null
+    dettes?: number | null
+    autresDonnees?: Record<string, number | null>
+  }
   pointsCles?: string[]
   anomalies?: Anomalie[]
   questionsASuggerer?: string[]

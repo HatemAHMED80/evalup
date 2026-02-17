@@ -55,6 +55,15 @@ export const checkoutBodySchema = z.object({
 })
 
 // ============================================
+// INLINE SIGNUP (diagnostic → checkout)
+// ============================================
+
+export const signupInlineSchema = z.object({
+  email: z.string().email().max(254),
+  password: z.string().min(8).max(72),
+})
+
+// ============================================
 // PDF GENERATION
 // ============================================
 

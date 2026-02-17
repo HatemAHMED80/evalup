@@ -104,7 +104,7 @@ const ArchetypeProfilePage = ({ data }: { data: ProfessionalReportData }) => {
         </>
       )}
 
-      <Footer company={data.entreprise.nom} pageNum={3} totalPages={34} />
+      <Footer company={data.entreprise.nom} pageNum={0} totalPages={28} />
     </Page>
   )
 }
@@ -169,8 +169,8 @@ const FinancialDiagnostic = ({ data }: { data: ProfessionalReportData }) => {
       {/* Page 16: Notation */}
       <Page size="A4" style={styles.page}>
         <Header title="Diagnostic financier" />
-        <Text style={styles.sectionTitle}>5. Diagnostic financier</Text>
-        <Text style={styles.sectionSubtitle}>5.1 Notation et scoring</Text>
+        <Text style={styles.sectionTitle}>4. Diagnostic financier</Text>
+        <Text style={styles.sectionSubtitle}>4.1 Notation et scoring</Text>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
           <NoteCircle note={data.diagnostic.noteGlobale} score={data.diagnostic.score} />
@@ -217,13 +217,13 @@ const FinancialDiagnostic = ({ data }: { data: ProfessionalReportData }) => {
           </View>
         ))}
 
-        <Footer company={data.entreprise.nom} pageNum={17} totalPages={32} />
+        <Footer company={data.entreprise.nom} pageNum={15} totalPages={28} />
       </Page>
 
-      {/* Page 17-18: Comparaison sectorielle */}
+      {/* Comparaison sectorielle */}
       <Page size="A4" style={styles.page}>
         <Header title="Diagnostic financier" />
-        <Text style={styles.sectionSubtitle}>5.2 Comparaison sectorielle - {benchmark.nom}</Text>
+        <Text style={styles.sectionSubtitle}>4.2 Comparaison sectorielle - {benchmark.nom}</Text>
 
         <View style={styles.table}>
           <View style={styles.tableHeader}>
@@ -286,7 +286,7 @@ const FinancialDiagnostic = ({ data }: { data: ProfessionalReportData }) => {
           </View>
         </View>
 
-        <Footer company={data.entreprise.nom} pageNum={18} totalPages={32} />
+        <Footer company={data.entreprise.nom} pageNum={16} totalPages={28} />
       </Page>
 
       <Page size="A4" style={styles.page}>
@@ -318,7 +318,7 @@ const FinancialDiagnostic = ({ data }: { data: ProfessionalReportData }) => {
           </View>
         </View>
 
-        <Footer company={data.entreprise.nom} pageNum={19} totalPages={32} />
+        <Footer company={data.entreprise.nom} pageNum={17} totalPages={28} />
       </Page>
     </>
   )
@@ -329,118 +329,54 @@ const FinancialDiagnostic = ({ data }: { data: ProfessionalReportData }) => {
 // ============================================
 
 const EBITDARestatements = ({ data }: { data: ProfessionalReportData }) => (
-  <>
-    <Page size="A4" style={styles.page}>
-      <Header title="Retraitements de l'EBITDA" />
-      <Text style={styles.sectionTitle}>6. Retraitements de l'EBITDA</Text>
+  <Page size="A4" style={styles.page}>
+    <Header title="Analyse financiere" />
+    <Text style={styles.sectionSubtitle}>3.6 Retraitements de l'EBITDA</Text>
 
-      <View style={[styles.card, styles.cardPrimary]}>
-        <Text style={styles.cardTitle}>Pourquoi normaliser l'EBITDA ?</Text>
-        <Text style={styles.paragraph}>
-          L'EBITDA normalise (ou retraite) represente la rentabilite economique reelle de l'entreprise,
-          corrigee des elements exceptionnels ou non representatifs de l'exploitation normale.
-          Cette normalisation est essentielle pour une valorisation pertinente.
-        </Text>
+    <View style={[styles.card, styles.cardPrimary, { marginBottom: 10 }]}>
+      <Text style={styles.cardTitle}>Pourquoi normaliser l'EBITDA ?</Text>
+      <Text style={styles.paragraph}>
+        L'EBITDA normalise represente la rentabilite economique reelle de l'entreprise,
+        corrigee des elements exceptionnels ou non representatifs. Cette normalisation est essentielle pour une valorisation pertinente.
+      </Text>
+    </View>
+
+    <View style={styles.table}>
+      <View style={styles.tableHeader}>
+        <Text style={[styles.tableHeaderCell, { flex: 3 }]}>Element</Text>
+        <Text style={[styles.tableHeaderCell, { flex: 1, textAlign: 'right' }]}>Montant</Text>
       </View>
-
-      <Text style={styles.sectionSubtitle}>Du EBITDA comptable a l'EBITDA normalise</Text>
-      <View style={styles.table}>
-        <View style={styles.tableHeader}>
-          <Text style={[styles.tableHeaderCell, { flex: 3 }]}>Element</Text>
-          <Text style={[styles.tableHeaderCell, { flex: 1, textAlign: 'right' }]}>Montant</Text>
-        </View>
-        <View style={[styles.tableRow, { backgroundColor: COLORS.gray50 }]}>
-          <Text style={[styles.tableCellBold, { flex: 3 }]}>EBITDA comptable</Text>
-          <Text style={[styles.tableCellBold, { flex: 1, textAlign: 'right' }]}>{formatCurrency(data.ebitdaNormalise.ebitdaComptable)}</Text>
-        </View>
-        {data.ebitdaNormalise.retraitements.map((r, i) => (
-          <View key={i} style={[styles.tableRow, i % 2 === 0 ? styles.tableRowAlt : {}]}>
-            <Text style={[styles.tableCell, { flex: 3 }]}>
-              {r.montant >= 0 ? '+' : ''} {cleanText(r.libelle)}
-            </Text>
-            <Text style={[styles.tableCell, { flex: 1, textAlign: 'right', color: r.montant >= 0 ? COLORS.success : COLORS.danger }]}>
-              {r.montant >= 0 ? '+' : ''}{formatCurrency(r.montant)}
-            </Text>
-          </View>
-        ))}
-        <View style={[styles.tableRow, { backgroundColor: COLORS.primary }]}>
-          <Text style={[styles.tableCellBold, { flex: 3, color: COLORS.white }]}>EBITDA normalise</Text>
-          <Text style={[styles.tableCellBold, { flex: 1, textAlign: 'right', color: COLORS.white }]}>{formatCurrency(data.ebitdaNormalise.ebitdaNormalise)}</Text>
-        </View>
+      <View style={[styles.tableRow, { backgroundColor: COLORS.gray50 }]}>
+        <Text style={[styles.tableCellBold, { flex: 3 }]}>EBITDA comptable</Text>
+        <Text style={[styles.tableCellBold, { flex: 1, textAlign: 'right' }]}>{formatCurrency(data.ebitdaNormalise.ebitdaComptable)}</Text>
       </View>
-
-      <View style={styles.row}>
-        <View style={styles.col2}>
-          <KPICard label="Retraitements totaux" value={formatCurrency(data.ebitdaNormalise.totalRetraitements)} />
-        </View>
-        <View style={styles.col2}>
-          <KPICard label="Impact sur EBITDA" value={`${data.ebitdaNormalise.totalRetraitements >= 0 ? '+' : ''}${((data.ebitdaNormalise.totalRetraitements / data.ebitdaNormalise.ebitdaComptable) * 100).toFixed(1)}%`} />
-        </View>
-      </View>
-
-      <Footer company={data.entreprise.nom} pageNum={20} totalPages={32} />
-    </Page>
-
-    <Page size="A4" style={styles.page}>
-      <Header title="Retraitements de l'EBITDA" />
-      <Text style={styles.sectionSubtitle}>Detail des retraitements</Text>
-
       {data.ebitdaNormalise.retraitements.map((r, i) => (
-        <View key={i} style={[styles.card, { marginBottom: 10 }]}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 }}>
-            <Text style={styles.cardTitle}>{cleanText(r.libelle)}</Text>
-            <Text style={{ fontSize: 12, fontWeight: 'bold', color: r.montant >= 0 ? COLORS.success : COLORS.danger }}>
-              {r.montant >= 0 ? '+' : ''}{formatCurrency(r.montant)}
-            </Text>
-          </View>
-          {r.explication && (
-            <Text style={{ fontSize: 9, color: COLORS.gray500 }}>{cleanText(r.explication)}</Text>
-          )}
+        <View key={i} style={[styles.tableRow, i % 2 === 0 ? styles.tableRowAlt : {}]}>
+          <Text style={[styles.tableCell, { flex: 3 }]}>
+            {r.montant >= 0 ? '+' : ''} {cleanText(r.libelle)}
+          </Text>
+          <Text style={[styles.tableCell, { flex: 1, textAlign: 'right', color: r.montant >= 0 ? COLORS.success : COLORS.danger }]}>
+            {r.montant >= 0 ? '+' : ''}{formatCurrency(r.montant)}
+          </Text>
         </View>
       ))}
-
-      <View style={styles.disclaimer}>
-        <Text style={styles.disclaimerTitle}>Types de retraitements courants</Text>
-        <Text style={styles.disclaimerText}>
-          - Remuneration du dirigeant: ajustement a la valeur de marche{'\n'}
-          - Credit-bail: reintegration des loyers{'\n'}
-          - Charges/produits exceptionnels: exclusion des elements non recurrents{'\n'}
-          - Loyers immobiliers: normalisation si sous/sur evalues
-        </Text>
+      <View style={[styles.tableRow, { backgroundColor: COLORS.primary }]}>
+        <Text style={[styles.tableCellBold, { flex: 3, color: COLORS.white }]}>EBITDA normalise</Text>
+        <Text style={[styles.tableCellBold, { flex: 1, textAlign: 'right', color: COLORS.white }]}>{formatCurrency(data.ebitdaNormalise.ebitdaNormalise)}</Text>
       </View>
+    </View>
 
-      <Footer company={data.entreprise.nom} pageNum={21} totalPages={32} />
-    </Page>
-
-    <Page size="A4" style={styles.page}>
-      <Header title="Retraitements de l'EBITDA" />
-
-      <Text style={styles.sectionSubtitle}>Impact sur la valorisation</Text>
-      <View style={styles.row}>
-        <View style={styles.col2}>
-          <View style={[styles.card, { borderLeftWidth: 4, borderLeftColor: COLORS.gray300 }]}>
-            <Text style={styles.cardTitle}>Avant retraitements</Text>
-            <Text style={{ fontSize: 9, color: COLORS.gray500, marginBottom: 5 }}>EBITDA comptable</Text>
-            <Text style={{ fontSize: 18, fontWeight: 'bold', color: COLORS.gray700 }}>{formatCurrency(data.ebitdaNormalise.ebitdaComptable)}</Text>
-          </View>
-        </View>
-        <View style={styles.col2}>
-          <View style={[styles.card, { borderLeftWidth: 4, borderLeftColor: COLORS.primary }]}>
-            <Text style={styles.cardTitle}>Apres retraitements</Text>
-            <Text style={{ fontSize: 9, color: COLORS.gray500, marginBottom: 5 }}>EBITDA normalise</Text>
-            <Text style={{ fontSize: 18, fontWeight: 'bold', color: COLORS.primary }}>{formatCurrency(data.ebitdaNormalise.ebitdaNormalise)}</Text>
-          </View>
-        </View>
+    <View style={styles.row}>
+      <View style={styles.col2}>
+        <KPICard label="Retraitements totaux" value={formatCurrency(data.ebitdaNormalise.totalRetraitements)} />
       </View>
+      <View style={styles.col2}>
+        <KPICard label="Impact sur EBITDA" value={`${data.ebitdaNormalise.totalRetraitements >= 0 ? '+' : ''}${((data.ebitdaNormalise.totalRetraitements / data.ebitdaNormalise.ebitdaComptable) * 100).toFixed(1)}%`} />
+      </View>
+    </View>
 
-      <Text style={styles.paragraph}>
-        L'EBITDA normalise de {formatCurrency(data.ebitdaNormalise.ebitdaNormalise)} sera utilise comme base
-        pour l'application des multiples sectoriels dans le cadre de la valorisation.
-      </Text>
-
-      <Footer company={data.entreprise.nom} pageNum={22} totalPages={32} />
-    </Page>
-  </>
+    <Footer company={data.entreprise.nom} pageNum={13} totalPages={28} />
+  </Page>
 )
 
 // ============================================
@@ -513,7 +449,7 @@ const ValuationSection = ({ data }: { data: ProfessionalReportData }) => {
           </View>
         ))}
 
-        <Footer company={data.entreprise.nom} pageNum={23} totalPages={32} />
+        <Footer company={data.entreprise.nom} pageNum={21} totalPages={28} />
       </Page>
 
       <Page size="A4" style={styles.page}>
@@ -567,7 +503,7 @@ const ValuationSection = ({ data }: { data: ProfessionalReportData }) => {
           </View>
         </View>
 
-        <Footer company={data.entreprise.nom} pageNum={24} totalPages={32} />
+        <Footer company={data.entreprise.nom} pageNum={22} totalPages={28} />
       </Page>
 
       <Page size="A4" style={styles.page}>
@@ -616,7 +552,7 @@ const ValuationSection = ({ data }: { data: ProfessionalReportData }) => {
           </View>
         </View>
 
-        <Footer company={data.entreprise.nom} pageNum={25} totalPages={32} />
+        <Footer company={data.entreprise.nom} pageNum={23} totalPages={28} />
       </Page>
 
       <Page size="A4" style={styles.page}>
@@ -707,7 +643,7 @@ const ValuationSection = ({ data }: { data: ProfessionalReportData }) => {
           </>
         )}
 
-        <Footer company={data.entreprise.nom} pageNum={26} totalPages={32} />
+        <Footer company={data.entreprise.nom} pageNum={24} totalPages={28} />
       </Page>
     </>
   )
@@ -821,7 +757,7 @@ const SensitivityAnalysis = ({ data }: { data: ProfessionalReportData }) => {
         </Text>
       </View>
 
-      <Footer company={data.entreprise.nom} pageNum={27} totalPages={32} />
+      <Footer company={data.entreprise.nom} pageNum={25} totalPages={28} />
     </Page>
   )
 }
@@ -834,7 +770,7 @@ const SWOTSection = ({ data }: { data: ProfessionalReportData }) => (
   <>
     <Page size="A4" style={styles.page}>
       <Header title="Analyse SWOT" />
-      <Text style={styles.sectionTitle}>8. Analyse SWOT</Text>
+      <Text style={styles.sectionTitle}>5. Analyse SWOT</Text>
 
       <View style={styles.swotGrid}>
         <View style={[styles.swotBox, { backgroundColor: COLORS.bgGreen }]}>
@@ -871,7 +807,7 @@ const SWOTSection = ({ data }: { data: ProfessionalReportData }) => (
         </View>
       </View>
 
-      <Footer company={data.entreprise.nom} pageNum={28} totalPages={32} />
+      <Footer company={data.entreprise.nom} pageNum={18} totalPages={28} />
     </Page>
 
     <Page size="A4" style={styles.page}>
@@ -897,7 +833,7 @@ const SWOTSection = ({ data }: { data: ProfessionalReportData }) => (
         </View>
       )}
 
-      <Footer company={data.entreprise.nom} pageNum={29} totalPages={32} />
+      <Footer company={data.entreprise.nom} pageNum={19} totalPages={28} />
     </Page>
   </>
 )
@@ -906,78 +842,151 @@ const SWOTSection = ({ data }: { data: ProfessionalReportData }) => (
 // PAGES 28-29: RECOMMANDATIONS
 // ============================================
 
-const RecommendationsSection = ({ data }: { data: ProfessionalReportData }) => (
-  <>
-    <Page size="A4" style={styles.page}>
-      <Header title="Recommandations" />
-      <Text style={styles.sectionTitle}>9. Recommandations</Text>
+const OBJECTIF_LABELS: Record<string, string> = {
+  vente: 'Cession de l\'entreprise',
+  achat: 'Acquisition de l\'entreprise',
+  associe: 'Rachat ou sortie d\'associe',
+  divorce: 'Separation de patrimoine (divorce)',
+  transmission: 'Transmission familiale (donation)',
+  conflit: 'Resolution de litige entre associes',
+  financement: 'Financement ou levee de fonds',
+  pilotage: 'Pilotage strategique de la valeur',
+}
 
-      {data.recommandations.map((reco, i) => (
-        <View key={i} style={[styles.card, styles.cardPrimary, { marginBottom: 10 }]}>
-          <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-            <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
-              <Text style={{ fontSize: 12, fontWeight: 'bold', color: COLORS.white }}>{i + 1}</Text>
+const OBJECTIF_CONTEXT: Record<string, string> = {
+  vente: 'Dans le cadre d\'un projet de cession, cette valorisation constitue une base de negociation. Le prix final dependra de la qualite du processus de vente, du nombre d\'acquereurs sollicites et des garanties de passif negociees.',
+  achat: 'En tant qu\'acquereur potentiel, cette valorisation vous fournit un cadre de reference. Il convient de realiser un audit d\'acquisition (due diligence) approfondi avant toute offre ferme.',
+  associe: 'Dans le contexte d\'un rachat de parts ou d\'une sortie d\'associe, la valorisation doit etre acceptee par les parties. Les statuts et le pacte d\'associes peuvent prevoir des mecanismes specifiques de determination du prix.',
+  divorce: 'Dans le cadre d\'une separation de patrimoine, la valorisation doit repondre aux exigences du tribunal. Il est recommande de faire valider cette estimation par un expert judiciaire. La valeur retenue sera generalement la valeur patrimoniale (actif net reevalue) plutot que la valeur de rendement.',
+  transmission: 'Pour une donation familiale, la valorisation sert de base au calcul des droits de mutation. L\'administration fiscale pourra appliquer une decote de 10-15% pour transmission en pleine propriete. Consultez votre notaire pour optimiser la fiscalite de la transmission.',
+  conflit: 'Dans un contexte de litige entre associes, cette valorisation peut servir de base a une expertise judiciaire. Il est recommande qu\'un expert independant soit designe par le tribunal. La methode patrimoniale est generalement privilegiee dans ce contexte.',
+  financement: 'Cette valorisation peut appuyer une demande de financement bancaire ou une levee de fonds. Les investisseurs appliqueront leurs propres grilles d\'analyse et une decote de liquidite le cas echeant.',
+  pilotage: 'Cette valorisation vous donne une photographie de la valeur actuelle de votre entreprise. Utilisez-la comme reference pour piloter les leviers de creation de valeur identifies.',
+}
+
+const OBJECTIF_ACTIONS: Record<string, { action: string; priorite: 'Haute' | 'Moyenne' }[]> = {
+  vente: [
+    { action: 'Validation des retraitements avec l\'expert-comptable', priorite: 'Haute' },
+    { action: 'Constitution du dataroom (juridique, financier, social)', priorite: 'Haute' },
+    { action: 'Identification et approche des acquereurs potentiels', priorite: 'Moyenne' },
+    { action: 'Preparation des garanties d\'actif-passif', priorite: 'Moyenne' },
+  ],
+  achat: [
+    { action: 'Planifier une due diligence financiere et juridique', priorite: 'Haute' },
+    { action: 'Verifier les retraitements de l\'EBITDA avec l\'expert-comptable du vendeur', priorite: 'Haute' },
+    { action: 'Negocier les clauses de garantie d\'actif-passif', priorite: 'Moyenne' },
+    { action: 'Preparer le plan de financement de l\'acquisition', priorite: 'Moyenne' },
+  ],
+  divorce: [
+    { action: 'Faire valider la valorisation par un expert judiciaire', priorite: 'Haute' },
+    { action: 'Rassembler les 3 derniers bilans certifies', priorite: 'Haute' },
+    { action: 'Evaluer les actifs immobiliers a leur valeur venale', priorite: 'Moyenne' },
+    { action: 'Verifier l\'existence de comptes courants d\'associes', priorite: 'Moyenne' },
+  ],
+  conflit: [
+    { action: 'Faire designer un expert judiciaire (art. 1843-4 C. civ.)', priorite: 'Haute' },
+    { action: 'Rassembler les pactes d\'associes et clauses statutaires', priorite: 'Haute' },
+    { action: 'Documenter les desaccords sur les retraitements', priorite: 'Moyenne' },
+    { action: 'Preparer les elements de negociation amiable', priorite: 'Moyenne' },
+  ],
+  transmission: [
+    { action: 'Consulter un notaire pour la strategie de transmission', priorite: 'Haute' },
+    { action: 'Evaluer les options : donation simple, demembrement, pacte Dutreil', priorite: 'Haute' },
+    { action: 'Faire certifier la valorisation par un expert independant', priorite: 'Moyenne' },
+    { action: 'Anticiper les droits de mutation et abattements applicables', priorite: 'Moyenne' },
+  ],
+  associe: [
+    { action: 'Verifier les clauses statutaires de rachat de parts', priorite: 'Haute' },
+    { action: 'Negocier la base de valorisation entre parties', priorite: 'Haute' },
+    { action: 'Definir les modalites de paiement (echelonnement, earn-out)', priorite: 'Moyenne' },
+    { action: 'Preparer les documents de cession de parts', priorite: 'Moyenne' },
+  ],
+  financement: [
+    { action: 'Preparer un business plan detaille sur 3-5 ans', priorite: 'Haute' },
+    { action: 'Compiler les elements de garantie (actifs, cautions)', priorite: 'Haute' },
+    { action: 'Identifier les financeurs potentiels (banques, fonds)', priorite: 'Moyenne' },
+    { action: 'Constituer un memorandum d\'investissement', priorite: 'Moyenne' },
+  ],
+  pilotage: [
+    { action: 'Identifier les 3 leviers principaux de creation de valeur', priorite: 'Haute' },
+    { action: 'Mettre en place un suivi trimestriel des indicateurs cles', priorite: 'Haute' },
+    { action: 'Definir un plan d\'action sur 12-18 mois', priorite: 'Moyenne' },
+    { action: 'Re-evaluer dans 6 mois pour mesurer la progression', priorite: 'Moyenne' },
+  ],
+}
+
+const DEFAULT_ACTIONS = [
+  { action: 'Validation des retraitements avec l\'expert-comptable', priorite: 'Haute' as const },
+  { action: 'Constitution du dataroom', priorite: 'Haute' as const },
+  { action: 'Identification des cibles acquereurs', priorite: 'Moyenne' as const },
+  { action: 'Preparation des documents juridiques', priorite: 'Moyenne' as const },
+]
+
+const RecommendationsSection = ({ data }: { data: ProfessionalReportData }) => {
+  const obj = data.objectif
+  const objLabel = obj ? OBJECTIF_LABELS[obj] : undefined
+  const objContext = obj ? OBJECTIF_CONTEXT[obj] : undefined
+  const actions = (obj ? OBJECTIF_ACTIONS[obj] : undefined) ?? DEFAULT_ACTIONS
+
+  return (
+    <>
+      <Page size="A4" style={styles.page}>
+        <Header title="Recommandations" />
+        <Text style={styles.sectionTitle}>8. Recommandations</Text>
+
+        {objLabel && objContext && (
+          <View style={[styles.card, styles.cardWarning, { marginBottom: 12 }]}>
+            <Text style={styles.cardTitle}>Contexte : {objLabel}</Text>
+            <Text style={styles.paragraph}>{objContext}</Text>
+          </View>
+        )}
+
+        {data.recommandations.map((reco, i) => (
+          <View key={i} style={[styles.card, styles.cardPrimary, { marginBottom: 10 }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+              <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', marginRight: 10 }}>
+                <Text style={{ fontSize: 12, fontWeight: 'bold', color: COLORS.white }}>{i + 1}</Text>
+              </View>
+              <Text style={[styles.paragraph, { flex: 1, marginBottom: 0 }]}>{cleanText(reco)}</Text>
             </View>
-            <Text style={[styles.paragraph, { flex: 1, marginBottom: 0 }]}>{cleanText(reco)}</Text>
-          </View>
-        </View>
-      ))}
-
-      <Text style={styles.sectionSubtitle}>Actions prioritaires</Text>
-      <View style={styles.card}>
-        {[
-          'Preparer un dossier de presentation structure pour les acquereurs potentiels',
-          'Securiser les relations clients cles par des contrats long terme',
-          'Documenter les processus operationnels pour faciliter la transition',
-          'Anticiper les questions des acquereurs sur les garanties d\'actif-passif',
-        ].map((action, i) => (
-          <View key={i} style={styles.bulletPoint}>
-            <Text style={styles.bullet}>→</Text>
-            <Text style={styles.bulletText}>{action}</Text>
           </View>
         ))}
-      </View>
 
-      <Footer company={data.entreprise.nom} pageNum={30} totalPages={32} />
-    </Page>
+        <Footer company={data.entreprise.nom} pageNum={26} totalPages={28} />
+      </Page>
 
-    <Page size="A4" style={styles.page}>
-      <Header title="Recommandations" />
+      <Page size="A4" style={styles.page}>
+        <Header title="Recommandations" />
 
-      <Text style={styles.sectionSubtitle}>Prochaines etapes</Text>
-      <View style={styles.table}>
-        <View style={styles.tableHeader}>
-          <Text style={[styles.tableHeaderCell, { flex: 0.5 }]}>#</Text>
-          <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Action</Text>
-          <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Priorite</Text>
-        </View>
-        {[
-          { action: 'Validation des retraitements avec l\'expert-comptable', priorite: 'Haute' },
-          { action: 'Constitution du dataroom', priorite: 'Haute' },
-          { action: 'Identification des cibles acquereurs', priorite: 'Moyenne' },
-          { action: 'Preparation des documents juridiques', priorite: 'Moyenne' },
-        ].map((item, i) => (
-          <View key={i} style={[styles.tableRow, i % 2 === 1 ? styles.tableRowAlt : {}]}>
-            <Text style={[styles.tableCellBold, { flex: 0.5 }]}>{i + 1}</Text>
-            <Text style={[styles.tableCell, { flex: 2 }]}>{item.action}</Text>
-            <Text style={[styles.tableCell, { flex: 1, color: item.priorite === 'Haute' ? COLORS.danger : COLORS.warning }]}>{item.priorite}</Text>
+        <Text style={styles.sectionSubtitle}>Prochaines etapes</Text>
+        <View style={styles.table}>
+          <View style={styles.tableHeader}>
+            <Text style={[styles.tableHeaderCell, { flex: 0.5 }]}>#</Text>
+            <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Action</Text>
+            <Text style={[styles.tableHeaderCell, { flex: 1 }]}>Priorite</Text>
           </View>
-        ))}
-      </View>
+          {actions.map((item, i) => (
+            <View key={i} style={[styles.tableRow, i % 2 === 1 ? styles.tableRowAlt : {}]}>
+              <Text style={[styles.tableCellBold, { flex: 0.5 }]}>{i + 1}</Text>
+              <Text style={[styles.tableCell, { flex: 2 }]}>{item.action}</Text>
+              <Text style={[styles.tableCell, { flex: 1, color: item.priorite === 'Haute' ? COLORS.danger : COLORS.warning }]}>{item.priorite}</Text>
+            </View>
+          ))}
+        </View>
 
-      <View style={styles.disclaimer}>
-        <Text style={styles.disclaimerTitle}>Accompagnement EvalUp</Text>
-        <Text style={styles.disclaimerText}>
-          Notre equipe reste a votre disposition pour vous accompagner dans les prochaines etapes
-          de votre projet de cession. N'hesitez pas a nous contacter pour approfondir cette analyse
-          ou preparer la mise en marche de votre entreprise.
-        </Text>
-      </View>
+        <View style={styles.disclaimer}>
+          <Text style={styles.disclaimerTitle}>Accompagnement EvalUp</Text>
+          <Text style={styles.disclaimerText}>
+            Notre equipe reste a votre disposition pour vous accompagner dans les prochaines etapes
+            de votre projet{objLabel ? ` (${objLabel.toLowerCase()})` : ''}. N'hesitez pas a nous contacter pour approfondir cette analyse.
+          </Text>
+        </View>
 
-      <Footer company={data.entreprise.nom} pageNum={31} totalPages={32} />
-    </Page>
-  </>
-)
+        <Footer company={data.entreprise.nom} pageNum={27} totalPages={28} />
+      </Page>
+    </>
+  )
+}
 
 // ============================================
 // PAGE 30+: ANNEXES
@@ -987,7 +996,7 @@ const Appendices = ({ data }: { data: ProfessionalReportData }) => (
   <>
     <Page size="A4" style={styles.page}>
       <Header title="Annexes" />
-      <Text style={styles.sectionTitle}>10. Annexes</Text>
+      <Text style={styles.sectionTitle}>9. Annexes</Text>
 
       <Text style={styles.sectionSubtitle}>A. Donnees financieres detaillees</Text>
       {data.historique.length > 0 && (
@@ -1011,7 +1020,39 @@ const Appendices = ({ data }: { data: ProfessionalReportData }) => (
         </View>
       )}
 
-      <Text style={styles.sectionSubtitle}>B. Glossaire</Text>
+      {/* B. Profil de valorisation (ex-ArchetypeProfilePage) */}
+      {data.archetypeId && (
+        <>
+          <Text style={styles.sectionSubtitle}>B. Profil de valorisation</Text>
+          <View style={[styles.card, { borderLeftWidth: 4, borderLeftColor: data.archetypeColor || COLORS.primary, marginBottom: 8 }]}>
+            <Text style={{ fontSize: 11, fontWeight: 'bold', color: data.archetypeColor || COLORS.primary, marginBottom: 4 }}>
+              {cleanText(data.archetypeName || data.archetypeId)}
+            </Text>
+            <Text style={{ fontSize: 9, color: COLORS.gray700 }}>
+              Methode principale : {cleanText(data.archetypePrimaryMethod || 'Multiple d\'EBITDA')}
+              {data.archetypeSecondaryMethod ? ` | Secondaire : ${cleanText(data.archetypeSecondaryMethod)}` : ''}
+            </Text>
+          </View>
+          {data.archetypeWhyThisMethod && (
+            <View style={[styles.card, { marginBottom: 8 }]}>
+              <Text style={{ fontSize: 9, fontWeight: 'bold', color: COLORS.gray700, marginBottom: 3 }}>Pourquoi cette methode ?</Text>
+              <Text style={{ fontSize: 8, color: COLORS.gray700, lineHeight: 1.4 }}>{cleanText(data.archetypeWhyThisMethod)}</Text>
+            </View>
+          )}
+          {data.archetypeCommonMistakes && data.archetypeCommonMistakes.length > 0 && (
+            <View style={[styles.card, styles.cardDanger, { marginBottom: 8 }]}>
+              <Text style={{ fontSize: 9, fontWeight: 'bold', color: COLORS.danger, marginBottom: 3 }}>Erreurs frequentes</Text>
+              {data.archetypeCommonMistakes.slice(0, 3).map((m, i) => (
+                <Text key={i} style={{ fontSize: 8, color: COLORS.gray700, marginBottom: 2 }}>
+                  • {cleanText(m.mistake)}
+                </Text>
+              ))}
+            </View>
+          )}
+        </>
+      )}
+
+      <Text style={styles.sectionSubtitle}>{data.archetypeId ? 'C' : 'B'}. Glossaire</Text>
       {[
         { term: 'EBITDA', def: 'Earnings Before Interest, Taxes, Depreciation and Amortization. Resultat d\'exploitation avant interets, impots et amortissements.' },
         { term: 'VE (Valeur d\'Entreprise)', def: 'Enterprise Value. Valeur de l\'entreprise calculee par les methodes de valorisation, avant ajustement de la dette nette.' },
@@ -1041,7 +1082,7 @@ const Appendices = ({ data }: { data: ProfessionalReportData }) => (
         </Text>
       </View>
 
-      <Footer company={data.entreprise.nom} pageNum={32} totalPages={32} />
+      <Footer company={data.entreprise.nom} pageNum={28} totalPages={28} />
     </Page>
   </>
 )
@@ -1053,18 +1094,17 @@ const Appendices = ({ data }: { data: ProfessionalReportData }) => (
 const ProfessionalReport = ({ data }: { data: ProfessionalReportData }) => (
   <Document>
     <CoverPage data={data} />
-    {data.archetypeId && <ArchetypeProfilePage data={data} />}
     <TableOfContents data={data} />
     <ExecutiveSummary data={data} />
     <CompanyPresentation data={data} />
-    <MarketAnalysis data={data} />
     <FinancialAnalysis data={data} />
+    <EBITDARestatements data={data} />
     <RatioDashboard data={data} />
     <FinancialDiagnostic data={data} />
-    <EBITDARestatements data={data} />
+    <SWOTSection data={data} />
+    <MarketAnalysis data={data} />
     <ValuationSection data={data} />
     <SensitivityAnalysis data={data} />
-    <SWOTSection data={data} />
     <RecommendationsSection data={data} />
     <Appendices data={data} />
   </Document>

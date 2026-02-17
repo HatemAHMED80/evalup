@@ -112,7 +112,7 @@ export function calculerRatios(bilan: BilanAnnuel, capex?: number): RatiosFinanc
   const ebitda = bilan.resultatExploitation + (bilan.dotationsAmortissements ?? 0) + (bilan.dotationsProvisions ?? 0)
   const ebit = bilan.resultatExploitation
   const rn = bilan.resultatNet
-  const cp = bilan.capitauxPropres || 1
+  const cp = bilan.capitauxPropres
 
   // Dettes et trésorerie
   const dettesFinancieres = bilan.empruntsEtablissementsCredit ?? bilan.dettesFinancieres ?? 0
@@ -142,7 +142,7 @@ export function calculerRatios(bilan: BilanAnnuel, capex?: number): RatiosFinanc
     margeEbitda: ebitda / ca,
     margeEbit: ebit / ca,
     margeNette: rn / ca,
-    roe: cp > 0 ? rn / cp : 0,
+    roe: (cp != null && Math.abs(cp) > 100) ? Math.max(-9.99, Math.min(9.99, rn / cp)) : 0,
 
     // Structure
     ratioEndettement: cp > 0 ? dettesFinancieres / cp : 0,

@@ -211,7 +211,13 @@ export function ChatLayout({ evaluationId, entreprise, initialContext }: ChatLay
               context={context}
               onContextChange={setContext}
               onStepChange={handleStepChange}
-              onOpenDataPanel={() => setDataPanelVisible(true)}
+              onOpenDataPanel={() => {
+                if (window.innerWidth < 768) {
+                  setDataPanelOpen(true)
+                } else {
+                  setDataPanelVisible(true)
+                }
+              }}
               onCloseDataPanel={() => setDataPanelVisible(false)}
               dataPanelVisible={dataPanelVisible}
               onFieldsMentioned={handleFieldsMentioned}

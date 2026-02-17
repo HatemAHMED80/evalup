@@ -1145,3 +1145,144 @@ export function detectArchetype(data: DiagnosticInput): string {
   // Secteur inconnu ou sans métriques distinctives → conseil (catchall)
   return 'conseil'
 }
+
+// -----------------------------------------------------------------------------
+// Revalidation d'archétype à la lumière des données financières réelles
+// -----------------------------------------------------------------------------
+
+export interface RevalidationInput {
+  initialArchetype: string
+  revenue: number
+  ebitda: number
+  growth?: number
+  recurring?: number
+  masseSalariale?: number
+  hasMRR: boolean          // true seulement si MRR réel fourni
+  hasARR: boolean          // true seulement si ARR réel fourni
+  hasAssets: boolean       // true si actifs réels fournis
+  hasGMV: boolean          // true si GMV réel fourni
+  equity: number
+  debt: number
+  cash: number
+  effectif?: number
+  nafCode?: string
+}
+
+export interface RevalidationResult {
+  archetype: string        // archétype final (confirmé ou corrigé)
+  changed: boolean         // true si l'archétype a été modifié
+  reason?: string          // explication si changé (pour le rapport)
+}
+
+const ARCHETYPE_NAMES: Record<string, string> = {
+  saas_hyper: 'SaaS Hyper-croissance',
+  saas_mature: 'SaaS Mature',
+  saas_decline: 'SaaS en déclin',
+  marketplace: 'Marketplace',
+  ecommerce: 'E-commerce',
+  conseil: 'Conseil / Services',
+  services_recurrents: 'Services récurrents',
+  commerce_retail: 'Commerce de détail',
+  commerce_gros: 'Commerce de gros',
+  industrie: 'Industrie',
+  patrimoine: 'Société patrimoniale',
+  patrimoine_dominant: 'Patrimoine dominant',
+  deficit_structurel: 'Déficit structurel',
+  masse_salariale_lourde: 'Masse salariale lourde',
+  micro_solo: 'Micro-entreprise / Solo',
+  pre_revenue: 'Pré-revenu',
+}
+
+function reasonFor(from: string, to: string): string {
+  return `Archétype ajusté de "${ARCHETYPE_NAMES[from] || from}" vers "${ARCHETYPE_NAMES[to] || to}" sur la base des données financières réelles.`
+}
+
+/**
+ * Revalide l'archétype initial à la lumière des données financières complètes.
+ * Appelé AVANT la valorisation pour corriger les erreurs de routage.
+ */
+export function revalidateArchetype(input: RevalidationInput): RevalidationResult {
+  const { initialArchetype: init, revenue, ebitda, growth = 0,
+          recurring = 0, hasMRR, hasARR, masseSalariale = 0 } = input
+  const ok = (id: string): RevalidationResult => ({
+    archetype: id,
+    changed: id !== init,
+    reason: id !== init ? reasonFor(init, id) : undefined,
+  })
+
+  // ── Règle R1 : SaaS hyper-croissance sans métriques SaaS ──────────────
+  if (init === 'saas_hyper') {
+    if (!hasMRR && !hasARR) {
+      if (recurring > 60) return ok('services_recurrents')
+      return ok('conseil')
+    }
+    // A du MRR/ARR mais croissance < 40% et EBITDA positif → saas_mature
+    if (growth < 40 && ebitda > 0) return ok('saas_mature')
+  }
+
+  // ── Règle R2 : SaaS mature sans métriques SaaS ────────────────────────
+  if (init === 'saas_mature') {
+    if (!hasMRR && !hasARR) {
+      if (recurring > 60) return ok('services_recurrents')
+      return ok('conseil')
+    }
+  }
+
+  // ── Règle R3 : SaaS déclin sans métriques SaaS ────────────────────────
+  if (init === 'saas_decline') {
+    if (!hasMRR && !hasARR) {
+      if (recurring > 60) return ok('services_recurrents')
+      return ok('conseil')
+    }
+  }
+
+  // ── Règle R4 : Marketplace sans GMV ────────────────────────────────────
+  if (init === 'marketplace' && !input.hasGMV && !hasMRR) {
+    if (ebitda > 0) return ok('ecommerce')
+    return ok('conseil')
+  }
+
+  // ── Règle R5 : Patrimoine sans actifs ──────────────────────────────────
+  if ((init === 'patrimoine' || init === 'patrimoine_dominant') && !input.hasAssets) {
+    if (ebitda > 0) return ok('services_recurrents')
+    return ok('conseil')
+  }
+
+  // ── Règle R6 : Conseil/Services qui est en fait un SaaS ───────────────
+  if ((init === 'conseil' || init === 'services_recurrents') && hasMRR && recurring > 80) {
+    if (growth > 40 && ebitda < 0) return ok('saas_hyper')
+    if (growth >= 5) return ok('saas_mature')
+    return ok('saas_decline')
+  }
+
+  // ── Règle R7 : Commerce/Industrie avec forte récurrence → services ────
+  if ((init === 'commerce_retail' || init === 'industrie') && recurring > 70) {
+    return ok('services_recurrents')
+  }
+
+  // ── Règle R8 : Revenue = 0 non détecté → pre_revenue ──────────────────
+  if (revenue <= 0 && init !== 'pre_revenue') {
+    return ok('pre_revenue')
+  }
+
+  // ── Règle R9 : Micro non détecté (CA < 300k) ──────────────────────────
+  if (revenue > 0 && revenue < 300_000 && init !== 'micro_solo' && init !== 'pre_revenue'
+      && init !== 'marketplace') {
+    return ok('micro_solo')
+  }
+
+  // ── Règle R10 : Déficit structurel non détecté ─────────────────────────
+  if (ebitda < 0 && growth < 20 && revenue > 1_000_000
+      && init !== 'deficit_structurel' && init !== 'saas_hyper' && init !== 'pre_revenue') {
+    return ok('deficit_structurel')
+  }
+
+  // ── Règle R11 : Masse salariale lourde non détectée ────────────────────
+  if (masseSalariale > 60 && init !== 'masse_salariale_lourde'
+      && init !== 'conseil' && init !== 'commerce_retail') {
+    return ok('masse_salariale_lourde')
+  }
+
+  // ── Pas de changement ─────────────────────────────────────────────────
+  return ok(init)
+}

@@ -90,7 +90,7 @@ export const CompanyPresentation = ({ data }: { data: ProfessionalReportData }) 
         </View>
       </View>
 
-      <Footer company={data.entreprise.nom} pageNum={5} totalPages={32} />
+      <Footer company={data.entreprise.nom} pageNum={5} totalPages={28} />
     </Page>
 
     {/* Page 6: Historique */}
@@ -140,7 +140,7 @@ export const CompanyPresentation = ({ data }: { data: ProfessionalReportData }) 
         </>
       )}
 
-      <Footer company={data.entreprise.nom} pageNum={6} totalPages={32} />
+      <Footer company={data.entreprise.nom} pageNum={6} totalPages={28} />
     </Page>
 
     {/* Page 7: Gouvernance */}
@@ -198,7 +198,7 @@ export const CompanyPresentation = ({ data }: { data: ProfessionalReportData }) 
         </View>
       </View>
 
-      <Footer company={data.entreprise.nom} pageNum={7} totalPages={32} />
+      <Footer company={data.entreprise.nom} pageNum={7} totalPages={28} />
     </Page>
   </>
 )
@@ -212,156 +212,61 @@ export const MarketAnalysis = ({ data }: { data: ProfessionalReportData }) => {
   const benchmark = BENCHMARKS[secteurCode] || BENCHMARKS.default
 
   return (
-    <>
-      {/* Page 8: Secteur */}
-      <Page size="A4" style={styles.page}>
-        <Header title="Analyse du marche" />
-        <Text style={styles.sectionTitle}>3. Analyse du marche</Text>
-        <Text style={styles.sectionSubtitle}>3.1 Secteur d'activite: {benchmark.nom}</Text>
+    <Page size="A4" style={styles.page}>
+      <Header title="Contexte sectoriel" />
+      <Text style={styles.sectionTitle}>6. Contexte sectoriel</Text>
 
-        <View style={[styles.card, styles.cardPrimary]}>
-          <Text style={styles.cardTitle}>Caracteristiques du secteur</Text>
-          <Text style={styles.paragraph}>
-            Le secteur {benchmark.nom} se caracterise par des marges EBITDA typiques entre {formatPercent(benchmark.margeEbitda.min)} et {formatPercent(benchmark.margeEbitda.max)}, avec une mediane a {formatPercent(benchmark.margeEbitda.median)}. Les multiples de valorisation observes sur les transactions recentes varient de {benchmark.multipleEbitda.min}x a {benchmark.multipleEbitda.max}x l'EBITDA.
-          </Text>
+      <View style={[styles.card, styles.cardPrimary, { marginBottom: 10 }]}>
+        <Text style={styles.cardTitle}>{benchmark.nom}</Text>
+        <Text style={styles.paragraph}>
+          Le secteur {benchmark.nom} se caracterise par des marges EBITDA typiques entre {formatPercent(benchmark.margeEbitda.min)} et {formatPercent(benchmark.margeEbitda.max)}, avec une mediane a {formatPercent(benchmark.margeEbitda.median)}. Les multiples de valorisation observes sur les transactions recentes varient de {benchmark.multipleEbitda.min}x a {benchmark.multipleEbitda.max}x l'EBITDA.
+        </Text>
+      </View>
+
+      <Text style={styles.sectionSubtitle}>Benchmarks sectoriels</Text>
+      <View style={styles.table}>
+        <View style={styles.tableHeader}>
+          <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Indicateur</Text>
+          <Text style={[styles.tableHeaderCell, { flex: 1, textAlign: 'center' }]}>Min</Text>
+          <Text style={[styles.tableHeaderCell, { flex: 1, textAlign: 'center' }]}>Mediane</Text>
+          <Text style={[styles.tableHeaderCell, { flex: 1, textAlign: 'center' }]}>Max</Text>
+          <Text style={[styles.tableHeaderCell, { flex: 1, textAlign: 'center' }]}>Votre valeur</Text>
         </View>
-
-        <Text style={styles.sectionSubtitle}>Benchmarks sectoriels</Text>
-        <View style={styles.table}>
-          <View style={styles.tableHeader}>
-            <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Indicateur</Text>
-            <Text style={[styles.tableHeaderCell, { flex: 1, textAlign: 'center' }]}>Min</Text>
-            <Text style={[styles.tableHeaderCell, { flex: 1, textAlign: 'center' }]}>Mediane</Text>
-            <Text style={[styles.tableHeaderCell, { flex: 1, textAlign: 'center' }]}>Max</Text>
-            <Text style={[styles.tableHeaderCell, { flex: 1, textAlign: 'center' }]}>Votre valeur</Text>
-          </View>
-          {[
-            { label: 'Marge nette', bench: benchmark.margeNette, value: data.financier.margeNette, format: formatPercent },
-            { label: 'Marge EBITDA', bench: benchmark.margeEbitda, value: data.financier.margeEbitda, format: formatPercent },
-            { label: 'DSO (jours)', bench: benchmark.dso, value: data.financier.dso, format: (v: number) => `${Math.round(v)} j` },
-          ].map((item, i) => {
-            const status = compareWithBenchmark(item.value, item.bench)
-            const statusColor = status === 'good' ? COLORS.success : status === 'average' ? COLORS.warning : COLORS.danger
-            return (
-              <View key={i} style={[styles.tableRow, i % 2 === 1 ? styles.tableRowAlt : {}]}>
-                <Text style={[styles.tableCellBold, { flex: 2 }]}>{item.label}</Text>
-                <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>{item.format(item.bench.min)}</Text>
-                <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>{item.format(item.bench.median)}</Text>
-                <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>{item.format(item.bench.max)}</Text>
-                <Text style={[styles.tableCellBold, { flex: 1, textAlign: 'center', color: statusColor }]}>{item.format(item.value)}</Text>
-              </View>
-            )
-          })}
-        </View>
-
-        {data.marche?.tendances && data.marche.tendances.length > 0 && (
-          <>
-            <Text style={styles.sectionSubtitle}>Tendances du marche</Text>
-            <View style={styles.card}>
-              {data.marche.tendances.map((t, i) => (
-                <View key={i} style={styles.bulletPoint}>
-                  <Text style={styles.bullet}>-</Text>
-                  <Text style={styles.bulletText}>{cleanText(t)}</Text>
-                </View>
-              ))}
+        {[
+          { label: 'Marge nette', bench: benchmark.margeNette, value: data.financier.margeNette, format: formatPercent },
+          { label: 'Marge EBITDA', bench: benchmark.margeEbitda, value: data.financier.margeEbitda, format: formatPercent },
+          { label: 'DSO (jours)', bench: benchmark.dso, value: data.financier.dso, format: (v: number) => `${Math.round(v)} j` },
+        ].map((item, i) => {
+          const status = compareWithBenchmark(item.value, item.bench)
+          const statusColor = status === 'good' ? COLORS.success : status === 'average' ? COLORS.warning : COLORS.danger
+          return (
+            <View key={i} style={[styles.tableRow, i % 2 === 1 ? styles.tableRowAlt : {}]}>
+              <Text style={[styles.tableCellBold, { flex: 2 }]}>{item.label}</Text>
+              <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>{item.format(item.bench.min)}</Text>
+              <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>{item.format(item.bench.median)}</Text>
+              <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>{item.format(item.bench.max)}</Text>
+              <Text style={[styles.tableCellBold, { flex: 1, textAlign: 'center', color: statusColor }]}>{item.format(item.value)}</Text>
             </View>
-          </>
-        )}
+          )
+        })}
+      </View>
 
-        <Footer company={data.entreprise.nom} pageNum={8} totalPages={32} />
-      </Page>
-
-      {/* Page 9-10: Concurrence */}
-      <Page size="A4" style={styles.page}>
-        <Header title="Analyse du marche" />
-        <Text style={styles.sectionSubtitle}>3.2 Positionnement concurrentiel</Text>
-
-        {data.marche?.concurrents && data.marche.concurrents.length > 0 ? (
-          <>
-            <Text style={{ fontSize: 11, fontWeight: 'bold', color: COLORS.gray900, marginBottom: 10 }}>Principaux concurrents identifies</Text>
-            <View style={styles.table}>
-              <View style={styles.tableHeader}>
-                <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Concurrent</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 2 }]}>Position sur le marche</Text>
-              </View>
-              {data.marche.concurrents.map((c, i) => (
-                <View key={i} style={[styles.tableRow, i % 2 === 1 ? styles.tableRowAlt : {}]}>
-                  <Text style={[styles.tableCellBold, { flex: 2 }]}>{c.nom}</Text>
-                  <Text style={[styles.tableCell, { flex: 2 }]}>{c.position || 'Non renseigne'}</Text>
-                </View>
-              ))}
-            </View>
-          </>
-        ) : (
+      {data.marche?.tendances && data.marche.tendances.length > 0 && (
+        <>
+          <Text style={styles.sectionSubtitle}>Tendances du marche</Text>
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Environnement concurrentiel</Text>
-            <Text style={styles.paragraph}>
-              L'entreprise evolue dans un marche {data.financier.margeEbitda > benchmark.margeEbitda.median ? 'relativement protege avec des marges superieures a la mediane sectorielle' : 'concurrentiel avec une pression sur les marges'}.
-            </Text>
-          </View>
-        )}
-
-        <Text style={styles.sectionSubtitle}>Clientele et fournisseurs</Text>
-        <View style={styles.row}>
-          <View style={styles.col2}>
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Typologie client</Text>
-              <Text style={styles.paragraph}>{data.marche?.clientele || 'Information non disponible. A completer lors de l\'analyse approfondie.'}</Text>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-                <Text style={{ fontSize: 9, color: COLORS.gray500 }}>Delai client (DSO)</Text>
-                <Text style={{ fontSize: 9, fontWeight: 'bold' }}>{Math.round(data.financier.dso)} jours</Text>
+            {data.marche.tendances.map((t, i) => (
+              <View key={i} style={styles.bulletPoint}>
+                <Text style={styles.bullet}>-</Text>
+                <Text style={styles.bulletText}>{cleanText(t)}</Text>
               </View>
-            </View>
+            ))}
           </View>
-          <View style={styles.col2}>
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Fournisseurs</Text>
-              <Text style={styles.paragraph}>{data.marche?.fournisseurs || 'Information non disponible.'}</Text>
-              {data.financier.dpo && (
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-                  <Text style={{ fontSize: 9, color: COLORS.gray500 }}>Delai fournisseur (DPO)</Text>
-                  <Text style={{ fontSize: 9, fontWeight: 'bold' }}>{Math.round(data.financier.dpo)} jours</Text>
-                </View>
-              )}
-            </View>
-          </View>
-        </View>
+        </>
+      )}
 
-        <Footer company={data.entreprise.nom} pageNum={9} totalPages={32} />
-      </Page>
-
-      <Page size="A4" style={styles.page}>
-        <Header title="Analyse du marche" />
-
-        <Text style={styles.sectionSubtitle}>Forces et faiblesses concurrentielles</Text>
-        <View style={styles.row}>
-          <View style={styles.col2}>
-            <View style={[styles.card, styles.cardSuccess]}>
-              <Text style={styles.cardTitle}>Avantages competitifs</Text>
-              {(data.swot?.forces || data.pointsForts).slice(0, 4).map((f, i) => (
-                <View key={i} style={styles.bulletPoint}>
-                  <Text style={[styles.bullet, { color: COLORS.success }]}>+</Text>
-                  <Text style={styles.bulletText}>{cleanText(f)}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-          <View style={styles.col2}>
-            <View style={[styles.card, styles.cardWarning]}>
-              <Text style={styles.cardTitle}>Axes d'amelioration</Text>
-              {(data.swot?.faiblesses || data.pointsVigilance).slice(0, 4).map((f, i) => (
-                <View key={i} style={styles.bulletPoint}>
-                  <Text style={[styles.bullet, { color: COLORS.warning }]}>-</Text>
-                  <Text style={styles.bulletText}>{cleanText(f)}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        </View>
-
-        <Footer company={data.entreprise.nom} pageNum={10} totalPages={32} />
-      </Page>
-    </>
+      <Footer company={data.entreprise.nom} pageNum={20} totalPages={28} />
+    </Page>
   )
 }
 
@@ -378,8 +283,8 @@ export const FinancialAnalysis = ({ data }: { data: ProfessionalReportData }) =>
       {/* Page 11: Evolution CA */}
       <Page size="A4" style={styles.page}>
         <Header title="Analyse financiere" />
-        <Text style={styles.sectionTitle}>4. Analyse financiere</Text>
-        <Text style={styles.sectionSubtitle}>4.1 Evolution du chiffre d'affaires</Text>
+        <Text style={styles.sectionTitle}>3. Analyse financiere</Text>
+        <Text style={styles.sectionSubtitle}>3.1 Evolution du chiffre d'affaires</Text>
 
         <View style={styles.row}>
           <View style={styles.col2}>
@@ -413,13 +318,13 @@ export const FinancialAnalysis = ({ data }: { data: ProfessionalReportData }) =>
           </>
         )}
 
-        <Footer company={data.entreprise.nom} pageNum={11} totalPages={32} />
+        <Footer company={data.entreprise.nom} pageNum={8} totalPages={28} />
       </Page>
 
       {/* Page 12: Rentabilité */}
       <Page size="A4" style={styles.page}>
         <Header title="Analyse financiere" />
-        <Text style={styles.sectionSubtitle}>4.2 Rentabilite et marges</Text>
+        <Text style={styles.sectionSubtitle}>3.2 Rentabilite et marges</Text>
 
         <View style={styles.row}>
           {data.financier.margeBrute !== undefined && (
@@ -490,13 +395,13 @@ export const FinancialAnalysis = ({ data }: { data: ProfessionalReportData }) =>
           )}
         </View>
 
-        <Footer company={data.entreprise.nom} pageNum={12} totalPages={32} />
+        <Footer company={data.entreprise.nom} pageNum={9} totalPages={28} />
       </Page>
 
       {/* Page 13: Bilan */}
       <Page size="A4" style={styles.page}>
         <Header title="Analyse financiere" />
-        <Text style={styles.sectionSubtitle}>4.3 Structure du bilan</Text>
+        <Text style={styles.sectionSubtitle}>3.3 Structure du bilan</Text>
 
         <View style={styles.row}>
           <View style={styles.col2}>
@@ -548,13 +453,13 @@ export const FinancialAnalysis = ({ data }: { data: ProfessionalReportData }) =>
           </View>
         </View>
 
-        <Footer company={data.entreprise.nom} pageNum={13} totalPages={32} />
+        <Footer company={data.entreprise.nom} pageNum={10} totalPages={28} />
       </Page>
 
       {/* Page 14: BFR */}
       <Page size="A4" style={styles.page}>
         <Header title="Analyse financiere" />
-        <Text style={styles.sectionSubtitle}>4.4 BFR et tresorerie</Text>
+        <Text style={styles.sectionSubtitle}>3.4 BFR et tresorerie</Text>
 
         <View style={[styles.card, { backgroundColor: COLORS.primary, padding: 20, alignItems: 'center' }]}>
           <Text style={{ fontSize: 10, color: COLORS.white, opacity: 0.9 }}>Besoin en Fonds de Roulement (BFR)</Text>
@@ -608,13 +513,13 @@ export const FinancialAnalysis = ({ data }: { data: ProfessionalReportData }) =>
           </View>
         </View>
 
-        <Footer company={data.entreprise.nom} pageNum={14} totalPages={32} />
+        <Footer company={data.entreprise.nom} pageNum={11} totalPages={28} />
       </Page>
 
       {/* Page 15: FCF */}
       <Page size="A4" style={styles.page}>
         <Header title="Analyse financiere" />
-        <Text style={styles.sectionSubtitle}>4.5 Flux de tresorerie</Text>
+        <Text style={styles.sectionSubtitle}>3.5 Flux de tresorerie</Text>
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Free Cash Flow</Text>
@@ -679,7 +584,7 @@ export const FinancialAnalysis = ({ data }: { data: ProfessionalReportData }) =>
           </Text>
         </View>
 
-        <Footer company={data.entreprise.nom} pageNum={15} totalPages={32} />
+        <Footer company={data.entreprise.nom} pageNum={12} totalPages={28} />
       </Page>
     </>
   )
@@ -749,7 +654,7 @@ export const RatioDashboard = ({ data }: { data: ProfessionalReportData }) => {
   return (
     <Page size="A4" style={styles.page}>
       <Header title="Analyse financiere" />
-      <Text style={styles.sectionSubtitle}>4.6 Tableau de bord des ratios financiers</Text>
+      <Text style={styles.sectionSubtitle}>3.7 Tableau de bord des ratios financiers</Text>
 
       <View style={[styles.card, { marginBottom: 10, padding: 10 }]}>
         <Text style={{ fontSize: 9, color: COLORS.gray700 }}>
@@ -810,7 +715,7 @@ export const RatioDashboard = ({ data }: { data: ProfessionalReportData }) => {
         ))}
       </View>
 
-      <Footer company={data.entreprise.nom} pageNum={16} totalPages={32} />
+      <Footer company={data.entreprise.nom} pageNum={14} totalPages={28} />
     </Page>
   )
 }

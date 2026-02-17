@@ -9,9 +9,11 @@ import { trackConversion } from '@/lib/analytics'
 interface DownloadReportProps {
   context: ConversationContext
   messages: Message[]
+  onOpenDataPanel?: () => void
+  onResetEvaluation?: () => void
 }
 
-export function DownloadReport({ context }: DownloadReportProps) {
+export function DownloadReport({ context, onOpenDataPanel, onResetEvaluation }: DownloadReportProps) {
   const { isPremium } = useAuth()
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -137,7 +139,7 @@ export function DownloadReport({ context }: DownloadReportProps) {
           </div>
           <div>
             <h3 className="text-[var(--text-primary)] font-semibold">Evaluation terminee</h3>
-            <p className="text-[var(--text-secondary)] text-sm">Telechargez votre rapport professionnel (32 pages)</p>
+            <p className="text-[var(--text-secondary)] text-sm">Telechargez votre rapport professionnel (28 pages)</p>
           </div>
         </div>
 
@@ -181,6 +183,44 @@ export function DownloadReport({ context }: DownloadReportProps) {
             </svg>
             Partager
           </button>
+        </div>
+
+        {/* Actions de suite */}
+        <div className="mt-4 pt-4 border-t border-[var(--border)]">
+          <p className="text-xs text-[var(--text-tertiary)] mb-3">Vous pouvez ameliorer votre rapport :</p>
+          <div className="flex flex-col gap-2">
+            {onOpenDataPanel && (
+              <button
+                onClick={onOpenDataPanel}
+                className="flex items-center gap-2 px-4 py-2 text-sm text-[var(--text-secondary)] bg-[var(--bg-tertiary)] rounded-[var(--radius-md)] hover:bg-[var(--bg-secondary)] transition-colors border border-[var(--border)]"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Completer les donnees ou ajouter des documents
+              </button>
+            )}
+            {onResetEvaluation && (
+              <button
+                onClick={onResetEvaluation}
+                className="flex items-center gap-2 px-4 py-2 text-sm text-[var(--text-secondary)] bg-[var(--bg-tertiary)] rounded-[var(--radius-md)] hover:bg-[var(--bg-secondary)] transition-colors border border-[var(--border)]"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Refaire l&apos;evaluation
+              </button>
+            )}
+            <Link
+              href="/diagnostic"
+              className="flex items-center gap-2 px-4 py-2 text-sm text-[var(--text-secondary)] bg-[var(--bg-tertiary)] rounded-[var(--radius-md)] hover:bg-[var(--bg-secondary)] transition-colors border border-[var(--border)]"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Demarrer une nouvelle evaluation
+            </Link>
+          </div>
         </div>
       </div>
 

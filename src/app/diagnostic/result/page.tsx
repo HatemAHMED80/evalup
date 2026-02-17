@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useState, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { ARCHETYPES } from '@/lib/valuation/archetypes'
@@ -8,6 +8,7 @@ import type { Archetype } from '@/lib/valuation/archetypes'
 import { Button } from '@/components/ui/Button'
 import { Footer } from '@/components/layout/Footer'
 import { trackConversion } from '@/lib/analytics'
+import { createClient } from '@/lib/supabase/client'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -77,6 +78,124 @@ function DiagnosticResult() {
     return { archetype: null, archetypeId: '', error: 'Diagnostic introuvable. Veuillez recommencer.' }
   })
 
+  // ── Auth state ─────────────────────────────────────────────────────────
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
+  const [showSignup, setShowSignup] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [authError, setAuthError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setIsAuthenticated(!!user)
+    })
+  }, [])
+
+  // ── Checkout URL ─────────────────────────────────────────────────────────
+  const siren = (() => {
+    if (company?.siren) return company.siren
+    try {
+      const raw = sessionStorage.getItem('diagnostic_data')
+      if (raw) {
+        const d = JSON.parse(raw)
+        return (d.siren || '').replace(/\D/g, '')
+      }
+    } catch { /* ignore */ }
+    return ''
+  })()
+  const checkoutParams = new URLSearchParams({ plan: 'eval_complete', archetype: archetypeId })
+  if (siren) checkoutParams.set('siren', siren)
+  const checkoutUrl = `/checkout?${checkoutParams.toString()}`
+
+  // ── Signup + redirect to checkout ──────────────────────────────────────
+  const handleSignupAndCheckout = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading(true)
+    setAuthError(null)
+
+    const supabase = createClient()
+
+    // Etape 1: Tenter signUp classique
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+    })
+
+    if (signUpError) {
+      // User existe deja ?
+      if (signUpError.message.includes('already registered') || signUpError.message.includes('already been registered')) {
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+        if (signInError) {
+          setAuthError('Ce compte existe déjà. Vérifiez votre mot de passe ou connectez-vous.')
+          setIsLoading(false)
+          return
+        }
+        trackConversion('report_cta_clicked', { archetype_id: archetypeId, siren })
+        trackConversion('checkout_started', { archetype_id: archetypeId, plan: 'eval_complete' })
+        window.location.href = checkoutUrl
+        return
+      }
+      setAuthError(signUpError.message)
+      setIsLoading(false)
+      return
+    }
+
+    // Etape 2: Si signUp retourne une session → user auto-confirme
+    if (signUpData?.session) {
+      trackConversion('report_cta_clicked', { archetype_id: archetypeId, siren })
+      trackConversion('checkout_started', { archetype_id: archetypeId, plan: 'eval_complete' })
+      window.location.href = checkoutUrl
+      return
+    }
+
+    // Etape 3: Pas de session = email verification active
+    // Fallback : endpoint admin qui cree le user avec email_confirm=true
+    try {
+      const res = await fetch('/api/auth/signup-and-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        if (data.error === 'already_exists') {
+          // Le signUp client n'a pas detecte le doublon (Supabase peut retourner un faux user sans session)
+          const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+          if (signInError) {
+            setAuthError('Ce compte existe déjà. Vérifiez votre mot de passe ou connectez-vous.')
+            setIsLoading(false)
+            return
+          }
+          trackConversion('report_cta_clicked', { archetype_id: archetypeId, siren })
+          trackConversion('checkout_started', { archetype_id: archetypeId, plan: 'eval_complete' })
+          window.location.href = checkoutUrl
+          return
+        }
+        setAuthError(data.error || 'Erreur lors de la création du compte')
+        setIsLoading(false)
+        return
+      }
+
+      // User cree avec email_confirm=true → signIn
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+      if (signInError) {
+        setAuthError('Compte créé mais connexion échouée. Essayez de vous connecter.')
+        setIsLoading(false)
+        return
+      }
+
+      trackConversion('report_cta_clicked', { archetype_id: archetypeId, siren })
+      trackConversion('checkout_started', { archetype_id: archetypeId, plan: 'eval_complete' })
+      window.location.href = checkoutUrl
+    } catch {
+      setAuthError('Erreur réseau. Veuillez réessayer.')
+      setIsLoading(false)
+    }
+  }, [email, password, archetypeId, siren, checkoutUrl])
+
   // ── Guards ───────────────────────────────────────────────────────────────
 
   if (error) {
@@ -102,24 +221,6 @@ function DiagnosticResult() {
       </div>
     )
   }
-
-  // ── Checkout URL ─────────────────────────────────────────────────────────
-
-  // Read SIREN from company state, or fallback to sessionStorage diagnostic_data
-  const siren = (() => {
-    if (company?.siren) return company.siren
-    try {
-      const raw = sessionStorage.getItem('diagnostic_data')
-      if (raw) {
-        const d = JSON.parse(raw)
-        return (d.siren || '').replace(/\D/g, '')
-      }
-    } catch { /* ignore */ }
-    return ''
-  })()
-  const checkoutParams = new URLSearchParams({ plan: 'eval_complete', archetype: archetypeId })
-  if (siren) checkoutParams.set('siren', siren)
-  const checkoutUrl = `/checkout?${checkoutParams.toString()}`
 
   // ── Render ───────────────────────────────────────────────────────────────
 
@@ -297,20 +398,105 @@ function DiagnosticResult() {
             </ul>
 
             <div className="pt-2">
-              <Button variant="primary" size="lg" className="w-full" asChild>
-                <Link
-                  href={checkoutUrl}
-                  onClick={() => {
-                    trackConversion('report_cta_clicked', { archetype_id: archetypeId, siren })
-                    trackConversion('checkout_started', { archetype_id: archetypeId, plan: 'eval_complete' })
-                  }}
-                >
-                  Générer mon rapport — 79€ →
-                </Link>
-              </Button>
-              <p className="text-center text-[12px] text-[var(--text-muted)] mt-3">
-                Analyse approfondie + rapport PDF de 30 pages
-              </p>
+              {/* ── User deja connecte → lien direct vers checkout ─── */}
+              {isAuthenticated === true && (
+                <>
+                  <Button variant="primary" size="lg" className="w-full" asChild>
+                    <Link
+                      href={checkoutUrl}
+                      onClick={() => {
+                        trackConversion('report_cta_clicked', { archetype_id: archetypeId, siren })
+                        trackConversion('checkout_started', { archetype_id: archetypeId, plan: 'eval_complete' })
+                      }}
+                    >
+                      Générer mon rapport — 79€ →
+                    </Link>
+                  </Button>
+                  <p className="text-center text-[12px] text-[var(--text-muted)] mt-3">
+                    Analyse approfondie + rapport PDF de 30 pages
+                  </p>
+                </>
+              )}
+
+              {/* ── User non connecte : CTA puis formulaire inline ── */}
+              {isAuthenticated === false && !showSignup && (
+                <>
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    className="w-full"
+                    onClick={() => setShowSignup(true)}
+                  >
+                    Générer mon rapport — 79€ →
+                  </Button>
+                  <p className="text-center text-[12px] text-[var(--text-muted)] mt-3">
+                    Analyse approfondie + rapport PDF de 30 pages
+                  </p>
+                </>
+              )}
+
+              {isAuthenticated === false && showSignup && (
+                <form onSubmit={handleSignupAndCheckout} className="space-y-4">
+                  <p className="text-[15px] font-semibold text-[var(--text-primary)]">
+                    Créez votre compte pour continuer
+                  </p>
+
+                  <div className="space-y-3">
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="votre@email.com"
+                      autoComplete="email"
+                      className="w-full px-4 py-3 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg-primary)] text-[var(--text-primary)] text-[14px] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
+                    />
+                    <input
+                      type="password"
+                      required
+                      minLength={8}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Mot de passe (8 caractères min.)"
+                      autoComplete="new-password"
+                      className="w-full px-4 py-3 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg-primary)] text-[var(--text-primary)] text-[14px] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent"
+                    />
+                  </div>
+
+                  {authError && (
+                    <p className="text-[13px] text-[var(--danger)]">{authError}</p>
+                  )}
+
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="lg"
+                    className="w-full"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? 'Création du compte...' : 'Continuer vers le paiement — 79€'}
+                  </Button>
+
+                  <div className="flex items-center justify-between text-[12px]">
+                    <Link
+                      href={`/connexion?redirect=${encodeURIComponent(checkoutUrl)}`}
+                      className="text-[var(--accent)] hover:underline"
+                    >
+                      Déjà un compte ? Connectez-vous
+                    </Link>
+                    <span className="text-[var(--text-muted)]">
+                      Paiement sécurisé par Stripe
+                    </span>
+                  </div>
+                </form>
+              )}
+
+              {/* ── Chargement de l'auth state ─── */}
+              {isAuthenticated === null && (
+                <div className="flex justify-center py-4">
+                  <div className="w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
             </div>
           </div>
         </section>

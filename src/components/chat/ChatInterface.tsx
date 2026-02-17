@@ -10,8 +10,9 @@ import { useEvaluationDraft } from '@/hooks/useEvaluationDraft'
 import { getDraftBySiren } from '@/lib/evaluation-draft'
 import type { ConversationContext, Message, UploadedDocument } from '@/lib/anthropic'
 import { ChatActionButton } from './ChatActionButton'
-import { MESSAGE_INITIAL } from '@/lib/prompts/messages'
+import { MESSAGE_ONBOARDING_WELCOME, MESSAGE_ONBOARDING_VALIDATE } from '@/lib/prompts/messages'
 import { trackConversion } from '@/lib/analytics'
+import { contextToPanel, computeOverallCompleteness } from '@/components/evaluation/dataPanelBridge'
 
 const KNOWN_FIELD_LABELS = [
   "chiffre d'affaires", "resultat net", "resultat d'exploitation",
@@ -69,6 +70,15 @@ export function ChatInterface({ entreprise, context, onContextChange: setContext
   const [streamingContent, setStreamingContent] = useState('')
   const [uploadedDocs, setUploadedDocs] = useState<File[]>([])
 
+  // Onboarding state machine
+  const [onboardingPhase, setOnboardingPhase] = useState<'typewriter' | 'panel-open' | 'waiting-validation' | 'done'>(
+    previousMessages?.length ? 'done' : 'typewriter'
+  )
+
+  // Compute completeness directly from context (no useMemo — always fresh)
+  const _panel = contextToPanel(context)
+  const overallCompleteness = computeOverallCompleteness(_panel, context.archetype)
+
   const router = useRouter()
 
   const messagesRef = useRef<Message[]>(messages)
@@ -82,30 +92,6 @@ export function ChatInterface({ entreprise, context, onContextChange: setContext
     siren: entreprise.siren,
     entrepriseNom: entreprise.nom,
   })
-
-  // Restaurer automatiquement le brouillon au chargement
-  useEffect(() => {
-    const existingDraft = getDraftBySiren(entreprise.siren)
-    if (existingDraft && !existingDraft.isCompleted && existingDraft.messages.length > 1) {
-      // Restaurer automatiquement le brouillon
-      setMessages(existingDraft.messages)
-      setContext(existingDraft.context)
-      onStepChange?.(existingDraft.step)
-      // Re-scanner le dernier message assistant pour détecter l'étape réelle
-      // (le step sauvegardé peut être faux si la détection ne marchait pas avant)
-      for (let i = existingDraft.messages.length - 1; i >= 0; i--) {
-        if (existingDraft.messages[i].role === 'assistant') {
-          const text = existingDraft.messages[i].content as string
-          if (text) {
-            detectStep(text)
-            break
-          }
-        }
-      }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entreprise.siren])
-
 
   // Scanner les previousMessages pour détecter l'étape au chargement
   useEffect(() => {
@@ -122,43 +108,54 @@ export function ChatInterface({ entreprise, context, onContextChange: setContext
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Message initial
+  // Initialisation : brouillon OU onboarding (un seul useEffect pour éviter les conflits)
   useEffect(() => {
     if (previousMessages?.length) return
 
-    const caFormate = entreprise.chiffreAffaires
-      ? `${entreprise.chiffreAffaires.toLocaleString('fr-FR')} EUR`
-      : undefined
+    // 1. Tenter de restaurer un brouillon
+    const existingDraft = getDraftBySiren(entreprise.siren)
+    const hasUserMessages = existingDraft?.messages.some(m => m.role === 'user') ?? false
+    if (existingDraft && !existingDraft.isCompleted && hasUserMessages && existingDraft.messages.length > 1) {
+      setMessages(existingDraft.messages)
+      setContext(existingDraft.context)
+      setOnboardingPhase('done')
+      onStepChange?.(existingDraft.step)
+      for (let i = existingDraft.messages.length - 1; i >= 0; i--) {
+        if (existingDraft.messages[i].role === 'assistant') {
+          const text = existingDraft.messages[i].content as string
+          if (text) {
+            detectStep(text)
+            break
+          }
+        }
+      }
+      return // Draft restauré → pas d'onboarding
+    }
 
+    // 2. Pas de brouillon → lancer l'onboarding
     const dataYear = context.financials?.bilans?.[0]?.annee || null
+    const currentYear = new Date().getFullYear()
+    const nextYear = dataYear ? dataYear + 1 : currentYear
 
-    const initialMessage: Message = {
-      id: 'initial',
+    const msg1: Message = {
+      id: 'onboarding-1',
       role: 'assistant',
-      content: MESSAGE_INITIAL({
-        nom: entreprise.nom,
-        secteur: entreprise.secteur,
-        dateCreation: entreprise.dateCreation,
-        effectif: entreprise.effectif,
-        ville: entreprise.ville,
-        ca: caFormate,
-        dataYear,
-      }),
+      content: MESSAGE_ONBOARDING_WELCOME({ nom: entreprise.nom, dataYear, nextYear }),
       timestamp: new Date(),
     }
-    setMessages([initialMessage])
+    setMessages([msg1])
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entreprise.siren])
 
   // Sauvegarde automatique
   useEffect(() => {
-    if (messages.length > 1 && !isStreaming) {
+    if (messages.length > 1 && !isStreaming && onboardingPhase === 'done') {
       const timeoutId = setTimeout(() => {
         saveDraft(context, messages, context.evaluationProgress.step)
       }, 2000)
       return () => clearTimeout(timeoutId)
     }
-  }, [messages, context, isStreaming, saveDraft])
+  }, [messages, context, isStreaming, saveDraft, onboardingPhase])
 
   // Marquer comme termine
   useEffect(() => {
@@ -269,6 +266,80 @@ export function ChatInterface({ entreprise, context, onContextChange: setContext
       onStepChange?.(6)
     }
   }, [onStepChange, setContext])
+
+  // Ref stable pour onOpenDataPanel (évite de recréer handleTypewriterDone)
+  const onOpenDataPanelRef = useRef(onOpenDataPanel)
+  onOpenDataPanelRef.current = onOpenDataPanel
+
+  // Onboarding: typewriter done → open panel + show validation message
+  const handleTypewriterDone = useCallback(() => {
+    setOnboardingPhase('panel-open')
+    onOpenDataPanelRef.current?.()
+
+    // After 2s, add the validation message
+    setTimeout(() => {
+      const msg2: Message = {
+        id: 'onboarding-2',
+        role: 'assistant',
+        content: MESSAGE_ONBOARDING_VALIDATE(),
+        timestamp: new Date(),
+      }
+      setMessages(prev => [...prev, msg2])
+      setOnboardingPhase('waiting-validation')
+    }, 2000)
+  }, [])
+
+  // Onboarding: validate data button clicked
+  const handleValidateData = useCallback(() => {
+    setOnboardingPhase('done')
+
+    // Build a summary of the financial data
+    const bilans = context.financials?.bilans || []
+    const lines: string[] = []
+    for (const bilan of bilans) {
+      const year = bilan.annee
+      if (bilan.chiffre_affaires) lines.push(`- CA ${year} : ${new Intl.NumberFormat('fr-FR').format(bilan.chiffre_affaires)} EUR`)
+      if (bilan.resultat_net) lines.push(`- Résultat net ${year} : ${new Intl.NumberFormat('fr-FR').format(bilan.resultat_net)} EUR`)
+      if (bilan.resultat_exploitation) lines.push(`- Résultat d'exploitation ${year} : ${new Intl.NumberFormat('fr-FR').format(bilan.resultat_exploitation)} EUR`)
+    }
+    if (context.financials?.ratios?.ebitda) {
+      lines.push(`- EBITDA : ${new Intl.NumberFormat('fr-FR').format(context.financials.ratios.ebitda)} EUR`)
+    }
+    lines.push(`- Complétion : ${overallCompleteness ?? 0}%`)
+
+    const summary = `J'ai vérifié les données. Voici mon résumé :\n${lines.join('\n')}`
+    sendMessage(summary)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [context.financials, overallCompleteness])
+
+  // Refaire l'évaluation : reset chat, garder l'entreprise et les données
+  const handleResetEvaluation = useCallback(() => {
+    // Reset evaluation progress
+    setContext(prev => ({
+      ...prev,
+      evaluationProgress: {
+        ...prev.evaluationProgress,
+        step: 0,
+        completedTopics: [],
+        pendingTopics: prev.evaluationProgress.pendingTopics,
+      },
+    }))
+    onStepChange?.(0)
+
+    // Restart onboarding
+    const dataYear = context.financials?.bilans?.[0]?.annee || null
+    const currentYear = new Date().getFullYear()
+    const nextYear = dataYear ? dataYear + 1 : currentYear
+
+    const msg1: Message = {
+      id: `onboarding-reset-${Date.now()}`,
+      role: 'assistant',
+      content: MESSAGE_ONBOARDING_WELCOME({ nom: entreprise.nom, dataYear, nextYear }),
+      timestamp: new Date(),
+    }
+    setMessages([msg1])
+    setOnboardingPhase('typewriter')
+  }, [context.financials, entreprise.nom, onStepChange, setContext])
 
   // Handler pour clic sur une suggestion
   const handleSuggestionClick = (suggestion: string) => {
@@ -452,7 +523,11 @@ export function ChatInterface({ entreprise, context, onContextChange: setContext
             <MessageBubble
               key={message.id}
               message={message}
+              typewriter={message.id === 'onboarding-1' && onboardingPhase === 'typewriter'}
+              onTypewriterDone={message.id === 'onboarding-1' ? handleTypewriterDone : undefined}
               onSuggestionClick={handleSuggestionClick}
+              completeness={message.id === 'onboarding-2' ? overallCompleteness : undefined}
+              onValidateData={message.id === 'onboarding-2' ? handleValidateData : undefined}
             />
           ))}
 
@@ -506,6 +581,8 @@ export function ChatInterface({ entreprise, context, onContextChange: setContext
             <DownloadReport
               context={context}
               messages={messages}
+              onOpenDataPanel={onOpenDataPanel}
+              onResetEvaluation={handleResetEvaluation}
             />
           )}
 
@@ -551,15 +628,15 @@ export function ChatInterface({ entreprise, context, onContextChange: setContext
                       handleSubmit(e)
                     }
                   }}
-                  placeholder="Ecris ta reponse..."
+                  placeholder={onboardingPhase !== 'done' ? 'Vérifiez vos données dans le panneau à droite...' : 'Ecris ta reponse...'}
                   className="flex-1 bg-transparent px-2 py-2.5 sm:py-2 resize-none focus:outline-none text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] text-base"
                   rows={1}
-                  disabled={isLoading || isStreaming}
+                  disabled={isLoading || isStreaming || onboardingPhase !== 'done'}
                 />
 
                 <button
                   type="submit"
-                  disabled={isLoading || isStreaming || (!input.trim() && !uploadedDocs.length)}
+                  disabled={isLoading || isStreaming || onboardingPhase !== 'done' || (!input.trim() && !uploadedDocs.length)}
                   className="p-3 sm:p-2.5 bg-[var(--accent)] text-white rounded-[var(--radius-lg)] hover:bg-[var(--accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   {isLoading || isStreaming ? (

@@ -347,7 +347,10 @@ export function computeCompleteness(
       for (const field of FINANCIER_FIELDS) {
         const weight = CRITICAL_FINANCIER_FIELDS.includes(field) ? 2 : 1
         total += weight
-        if (bilan[field] != null) filled += weight
+        // Check non-null AND non-zero: the null→0→non-null round-trip
+        // (editableToBilan converts null to 0, bilanToEditable keeps 0 as non-null)
+        // inflates unfilled fields. Only count genuinely filled values.
+        if (bilan[field] != null && bilan[field] !== 0) filled += weight
       }
     }
     return total > 0 ? Math.round((filled / total) * 100) : 0

@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     recurring: recurring ?? 0,
     masseSalariale: masseSalariale ?? 0,
     hasPhysicalStore: ['commerce', 'industrie'].includes(activityType),
-    hasMRR: ['saas', 'marketplace'].includes(activityType) || (body.mrrMensuel != null && body.mrrMensuel > 0),
+    hasMRR: (body.mrrMensuel != null && body.mrrMensuel > 0),
     nafCode: body.nafCode || undefined,
     remunerationDirigeant: body.remunerationDirigeant,
     concentrationClient: body.concentrationClient,

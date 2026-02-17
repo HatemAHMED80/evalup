@@ -272,7 +272,7 @@ const WEIGHTS: Record<string, [number, number]> = {
 function getPrimaryMetric(archetype: string, data: FinancialData, ebitdaNorm: number): number {
   switch (archetype) {
     case 'saas_hyper':
-      return data.arr ?? (data.mrr ? data.mrr * 12 : data.revenue)
+      return data.arr ?? (data.mrr ? data.mrr * 12 : 0)
     case 'saas_mature':
     case 'saas_decline':
     case 'conseil':
@@ -284,7 +284,7 @@ function getPrimaryMetric(archetype: string, data: FinancialData, ebitdaNorm: nu
       return ebitdaNorm
     case 'marketplace':
       // GMV (volume total) → fallback ARR (commissions annualisées) → fallback CA Pappers
-      return data.gmv ?? data.arr ?? (data.mrr ? data.mrr * 12 : data.revenue)
+      return data.gmv ?? data.arr ?? (data.mrr ? data.mrr * 12 : 0)
     case 'ecommerce':
       return data.revenue
     case 'patrimoine':
@@ -459,7 +459,7 @@ function calculateConfidence(
     score -= 10
   }
 
-  if (archetype === 'saas_hyper' && !data.arr && !data.mrr) score -= 15
+  if (archetype === 'saas_hyper' && !data.arr && !data.mrr) score -= 30
   if ((archetype === 'patrimoine' || archetype === 'patrimoine_dominant') && !data.assets) score -= 15
   if (archetype === 'marketplace' && !data.gmv) score -= 15
 
@@ -523,6 +523,21 @@ export function calculateValuation(
       low: Math.min(enterpriseValue.low, 0),
       median: Math.min(enterpriseValue.median, capVE),
       high: Math.min(enterpriseValue.high, Math.max(capVE, 5_000)),
+    }
+  }
+
+  // Sanity check : VE/EBITDA implicite > 60x → probablement un problème de routing
+  // Capper proportionnellement pour éviter les valorisations absurdes
+  if (ebitdaNormalise > 0 && enterpriseValue.median > 0) {
+    const impliedMultiple = enterpriseValue.median / ebitdaNormalise
+    if (impliedMultiple > 60) {
+      const cap = ebitdaNormalise * 60
+      const ratio = cap / enterpriseValue.median
+      enterpriseValue = {
+        low: enterpriseValue.low * ratio,
+        median: cap,
+        high: enterpriseValue.high * ratio,
+      }
     }
   }
 
