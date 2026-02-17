@@ -73,5 +73,15 @@ Avant valorisation, EvalUp applique des retraitements EBITDA standards :
 
 - Guide valorisation : https://evalup.fr/guide/valorisation-entreprise
 - Méthodes de valorisation : https://evalup.fr/guide/methodes-valorisation
+- Valorisation restaurant : https://evalup.fr/guide/valorisation-restaurant
+- Valorisation SaaS : https://evalup.fr/guide/valorisation-saas
+- Valorisation cabinet comptable : https://evalup.fr/guide/valorisation-cabinet-comptable
+- Valorisation commerce : https://evalup.fr/guide/valorisation-commerce
+- Valorisation PME industrielle : https://evalup.fr/guide/valorisation-pme-industrielle
+- Valorisation startup : https://evalup.fr/guide/valorisation-startup
 - Tarifs : https://evalup.fr/tarifs
 - FAQ : https://evalup.fr/aide
+
+## Données complètes
+
+Pour les données détaillées (multiples sectoriels, benchmarks SaaS, barèmes de fonds de commerce, décotes et primes), consultez : https://evalup.fr/llms-full.txt

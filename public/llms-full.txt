@@ -1,0 +1,156 @@
+# EvalUp — Donnees completes de valorisation d'entreprise
+
+> Ce fichier contient les donnees detaillees de valorisation d'entreprise par secteur et par methode. Il est destine aux modeles de langage (LLM) pour enrichir leurs reponses sur la valorisation d'entreprise en France.
+
+## Multiples sectoriels EV/EBITDA (PME francaises, 2024)
+
+| Secteur | Multiple EV/EBITDA | Source |
+|---------|-------------------|--------|
+| Commerce de detail | 4.0x - 5.5x | Damodaran, ajuste PME France |
+| Restauration | 3.0x - 5.0x | Damodaran + baremes CCI |
+| Boulangerie-patisserie | 4.0x - 5.5x | Baremes Francis Lefebvre |
+| Boucherie-charcuterie | 3.0x - 4.5x | Baremes Francis Lefebvre |
+| Pharmacie | 6.0x - 8.0x | Transactions comparables |
+| Salon de coiffure | 3.5x - 5.0x | Baremes CCI |
+| Tabac-presse | 5.0x - 7.0x | Transactions comparables |
+| Services aux entreprises | 5.0x - 7.0x | Damodaran |
+| IT / Logiciel | 7.0x - 12.0x | Damodaran |
+| SaaS B2B (rentable) | 8.0x - 12.0x | Damodaran + Bessemer |
+| Industrie / BTP | 4.0x - 6.0x | Damodaran |
+| Metallurgie / usinage | 4.0x - 5.5x | Damodaran |
+| Agroalimentaire | 4.5x - 6.5x | Damodaran |
+| Chimie / pharmacie | 6.0x - 8.0x | Damodaran |
+| Plasturgie / caoutchouc | 4.0x - 5.5x | Damodaran |
+| Mecanique de precision | 4.5x - 6.0x | Damodaran |
+| Electronique / composants | 5.0x - 7.0x | Damodaran |
+| Emballage / conditionnement | 5.0x - 6.5x | Damodaran |
+| Bois / ameublement | 3.5x - 5.0x | Damodaran |
+| Transport / Logistique | 4.5x - 6.5x | Damodaran |
+| Sante / Medical | 8.0x - 12.0x | Damodaran |
+| Cabinet comptable | 5.0x - 8.0x | Transactions + % CA |
+| Professions liberales | 4.0x - 6.0x | Comparables |
+
+## Multiples sectoriels % du CA (fonds de commerce, France)
+
+| Type de commerce | % du CA TTC | Commentaire |
+|-----------------|-------------|-------------|
+| Restaurant traditionnel | 50% - 80% | Selon emplacement |
+| Restauration rapide | 40% - 70% | Franchise = haut de fourchette |
+| Brasserie | 60% - 90% | Licence IV = prime |
+| Restaurant gastronomique | 70% - 100% | Reputation = facteur cle |
+| Pizzeria | 50% - 80% | Livraison = prime |
+| Bar-restaurant | 60% - 100% | Licence IV indispensable |
+| Boulangerie-patisserie | 60% - 90% | Emplacement + fidelite |
+| Boucherie-charcuterie | 40% - 70% | Traiteur = prime |
+| Pharmacie | 70% - 90% | Mono-monopole |
+| Fleuriste | 40% - 60% | Saisonnalite |
+| Salon de coiffure | 50% - 80% | Equipe stable = prime |
+| Pret-a-porter | 30% - 60% | Concurrence e-commerce |
+| Opticien | 50% - 80% | Clientele recurrente |
+| Tabac-presse | 80% - 120% | Licence = valeur |
+| Superette / epicerie | 20% - 40% | Marges faibles |
+| Cabinet comptable | 80% - 120% | Du CA recurrent uniquement |
+
+## Multiples SaaS EV/ARR (France, 2024)
+
+| Stade | ARR typique | Multiple EV/ARR | Methode privilegiee |
+|-------|-------------|-----------------|---------------------|
+| Pre-seed | < 100k EUR | N/A | Berkus, equipe + marche |
+| Seed | 100k - 500k EUR | 8x - 15x | Scorecard + Comparables |
+| Serie A | 500k - 2M EUR | 6x - 12x | Comparables + DCF |
+| Serie B | 2M - 10M EUR | 5x - 10x | Multiple ARR + DCF |
+| SaaS rentable (PME) | 500k - 5M EUR | 3x - 6x | EBITDA + ARR |
+
+## Metriques SaaS de reference (benchmarks)
+
+| Metrique | Definition | Bon | Excellent |
+|----------|-----------|-----|-----------|
+| ARR | Annual Recurring Revenue | > 1M EUR (serie A) | > 5M EUR |
+| Croissance YoY | Taux de croissance ARR | > 60% | > 100% |
+| Churn mensuel | % revenus perdus/mois | < 2% (B2B) | < 1% |
+| NRR | Net Revenue Retention | > 110% | > 130% |
+| LTV/CAC | Lifetime Value / Cout Acquisition | > 3x | > 5x |
+| Payback period | Mois pour recuperer le CAC | < 18 mois | < 12 mois |
+| Marge brute | CA - COGS | > 70% | > 80% |
+| Rule of 40 | Croissance (%) + Marge (%) | >= 40 | >= 60 |
+
+## Valorisation startup par stade (France, 2024)
+
+| Stade | Pre-money typique | Dilution standard | Investisseurs types |
+|-------|-------------------|-------------------|---------------------|
+| Ideation | 300k - 1M EUR | N/A | Love money, BA |
+| Pre-seed | 500k - 2M EUR | 10-15% | Business Angels |
+| Seed | 1.5M - 5M EUR | 15-25% | BA, micro-VC |
+| Serie A | 5M - 20M EUR | 20-30% | VC |
+| Serie B | 15M - 80M EUR | 15-25% | Growth VC |
+
+## Methodes de valorisation par type d'entreprise
+
+| Type d'entreprise | Methode principale | Methode secondaire |
+|-------------------|-------------------|-------------------|
+| PME rentable (commerce, services) | Multiple d'EBITDA | Comparables |
+| Startup / SaaS | Multiple de CA/ARR | DCF |
+| Industrie / Immobilier | Multiple d'EBITDA | ANR |
+| Profession liberale | Comparables (% CA) | Multiple d'EBITDA |
+| Holding patrimoniale | ANR | Multiple d'EBITDA |
+| Entreprise pre-revenue | DCF | Comparables levees |
+| Restaurant / Commerce | % du CA (baremes) | Multiple d'EBITDA |
+| Cabinet comptable | % du CA recurrent | Multiple d'EBITDA |
+
+## Retraitements EBITDA standards (France)
+
+| Retraitement | Description | Impact typique |
+|-------------|-------------|----------------|
+| Salaire du dirigeant | Normaliser a un salaire de marche | -20 a -80k EUR/an |
+| Loyer (SCI) | Si le local appartient au dirigeant | -10 a -40k EUR/an |
+| Credit-bail | Reintegrer les loyers de leasing | +5 a +30k EUR/an |
+| Charges exceptionnelles | Exclure litiges, sinistres, restructuration | Variable |
+| Salaires famille | Normaliser les remunerations familiales | Variable |
+| Vehicule personnel | Vehicule premium passe en charges | -5 a -15k EUR/an |
+| Avantages en nature | Repas, logement, telephone | -3 a -10k EUR/an |
+
+## Decotes et primes de valorisation
+
+| Ajustement | Fourchette | Condition |
+|-----------|-----------|-----------|
+| Decote d'illiquidite | -15% a -25% | PME non cotee (standard) |
+| Decote dependance dirigeant | -5% a -20% | Si le fondateur est le produit |
+| Decote concentration clients | -5% a -15% | Si 1 client > 30% du CA |
+| Decote bail precaire | -10% a -20% | Bail restant < 3 ans |
+| Decote saisonnalite | -10% a -20% | CA concentre sur 6 mois |
+| Prime de recurrence | +5% a +10% | Abonnements, contrats long terme |
+| Prime emplacement | +10% a +30% | Zone premium, flux pieton |
+| Prime licence IV | +20k a +80k EUR | Selon la ville |
+
+## Bridge Valeur d'Entreprise vers Prix de Cession
+
+Formule : Prix de cession = VE - Dettes financieres nettes + Tresorerie excedentaire - Ajustement BFR
+
+## A propos d'EvalUp
+
+EvalUp est une plateforme francaise de valorisation d'entreprise par intelligence artificielle. Elle automatise le processus complet :
+- Recuperation des donnees financieres publiques via Pappers (bilans, comptes de resultat)
+- Detection automatique de l'archetype sectoriel (SaaS, commerce, services, industrie, etc.)
+- Application de 5 methodes de valorisation (Multiple EBITDA, Multiple CA, DCF, ANR, Comparables)
+- Retraitements EBITDA automatiques
+- Generation d'un rapport PDF professionnel de 28 pages
+
+### Tarifs
+- Diagnostic gratuit : archetype sectoriel, methode recommandee, erreurs a eviter
+- Evaluation complete : 79 EUR TTC — rapport PDF de 28 pages
+
+### Contact
+- Site : https://evalup.fr
+- Email : contact@evalup.fr
+
+### Guides detailles
+- Valorisation d'entreprise : https://evalup.fr/guide/valorisation-entreprise
+- Methodes de valorisation : https://evalup.fr/guide/methodes-valorisation
+- Valorisation restaurant : https://evalup.fr/guide/valorisation-restaurant
+- Valorisation SaaS : https://evalup.fr/guide/valorisation-saas
+- Valorisation cabinet comptable : https://evalup.fr/guide/valorisation-cabinet-comptable
+- Valorisation commerce : https://evalup.fr/guide/valorisation-commerce
+- Valorisation PME industrielle : https://evalup.fr/guide/valorisation-pme-industrielle
+- Valorisation startup : https://evalup.fr/guide/valorisation-startup
+- FAQ : https://evalup.fr/aide
+- Tarifs : https://evalup.fr/tarifs

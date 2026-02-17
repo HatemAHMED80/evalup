@@ -1,10 +1,25 @@
 import type { Metadata, Viewport } from 'next'
 import { headers } from 'next/headers'
+import { Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { DevToolbar } from '@/components/layout/DevToolbar'
 import '../styles/globals.css'
 import '../styles/animations.css'
+
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700', '800'],
+  display: 'swap',
+  variable: '--font-plus-jakarta',
+})
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  display: 'swap',
+  variable: '--font-jetbrains',
+})
 
 const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://evalup.fr'
 const gaId = process.env.NODE_ENV === 'production'
@@ -88,7 +103,7 @@ export default async function RootLayout({
   const nonce = (await headers()).get('x-nonce') || ''
 
   return (
-    <html lang="fr" suppressHydrationWarning>
+    <html lang="fr" suppressHydrationWarning className={`${plusJakartaSans.variable} ${jetbrainsMono.variable}`}>
       <head>
         <script nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: themeScript }} />
         {gaId && (

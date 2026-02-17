@@ -24,6 +24,12 @@ const FOOTER_SECTIONS: FooterSection[] = [
     links: [
       { label: 'Valoriser une entreprise', href: '/guide/valorisation-entreprise' },
       { label: 'Methodes de valorisation', href: '/guide/methodes-valorisation' },
+      { label: 'Valorisation restaurant', href: '/guide/valorisation-restaurant' },
+      { label: 'Valorisation SaaS', href: '/guide/valorisation-saas' },
+      { label: 'Valorisation commerce', href: '/guide/valorisation-commerce' },
+      { label: 'Valorisation PME industrielle', href: '/guide/valorisation-pme-industrielle' },
+      { label: 'Valorisation startup', href: '/guide/valorisation-startup' },
+      { label: 'Valorisation cabinet comptable', href: '/guide/valorisation-cabinet-comptable' },
     ],
   },
   {

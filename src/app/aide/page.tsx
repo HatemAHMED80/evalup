@@ -200,6 +200,41 @@ export default function AidePage() {
           </div>
         </section>
 
+        {/* Guides Links */}
+        <section className="py-12">
+          <div className="max-w-3xl mx-auto px-8">
+            <h2 className="text-[20px] font-bold text-[var(--text-primary)] mb-4">
+              Guides de valorisation
+            </h2>
+            <p className="text-[var(--text-secondary)] mb-6">
+              Consultez nos guides detailles pour comprendre les methodes et multiples de votre secteur.
+            </p>
+            <div className="grid md:grid-cols-2 gap-3">
+              {[
+                { label: 'Valoriser une entreprise — guide complet', href: '/guide/valorisation-entreprise' },
+                { label: 'Les 5 methodes de valorisation', href: '/guide/methodes-valorisation' },
+                { label: 'Valorisation d\'un restaurant', href: '/guide/valorisation-restaurant' },
+                { label: 'Valorisation SaaS', href: '/guide/valorisation-saas' },
+                { label: 'Valorisation d\'un commerce', href: '/guide/valorisation-commerce' },
+                { label: 'Valorisation d\'une PME industrielle', href: '/guide/valorisation-pme-industrielle' },
+                { label: 'Valorisation de startup', href: '/guide/valorisation-startup' },
+                { label: 'Valorisation d\'un cabinet comptable', href: '/guide/valorisation-cabinet-comptable' },
+              ].map((guide) => (
+                <Link
+                  key={guide.href}
+                  href={guide.href}
+                  className="flex items-center gap-2 px-4 py-3 bg-[var(--bg-primary)] border border-[var(--border)] rounded-[var(--radius-lg)] text-[14px] text-[var(--accent)] font-medium hover:bg-[var(--bg-secondary)] transition-colors"
+                >
+                  <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  {guide.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* Contact CTA */}
         <section className="py-12 bg-[var(--bg-secondary)]">
           <div className="max-w-xl mx-auto px-8 text-center">

@@ -193,6 +193,25 @@ export default function ValorisationEntreprisePage() {
         </p>
       </blockquote>
 
+      <h2>Guides par secteur</h2>
+
+      <p>
+        Chaque secteur a ses propres multiples et specificites. Consultez nos guides detailles :
+      </p>
+
+      <ul>
+        <li><Link href="/guide/valorisation-restaurant">Valorisation d&apos;un restaurant</Link> — baremes % CA, droit au bail, licence IV</li>
+        <li><Link href="/guide/valorisation-saas">Valorisation SaaS</Link> — multiples ARR, Rule of 40, metriques cles</li>
+        <li><Link href="/guide/valorisation-cabinet-comptable">Valorisation d&apos;un cabinet comptable</Link> — % du CA recurrent, clauses de cession</li>
+        <li><Link href="/guide/valorisation-commerce">Valorisation d&apos;un commerce</Link> — fonds de commerce, droit au bail, stock</li>
+        <li><Link href="/guide/valorisation-pme-industrielle">Valorisation d&apos;une PME industrielle</Link> — EBITDA, ANR, carnet de commandes</li>
+        <li><Link href="/guide/valorisation-startup">Valorisation de startup</Link> — methodes pre-revenue, Berkus, Scorecard</li>
+      </ul>
+
+      <p>
+        Pour comprendre le detail de chaque methode avec des exemples chiffres, consultez notre <Link href="/guide/methodes-valorisation">guide des methodes de valorisation</Link>. Si vous avez des questions, visitez notre <Link href="/aide">FAQ</Link>.
+      </p>
+
       <div className="mt-12 p-6 bg-[var(--accent-light)] border border-[var(--accent)]/20 rounded-[var(--radius-xl)] text-center">
         <p className="text-[var(--text-primary)] font-semibold mb-2">Valorisez votre entreprise en 10 minutes</p>
         <p className="text-[var(--text-secondary)] text-sm mb-4">Diagnostic gratuit + rapport professionnel de 28 pages</p>

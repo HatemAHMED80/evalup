@@ -245,7 +245,7 @@ export default function LandingPage() {
                 &#128202;
               </div>
               <h3 className="text-[18px] font-bold text-[var(--text-primary)] mb-2">
-                3 méthodes de valorisation
+                5 méthodes de valorisation
               </h3>
               <p className="text-[14px] text-[var(--text-secondary)] mb-6">
                 DCF, multiples sectoriels et approche patrimoniale. Chaque méthode est pondérée pour une fourchette réaliste.
@@ -253,7 +253,7 @@ export default function LandingPage() {
               <div className="bg-gradient-to-br from-[#1A2E4F] to-[var(--accent)] rounded-[var(--radius-lg)] p-6 text-center text-white">
                 <p className="text-[11px] uppercase tracking-wide opacity-70">Valorisation estimée</p>
                 <p className="font-mono text-[28px] font-bold my-2">380 K&#8364; - 520 K&#8364;</p>
-                <p className="text-[12px] opacity-60">Fourchette basée sur 3 méthodes</p>
+                <p className="text-[12px] opacity-60">Fourchette basée sur 5 méthodes</p>
               </div>
             </div>
 
@@ -287,7 +287,7 @@ export default function LandingPage() {
             <div className="md:col-span-4 bg-[var(--bg-primary)] border border-[var(--border)] rounded-[var(--radius-xl)] p-6">
               <div className="text-[24px] mb-3">&#128196;</div>
               <h3 className="text-[16px] font-bold text-[var(--text-primary)] mb-1">Rapport PDF pro</h3>
-              <p className="text-[13px] text-[var(--text-secondary)]">15+ pages avec graphiques et analyses</p>
+              <p className="text-[13px] text-[var(--text-secondary)]">28 pages avec graphiques et analyses</p>
             </div>
 
             <div className="md:col-span-4 bg-[var(--bg-primary)] border border-[var(--border)] rounded-[var(--radius-xl)] p-6">

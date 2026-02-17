@@ -258,6 +258,23 @@ export default function MethodesValorisationPage() {
         </p>
       </blockquote>
 
+      <h2>Guides par secteur</h2>
+
+      <p>Retrouvez des guides detailles par type d&apos;entreprise :</p>
+
+      <ul>
+        <li><Link href="/guide/valorisation-restaurant">Valorisation d&apos;un restaurant</Link></li>
+        <li><Link href="/guide/valorisation-saas">Valorisation SaaS</Link></li>
+        <li><Link href="/guide/valorisation-cabinet-comptable">Valorisation d&apos;un cabinet comptable</Link></li>
+        <li><Link href="/guide/valorisation-commerce">Valorisation d&apos;un commerce</Link></li>
+        <li><Link href="/guide/valorisation-pme-industrielle">Valorisation d&apos;une PME industrielle</Link></li>
+        <li><Link href="/guide/valorisation-startup">Valorisation de startup</Link></li>
+      </ul>
+
+      <p>
+        Pour un apercu general, consultez notre <Link href="/guide/valorisation-entreprise">guide complet de la valorisation d&apos;entreprise</Link>. Pour les <Link href="/tarifs">tarifs</Link>, consultez notre page dediee.
+      </p>
+
       <div className="mt-12 p-6 bg-[var(--accent-light)] border border-[var(--accent)]/20 rounded-[var(--radius-xl)] text-center">
         <p className="text-[var(--text-primary)] font-semibold mb-2">Appliquez les 5 methodes a votre entreprise</p>
         <p className="text-[var(--text-secondary)] text-sm mb-4">EvalUp applique automatiquement les methodes adaptees a votre profil</p>
