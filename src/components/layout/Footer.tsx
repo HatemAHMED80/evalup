@@ -97,7 +97,7 @@ export function Footer({ className = '' }: FooterProps) {
           {/* Social Links */}
           <div className="flex items-center gap-4">
             <a
-              href="https://linkedin.com"
+              href="https://www.linkedin.com/company/evalup-fr"
               target="_blank"
               rel="noopener noreferrer"
               className="p-2 text-white/40 hover:text-white hover:bg-white/10 rounded-[var(--radius-sm)] transition-colors"
@@ -107,7 +107,7 @@ export function Footer({ className = '' }: FooterProps) {
               </svg>
             </a>
             <a
-              href="https://twitter.com"
+              href="https://x.com/evalup_fr"
               target="_blank"
               rel="noopener noreferrer"
               className="p-2 text-white/40 hover:text-white hover:bg-white/10 rounded-[var(--radius-sm)] transition-colors"

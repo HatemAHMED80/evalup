@@ -62,7 +62,7 @@ export default function CGVPage() {
           </p>
           <ul className="text-[var(--text-secondary)] space-y-2 mt-4 list-disc list-inside">
             <li><strong className="text-[var(--text-primary)]">Évaluation Flash :</strong> Gratuite - Estimation indicative avec fourchette large</li>
-            <li><strong className="text-[var(--text-primary)]">Évaluation Complète :</strong> 79 EUR TTC par évaluation - Rapport PDF professionnel de 32 pages, 5 méthodes de valorisation, analyse financière détaillée</li>
+            <li><strong className="text-[var(--text-primary)]">Évaluation Complète :</strong> 79 EUR TTC par évaluation - Rapport PDF professionnel de 28 pages, 5 méthodes de valorisation, analyse financière détaillée</li>
             <li><strong className="text-[var(--text-primary)]">Pro 10 :</strong> 199 EUR TTC/mois - 10 évaluations complètes par mois</li>
             <li><strong className="text-[var(--text-primary)]">Pro Illimité :</strong> 399 EUR TTC/mois - Évaluations illimitées</li>
           </ul>

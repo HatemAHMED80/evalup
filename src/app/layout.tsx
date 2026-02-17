@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     default: 'EvalUp - Valorisation d\'entreprise par IA',
     template: '%s | EvalUp',
   },
-  description: 'Obtenez une estimation fiable de la valeur de votre entreprise en quelques minutes grâce à l\'intelligence artificielle. Rapport professionnel de 32 pages, 5 méthodes de valorisation.',
+  description: 'Obtenez une estimation fiable de la valeur de votre entreprise en quelques minutes grâce à l\'intelligence artificielle. Rapport professionnel de 28 pages, 5 méthodes de valorisation.',
   keywords: ['valorisation entreprise', 'estimation entreprise', 'cession entreprise', 'transmission entreprise', 'valorisation IA', 'rapport valorisation', 'évaluer entreprise', 'prix de vente entreprise', 'multiple EBITDA', 'évaluation PME'],
   authors: [{ name: 'POSSE' }],
   metadataBase: new URL(siteUrl),
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     url: siteUrl,
     siteName: 'EvalUp',
     images: [{
-      url: '/og-image.png',
+      url: '/og-image.jpg',
       width: 1200,
       height: 630,
       alt: 'EvalUp - Valorisation d\'entreprise par IA',
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'EvalUp - Valorisation d\'entreprise par IA',
     description: 'Estimez la valeur de votre entreprise en quelques minutes grâce à l\'IA.',
-    images: ['/og-image.png'],
+    images: ['/og-image.jpg'],
   },
   icons: {
     icon: '/favicon.svg',
@@ -115,7 +115,7 @@ export default async function RootLayout({
               name: 'EvalUp',
               applicationCategory: 'BusinessApplication',
               operatingSystem: 'Web',
-              description: 'Valorisation d\'entreprise par intelligence artificielle. Rapport professionnel de 32 pages avec 5 méthodes de valorisation.',
+              description: 'Valorisation d\'entreprise par intelligence artificielle. Rapport professionnel de 28 pages avec 5 méthodes de valorisation.',
               url: siteUrl,
               offers: [
                 {
@@ -130,7 +130,7 @@ export default async function RootLayout({
                   name: 'Évaluation Complète',
                   price: '79',
                   priceCurrency: 'EUR',
-                  description: 'Valorisation précise avec rapport PDF professionnel de 32 pages',
+                  description: 'Valorisation précise avec rapport PDF professionnel de 28 pages',
                 },
               ],
               aggregateRating: {

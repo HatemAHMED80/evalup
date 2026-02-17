@@ -86,7 +86,7 @@ export async function sendPaymentConfirmation(params: {
       </p>
     </div>
     <p style="color: #374151; line-height: 1.6;">
-      Votre rapport professionnel (32 pages) est maintenant disponible.
+      Votre rapport professionnel (28 pages) est maintenant disponible.
       Vous pouvez y acceder directement depuis votre conversation.
     </p>
     ${button('Acceder a mon evaluation', evaluationId ? `https://evalup.fr/evaluation/${evaluationId}/upload` : 'https://evalup.fr/diagnostic')}
