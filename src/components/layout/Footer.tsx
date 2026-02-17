@@ -20,6 +20,13 @@ const FOOTER_SECTIONS: FooterSection[] = [
     ],
   },
   {
+    title: 'Guides',
+    links: [
+      { label: 'Valoriser une entreprise', href: '/guide/valorisation-entreprise' },
+      { label: 'Methodes de valorisation', href: '/guide/methodes-valorisation' },
+    ],
+  },
+  {
     title: 'Compte',
     links: [
       { label: 'Connexion', href: '/connexion' },
@@ -50,7 +57,7 @@ export function Footer({ className = '' }: FooterProps) {
     >
       <div className="max-w-[var(--content-max-width)] mx-auto px-8 py-16">
         {/* Top Section */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-8 mb-12">
           {/* Logo & Description */}
           <div className="col-span-2">
             <Link href="/" className="flex items-center gap-2.5 mb-4">

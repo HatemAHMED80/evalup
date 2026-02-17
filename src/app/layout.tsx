@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     default: 'EvalUp - Valorisation d\'entreprise par IA',
     template: '%s | EvalUp',
   },
-  description: 'Obtenez une estimation fiable de la valeur de votre entreprise en quelques minutes grâce à l\'intelligence artificielle. Rapport professionnel de 28 pages, 5 méthodes de valorisation.',
+  description: 'EvalUp valorise votre entreprise en 10 minutes par IA : 5 méthodes (multiple EBITDA, DCF, ANR, comparables, CA), retraitements automatiques, rapport PDF de 28 pages. Diagnostic gratuit, évaluation complète à 79€.',
   keywords: ['valorisation entreprise', 'estimation entreprise', 'cession entreprise', 'transmission entreprise', 'valorisation IA', 'rapport valorisation', 'évaluer entreprise', 'prix de vente entreprise', 'multiple EBITDA', 'évaluation PME'],
   authors: [{ name: 'POSSE' }],
   metadataBase: new URL(siteUrl),
@@ -139,6 +139,37 @@ export default async function RootLayout({
                 ratingCount: '50',
                 bestRating: '5',
               },
+            }),
+          }}
+        />
+        <script
+          nonce={nonce}
+          suppressHydrationWarning
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'Organization',
+              name: 'EvalUp',
+              legalName: 'POSSE',
+              url: siteUrl,
+              logo: `${siteUrl}/favicon.svg`,
+              description: 'EvalUp est une plateforme française de valorisation d\'entreprise par intelligence artificielle. Elle permet aux dirigeants de PME, TPE et startups d\'obtenir une estimation fiable de la valeur de leur entreprise.',
+              foundingDate: '2024',
+              areaServed: {
+                '@type': 'Country',
+                name: 'France',
+              },
+              contactPoint: {
+                '@type': 'ContactPoint',
+                email: 'contact@evalup.fr',
+                contactType: 'customer service',
+                availableLanguage: 'French',
+              },
+              sameAs: [
+                'https://www.linkedin.com/company/evalup-fr',
+                'https://x.com/evalup_fr',
+              ],
             }),
           }}
         />

@@ -1,0 +1,77 @@
+# EvalUp — Valorisation d'entreprise par IA
+
+> EvalUp est une plateforme française de valorisation d'entreprise utilisant l'intelligence artificielle. Elle permet d'obtenir une estimation fiable de la valeur d'une PME ou TPE en quelques minutes.
+
+## Informations clés
+
+- **Site web** : https://evalup.fr
+- **Type** : Application web SaaS (Software as a Service)
+- **Marché** : France — PME, TPE, startups
+- **Langue** : Français
+- **Éditeur** : POSSE
+
+## Ce que fait EvalUp
+
+EvalUp automatise la valorisation d'entreprise, un processus habituellement réalisé par des experts-comptables ou des cabinets de conseil en M&A. L'utilisateur entre le numéro SIREN de son entreprise, et la plateforme :
+
+1. Récupère automatiquement les données financières publiques (bilans, comptes de résultat via l'API Pappers)
+2. Détecte l'archétype sectoriel de l'entreprise (SaaS, commerce, services, industrie, etc.)
+3. Applique les méthodes de valorisation adaptées au profil
+4. Génère un rapport PDF professionnel de 28 pages
+
+## Méthodes de valorisation utilisées
+
+EvalUp utilise 5 méthodes de valorisation reconnues :
+
+1. **Multiple d'EBITDA** — Méthode la plus courante pour les PME rentables. Utilise les multiples sectoriels Damodaran (EV/EBITDA). L'EBITDA est retraité pour éliminer les éléments non récurrents (salaire dirigeant, loyer, crédit-bail, charges exceptionnelles).
+
+2. **Multiple de chiffre d'affaires (EV/Revenue)** — Utilisée pour les entreprises en forte croissance ou pré-rentabilité (SaaS, startups). Les multiples varient de 0.5x à 10x selon le secteur et la croissance.
+
+3. **Discounted Cash Flow (DCF)** — Méthode intrinsèque basée sur l'actualisation des flux de trésorerie futurs. Utilise un taux d'actualisation (WACC) adapté au profil de risque.
+
+4. **Actif Net Réévalué (ANR)** — Méthode patrimoniale basée sur la valeur des actifs nets de l'entreprise. Pertinente pour les entreprises avec des actifs corporels significatifs (immobilier, industrie).
+
+5. **Méthode des comparables** — Benchmarking avec des transactions récentes dans le même secteur.
+
+## Retraitements appliqués
+
+Avant valorisation, EvalUp applique des retraitements EBITDA standards :
+- Rémunération du dirigeant (normalisation à un salaire de marché)
+- Loyers (si le local appartient au dirigeant)
+- Crédit-bail (réintégration dans l'EBITDA)
+- Charges et produits exceptionnels (exclusion)
+- Salaires excessifs ou insuffisants de la famille
+
+## Décotes et primes
+
+- **Décote d'illiquidité** : 15-25% (les PME non cotées sont moins liquides)
+- **Décote de dépendance au dirigeant** : 5-20%
+- **Décote de concentration clients** : 5-15% (si un client > 30% du CA)
+- **Prime de récurrence** : +5-10% (revenus récurrents, contrats long terme)
+
+## Tarification
+
+- **Diagnostic gratuit** : Détection de l'archétype sectoriel, méthode de valorisation recommandée, erreurs courantes à éviter. Pas de chiffre de valorisation.
+- **Évaluation complète** : 79€ TTC — Rapport PDF de 28 pages avec 5 méthodes de valorisation, analyse financière détaillée, SWOT, recommandations personnalisées.
+
+## Cas d'usage
+
+- Préparation à la cession d'entreprise
+- Transmission familiale
+- Divorce ou séparation (évaluation du patrimoine professionnel)
+- Conflit entre associés
+- Levée de fonds
+- Rachat d'entreprise (due diligence préliminaire)
+- Bilan patrimonial personnel
+
+## Contact
+
+- Email : contact@evalup.fr
+- Site : https://evalup.fr
+
+## Pages utiles
+
+- Guide valorisation : https://evalup.fr/guide/valorisation-entreprise
+- Méthodes de valorisation : https://evalup.fr/guide/methodes-valorisation
+- Tarifs : https://evalup.fr/tarifs
+- FAQ : https://evalup.fr/aide

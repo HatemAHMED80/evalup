@@ -14,25 +14,49 @@ const FAQ_CATEGORIES = [
     questions: [
       {
         q: 'Comment fonctionne EvalUp ?',
-        a: 'EvalUp utilise l\'intelligence artificielle pour analyser les données financières de votre entreprise et vous fournir une estimation de sa valeur. Entrez le SIREN de l\'entreprise, et notre IA récupérera automatiquement les données publiques disponibles.',
+        a: 'EvalUp utilise l\'intelligence artificielle pour analyser les données financières de votre entreprise et vous fournir une estimation de sa valeur. Entrez le numéro SIREN de l\'entreprise, et notre IA récupère automatiquement les données publiques (bilans, comptes de résultat via Pappers), détecte l\'archétype sectoriel, applique 5 méthodes de valorisation et génère un rapport PDF de 28 pages.',
       },
       {
         q: 'Quelles entreprises peuvent être évaluées ?',
-        a: 'EvalUp peut évaluer toute entreprise française dont les données financières sont publiquement disponibles (sociétés commerciales ayant déposé leurs comptes au greffe).',
+        a: 'EvalUp peut évaluer toute entreprise française dont les données financières sont publiquement disponibles (sociétés commerciales ayant déposé leurs comptes au greffe). Cela inclut les PME, TPE, startups, commerces, industries et professions libérales en société.',
+      },
+      {
+        q: 'Combien de temps prend une évaluation ?',
+        a: 'Le diagnostic gratuit prend 2 minutes. L\'évaluation complète avec rapport PDF prend environ 10 minutes : le temps de vérifier vos données financières et de répondre aux questions de l\'IA sur votre entreprise.',
+      },
+      {
+        q: 'Quelle est la fiabilité de l\'évaluation ?',
+        a: 'EvalUp utilise les mêmes méthodes que les cabinets de conseil en M&A : multiples sectoriels Damodaran, DCF, actif net réévalué. La précision dépend de la qualité des données financières fournies. Plus vous complétez le panneau de données (retraitements, données qualitatives), plus l\'estimation est fiable.',
       },
     ],
   },
   {
-    title: 'Évaluations',
+    title: 'Valorisation',
     icon: '📊',
     questions: [
       {
         q: 'Quelle est la différence entre Flash et Complète ?',
-        a: 'L\'evaluation Flash est gratuite et donne une fourchette indicative. L\'evaluation Complete (79€) analyse vos documents, identifie les risques et génère un rapport PDF professionnel.',
+        a: 'L\'évaluation Flash est gratuite et donne une fourchette indicative sans rapport PDF. L\'évaluation Complète (79€) analyse en profondeur vos documents, applique 5 méthodes de valorisation, identifie les risques (SWOT), calcule les retraitements EBITDA et génère un rapport PDF professionnel de 28 pages avec recommandations personnalisées.',
       },
       {
-        q: 'Comment l\'evaluation est-elle calculee ?',
-        a: 'L\'evaluation repose sur un archetype sectoriel adapte a votre activite (SaaS, commerce, services, industrie, etc.). Elle utilise les multiples de marche Damodaran (EV/EBITDA ou EV/Revenue selon le profil), applique des retraitements EBITDA (salaire dirigeant, loyer, credit-bail, charges exceptionnelles) et des decotes qualitatives (illiquidite, dependance dirigeant, concentration clients, litiges).',
+        q: 'Quelles méthodes de valorisation sont utilisées ?',
+        a: 'EvalUp utilise 5 méthodes : (1) Multiple d\'EBITDA avec les multiples sectoriels Damodaran, (2) Discounted Cash Flow (DCF) pour les entreprises en croissance, (3) Actif Net Réévalué (ANR) pour les entreprises patrimoniales, (4) Méthode des comparables basée sur les transactions récentes du secteur, (5) Multiple de chiffre d\'affaires pour les startups et SaaS.',
+      },
+      {
+        q: 'Qu\'est-ce qu\'un retraitement EBITDA ?',
+        a: 'Un retraitement EBITDA consiste à ajuster le résultat d\'exploitation pour refléter la capacité bénéficiaire réelle de l\'entreprise. Les principaux retraitements sont : normalisation du salaire du dirigeant (souvent sous-payé en PME), ajout d\'un loyer de marché si le local appartient au dirigeant, réintégration du crédit-bail, et exclusion des charges exceptionnelles non récurrentes.',
+      },
+      {
+        q: 'Comment est calculé le prix de cession ?',
+        a: 'Le prix de cession part de la Valeur d\'Entreprise (VE), puis soustrait les dettes financières nettes, ajoute la trésorerie excédentaire, et applique des décotes : illiquidité (-15 à 25% pour une PME non cotée), dépendance au dirigeant (-5 à 20%), concentration clients (-5 à 15%). Le résultat est une fourchette basse/haute.',
+      },
+      {
+        q: 'Qu\'est-ce qu\'un archétype sectoriel ?',
+        a: 'EvalUp classe chaque entreprise dans un archétype sectoriel (SaaS, commerce de détail, services, industrie, profession libérale, etc.) basé sur son code NAF et son activité. Chaque archétype détermine la méthode de valorisation principale, les multiples de référence et les décotes spécifiques à appliquer.',
+      },
+      {
+        q: 'Combien vaut une PME en France en moyenne ?',
+        a: 'En France, une PME rentable se valorise généralement entre 3x et 7x son EBITDA retraité. Pour un commerce de détail, le multiple est de 4-5x. Pour les services aux entreprises, 5-7x. Pour les entreprises technologiques, 7-12x. Les startups SaaS en forte croissance se valorisent sur un multiple de CA (1x à 10x selon la croissance et le churn).',
       },
     ],
   },
@@ -41,12 +65,30 @@ const FAQ_CATEGORIES = [
     icon: '💳',
     questions: [
       {
+        q: 'Combien coûte une évaluation EvalUp ?',
+        a: 'Le diagnostic (archétype sectoriel, méthode recommandée, erreurs à éviter) est gratuit. L\'évaluation complète avec rapport PDF de 28 pages coûte 79€ TTC. C\'est 25 à 60 fois moins cher qu\'un expert-comptable (2 000-5 000€) ou un cabinet M&A (5 000-15 000€).',
+      },
+      {
         q: 'Quels moyens de paiement acceptez-vous ?',
-        a: 'Nous acceptons les cartes bancaires (Visa, Mastercard, American Express) via Stripe, notre partenaire de paiement sécurisé.',
+        a: 'Nous acceptons les cartes bancaires (Visa, Mastercard, American Express) via Stripe, notre partenaire de paiement sécurisé. Aucune donnée bancaire n\'est stockée sur nos serveurs.',
       },
       {
         q: 'Puis-je obtenir une facture ?',
         a: 'Oui, une facture est automatiquement générée après chaque paiement. Vous pouvez la télécharger depuis votre espace Compte > Factures.',
+      },
+    ],
+  },
+  {
+    title: 'Documents et données',
+    icon: '📁',
+    questions: [
+      {
+        q: 'Quels documents puis-je importer ?',
+        a: 'Vous pouvez importer des bilans comptables, comptes de résultat, liasses fiscales, et tout document financier en format PDF, Excel (XLS/XLSX), CSV ou image (JPG/PNG). L\'IA extrait automatiquement les chiffres clés et les intègre dans votre évaluation.',
+      },
+      {
+        q: 'Les données Pappers sont-elles suffisantes ?',
+        a: 'Les données Pappers (bilans publics) constituent une bonne base, mais elles peuvent être incomplètes (certains postes manquants, retard de publication). Pour une évaluation plus précise, nous recommandons d\'importer vos propres documents financiers et de compléter les retraitements (salaire dirigeant, loyer, etc.).',
       },
     ],
   },
@@ -56,11 +98,11 @@ const FAQ_CATEGORIES = [
     questions: [
       {
         q: 'Mes données sont-elles sécurisées ?',
-        a: 'Oui, nous utilisons le chiffrement HTTPS, l\'authentification securisee, et nous ne stockons pas vos données bancaires (gérées par Stripe).',
+        a: 'Oui. Toutes les communications sont chiffrées en HTTPS. L\'authentification est sécurisée via Supabase. Les données bancaires sont gérées exclusivement par Stripe (certifié PCI DSS). Vos documents financiers sont analysés puis supprimés — nous ne les conservons pas.',
       },
       {
         q: 'Comment supprimer mon compte ?',
-        a: 'Rendez-vous dans Compte > Profil et cliquez sur "Supprimer mon compte" en bas de page. Cette action est irréversible.',
+        a: 'Rendez-vous dans Compte > Profil et cliquez sur "Supprimer mon compte" en bas de page. Cette action supprime toutes vos données personnelles et évaluations de manière irréversible.',
       },
     ],
   },
