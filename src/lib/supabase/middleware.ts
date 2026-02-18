@@ -4,6 +4,16 @@ import { NextResponse, type NextRequest } from 'next/server'
 import type { Database } from '../database.types'
 
 export async function updateSession(request: NextRequest) {
+  // Ne pas intercepter les routes avec un code PKCE en cours d'echange
+  // - /reset-password?code=xxx : le client-side gere l'echange
+  // - /api/auth/callback?code=xxx : le route handler gere l'echange
+  if (request.nextUrl.searchParams.has('code') && (
+    request.nextUrl.pathname === '/reset-password' ||
+    request.nextUrl.pathname === '/api/auth/callback'
+  )) {
+    return NextResponse.next({ request })
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   })
