@@ -143,43 +143,57 @@ export function DataPanel({
         if (analysis && !analysis.parseError && analysis.chiffresExtraits) {
           const year = analysis.annee || defaultYear
           const extracted = analysis.chiffresExtraits
-          const currentPanel = contextToPanel(updated)
-          const bilan = currentPanel.financials[year] || {
-            annee: year, chiffre_affaires: null, resultat_net: null,
-            resultat_exploitation: null, dotations_amortissements: null,
-            stocks: null, creances_clients: null, tresorerie: null,
-            capitaux_propres: null, dettes_financieres: null,
-            dettes_fournisseurs: null, provisions: null,
-          }
-
-          // Only fill fields that are currently null (don't overwrite user data)
-          if (extracted.ca != null && bilan.chiffre_affaires == null) bilan.chiffre_affaires = extracted.ca
-          if (extracted.resultatNet != null && bilan.resultat_net == null) bilan.resultat_net = extracted.resultatNet
-          if (extracted.tresorerie != null && bilan.tresorerie == null) bilan.tresorerie = extracted.tresorerie
-          if (extracted.dettes != null && bilan.dettes_financieres == null) bilan.dettes_financieres = extracted.dettes
-
-          // EBITDA → derive resultat_exploitation if possible
-          if (extracted.ebitda != null && bilan.resultat_exploitation == null) {
-            if (bilan.dotations_amortissements != null) {
-              bilan.resultat_exploitation = extracted.ebitda - bilan.dotations_amortissements
-            } else {
-              // Store EBITDA as RE approximation (will be refined later)
-              bilan.resultat_exploitation = extracted.ebitda
-            }
-          }
-
-          // Extra data from autresDonnees
           const autres = extracted.autresDonnees
-          if (autres) {
-            if (autres.capitauxPropres != null && bilan.capitaux_propres == null) bilan.capitaux_propres = autres.capitauxPropres
-            if (autres.stocks != null && bilan.stocks == null) bilan.stocks = autres.stocks
-            if (autres.creancesClients != null && bilan.creances_clients == null) bilan.creances_clients = autres.creancesClients
-            if (autres.dettesFournisseurs != null && bilan.dettes_fournisseurs == null) bilan.dettes_fournisseurs = autres.dettesFournisseurs
-            if (autres.dotationsAmortissements != null && bilan.dotations_amortissements == null) bilan.dotations_amortissements = autres.dotationsAmortissements
-            if (autres.resultatExploitation != null && bilan.resultat_exploitation == null) bilan.resultat_exploitation = autres.resultatExploitation
+
+          // Derive resultat_exploitation from EBITDA if needed
+          let resultatExploitation = autres?.resultatExploitation ?? extracted.resultatExploitation ?? null
+          if (resultatExploitation == null && extracted.ebitda != null) {
+            const da = autres?.dotationsAmortissements ?? null
+            resultatExploitation = da != null ? extracted.ebitda - da : extracted.ebitda
           }
 
-          currentPanel.financials[year] = bilan
+          // Build an ExtractedExercice and store in extractedDocData
+          // contextToPanel will merge it with Pappers data (override mode)
+          const exercice: import('@/lib/anthropic').ExtractedExercice = {
+            annee: year,
+            ca: extracted.ca ?? null,
+            resultat_exploitation: resultatExploitation,
+            resultat_net: extracted.resultatNet ?? null,
+            ebitda: extracted.ebitda ?? null,
+            dotations_amortissements: autres?.dotationsAmortissements ?? null,
+            dotations_provisions: null,
+            charges_personnel: null,
+            effectif_moyen: null,
+            remuneration_dirigeant: null,
+            loyers: null,
+            credit_bail: null,
+            capitaux_propres: autres?.capitauxPropres ?? null,
+            dettes_financieres: extracted.dettes ?? null,
+            tresorerie: extracted.tresorerie ?? null,
+            total_actif: null,
+            actif_immobilise: null,
+            stocks: autres?.stocks ?? null,
+            creances_clients: autres?.creancesClients ?? null,
+            dettes_fournisseurs: autres?.dettesFournisseurs ?? null,
+          }
+
+          // Merge into existing extractedDocData (replace same year, append new)
+          const existingExercices = updated.extractedDocData?.exercices || []
+          const filteredExercices = existingExercices.filter(ex => ex.annee !== year)
+          updated.extractedDocData = {
+            exercices: [...filteredExercices, exercice],
+            metadata: updated.extractedDocData?.metadata || {
+              completeness_score: 0,
+              missing_critical: [],
+              source_documents: [],
+            },
+          }
+          updated.extractedDocData.metadata.source_documents = [
+            ...new Set([...updated.extractedDocData.metadata.source_documents, doc.name]),
+          ]
+
+          // Let contextToPanel handle the merge (overrides Pappers data)
+          const currentPanel = contextToPanel(updated)
           return panelToContext(currentPanel, updated)
         }
 
