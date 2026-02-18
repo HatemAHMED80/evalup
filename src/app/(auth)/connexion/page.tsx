@@ -161,6 +161,7 @@ function ConnexionForm() {
               </Button>
             </form>
 
+            {/* TODO: Reactiver quand Google OAuth sera configure dans GCP
             <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-[var(--border)]" />
@@ -181,6 +182,7 @@ function ConnexionForm() {
               </svg>
               Google
             </Button>
+            */}
 
             <p className="text-center text-[var(--text-secondary)] text-sm mt-6">
               Pas encore de compte ?{' '}

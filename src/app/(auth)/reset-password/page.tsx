@@ -15,15 +15,28 @@ export default function ResetPasswordPage() {
 
   const supabase = createClient()
 
-  // Verifier que l'utilisateur a un token valide
+  // Echanger le code PKCE contre une session, ou verifier la session existante
   useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        setErrorMessage('Lien invalide ou expire. Veuillez demander un nouveau lien.')
+    const handleAuth = async () => {
+      const params = new URLSearchParams(window.location.search)
+      const code = params.get('code')
+
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code)
+        if (error) {
+          setErrorMessage('Lien invalide ou expire. Veuillez demander un nouveau lien.')
+        }
+        // Nettoyer l'URL
+        window.history.replaceState({}, '', '/reset-password')
+      } else {
+        // Pas de code, verifier si une session existe deja
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          setErrorMessage('Lien invalide ou expire. Veuillez demander un nouveau lien.')
+        }
       }
     }
-    checkSession()
+    handleAuth()
   }, [supabase.auth])
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
